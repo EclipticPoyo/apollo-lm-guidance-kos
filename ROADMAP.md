@@ -1,6 +1,6 @@
 # Roadmap
 
-Where the project is going. 1.0 and 1.1 (with 1.1.1) are released; everything else is planned and may change.
+Where the project is going. 1.0 and 1.1 are released; everything else is planned and may change.
 
 Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 
