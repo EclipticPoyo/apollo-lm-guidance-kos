@@ -27,7 +27,7 @@ Plan the descent in the window that opens, press CLOSE, and the DSKY starts.
 
 ## How to fly it
 
-See the **[Pilot's Manual](docs/MANUAL.md)**.
+See the **[Pilot's Manual](docs/MANUAL.md)** ([PDF](docs/MANUAL.pdf)).
 
 ## Made with Claude
 
