@@ -1,15 +1,15 @@
 # Roadmap
 
-Where the project is going. Only 1.0 is released; everything else is planned and may change.
+Where the project is going. 1.0 and 1.1 (with 1.1.1) are released; everything else is planned and may change.
 
-Status: ✅ released · 🔬 researched · 📝 planned
+Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 
 ## Phase 1: the lunar module (1.x)
 
 | Version | Theme | What it adds | Status |
 |---|---|---|---|
 | **1.0** | Descent | Navigation, landing-site planner, P63 to P66, DSKY | ✅ |
-| **1.1** | DSKY core | The DSKY becomes a core that runs programmes through a common interface; P63 to P66 become the first programmes. A software-version setting is added. No change to what the pilot sees. | 📝 |
+| **1.1** | DSKY core | The DSKY becomes a core that runs programmes through a common interface; P63 to P66 become the first programmes. A software-version setting is added. No change to what the pilot sees. Started with `RUN dsky.`; the planner is run first. | ✅ |
 | **1.2** | J-class pads | Luminary 210 pad loads (Apollo 15 to 17), the logic changes in 210's P63 to P66, testing with other landers | 🔬 |
 | **1.3** | Ascent | Ascent guidance, P12 liftoff from the surface | 📝 |
 | **1.4** | Aborts | P70 and P71, abort stage, abort triggers during descent | 📝 |
@@ -50,6 +50,10 @@ flowchart LR
 ```
 
 1.5 does not depend on the ascent work and can be done at any point after 1.1 (the alarm facility lives in the DSKY core).
+
+`RUN plan.` opens the deorbit planner only. When the second planner arrives (ascent, 1.3), it becomes one planner window with a menu fed by a table, like the DSKY's programme table, and the saved plan is split into one file per planner.
+
+The 1.1 DSKY core is designed from one vehicle, the LM. Its data tables (nouns, verbs, lamps, programmes) and the fixed LM panel will need some rework at 1.9, when a second vehicle shows what really differs.
 
 ## Between releases
 

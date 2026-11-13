@@ -1,7 +1,7 @@
 // probe_steer.ks -- turns the lander on RCS alone with several kOS steering settings and logs how each one behaves,
 // so the settings P63 uses can be chosen from numbers. Nothing is flown or burned.
-//   RUNPATH("0:/lm/tests/probe_steer.ks").
-// Log: 0:/lm/probe_steer.log (read it back; the terminal cannot be copied from). It takes about 15 minutes at
+//   RUNPATH("0:/tests/probe_steer.ks").
+// Log: 0:/lm/logs/probe_steer.log (read it back; the terminal cannot be copied from). It takes about 15 minutes at
 // normal speed. Do not time-warp while it runs. Press Ctrl+C in the terminal to stop it early, then type
 // UNLOCK STEERING. in the terminal.
 //
@@ -30,7 +30,7 @@
 // 0 = it never came back out), the time it settled, the RCS propellant used up to then (kg, from the ship mass), the
 // propellant used during the 15 s hold, and the mean turn rate during the hold (deg/s; 0.1 or more is the chatter).
 
-LOCAL log_path IS "0:/lm/probe_steer.log".
+LOCAL log_path IS "0:/lm/logs/probe_steer.log".
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 
 FUNCTION say {
@@ -173,4 +173,4 @@ FOR one IN configs {
 STEERINGMANAGER:RESETTODEFAULT().
 UNLOCK STEERING.
 UNLOCK THROTTLE.
-say("probe_steer done. Log: 0:/lm/probe_steer.log").
+say("probe_steer done. Log: 0:/lm/logs/probe_steer.log").

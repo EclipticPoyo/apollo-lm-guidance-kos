@@ -9,7 +9,7 @@
 // each other whatever the handedness of kOS. Only the physical Moon-spin rotation uses lm_cross.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
 
 // ---- Spec 6A: where powered descent starts -----------------------------------
 // The pad loads RIGNX, RIGNZ give the PDI position relative to the site (x up, z downrange).

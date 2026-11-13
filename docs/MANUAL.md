@@ -24,10 +24,10 @@ The whole flight on one page. Details are in the sections that follow.
 
 | # | Step | What you do |
 |---|---|---|
-| 1 | In orbit | Bound lunar orbit, no time warp. Type `RUN start.` |
-| 2 | Plan | Pick a site, press **PLAN**, then **CLOSE**. The terminal says "plan OK" |
+| 1 | In orbit | Bound lunar orbit, no time warp. Type `RUN plan.` |
+| 2 | Plan | Pick a site, press **PLAN**, then **CLOSE** |
 | 3 | Deorbit | Fly the plane-change node (if any) and the DOI node yourself. Warp to each |
-| 4 | P63 | `V37 E 63 E` after the DOI burn. The ship turns and warps you to 60 s before ignition (PDI) by itself |
+| 4 | P63 | After the DOI burn type `RUN dsky.`, then `V37 E 63 E`. The ship turns and warps you to 60 s before ignition (PDI) by itself |
 | 5 | Ignition | At 5 s before ignition `V99 N62` flashes: press **PRO** to enable the engine |
 | 6 | P64 | Starts by itself after braking. Press **PRO** to permit redesignation, then the KSP keys **W/S** (0.5°) and **A/D** (2°) move the aim point |
 | 7 | P65 | Starts by itself. It nulls the horizontal speed and lands at 3 ft/s |
@@ -47,13 +47,23 @@ The whole flight on one page. Details are in the sections that follow.
 
 ## 2. Starting up
 
-In the kOS terminal:
+Commands such as `RUN plan.` look in the current volume, which on a ship is its own disk until you type `SWITCH TO 0.` once. To skip that, choose `boot/lm_boot.ks` as the boot file of the kOS processor in the VAB or SPH (right-click the part, "Boot file"); it selects the archive each time the ship loads.
+
+The planner and the DSKY are two separate scripts, because a kOS processor runs one script at a time. In the kOS terminal, first:
 
 ```
-RUN start.
+RUN plan.
 ```
 
-The **planner window** opens (section 3). When you press CLOSE, one terminal line tells you whether the saved plan is OK, missing, past its PDI or stale, and the **DSKY window** opens. If you already have a good plan, just press CLOSE.
+The **planner window** opens (section 3). Plan, press CLOSE, and fly the burns. Then start the DSKY:
+
+```
+RUN dsky.
+```
+
+The **DSKY window** opens on the site in the saved plan, and `V37 E 63 E` starts P63. If there is no saved plan the DSKY still runs, but its registers show `-----`, and P63 refuses: OPR ERR lights and the terminal says why. Then end the DSKY with `V34 E`, run the planner and start the DSKY again. Start the DSKY before the descent and do not restart it during the descent.
+
+This differs from 1.0, where `RUN start.` opened the planner and then the DSKY, and the DSKY could take a site as an argument or fall back to the point under the next perilune. The DSKY now takes its site from the saved plan only.
 
 ## 3. Planning the descent
 
@@ -67,7 +77,7 @@ In the planner window:
 2. Optional: set the largest plane-change burn you will accept (m/s, default 200), tick "Replace existing maneuver nodes", and choose the **crew window in P63**: "Windows up (later missions)" (`UP`: the ship turns so the window faces the site) or "Keep the roll (Apollo 11)" (`KEEP`: the roll is kept).
 3. Press **PLAN**. The window shows a two-line result. The planner adds up to two maneuver nodes: a plane change (only if the site is more than 2 km out of your orbit plane) and the DOI burn that puts you on the descent orbit, with PDI (powered descent initiation) at the perilune.
 4. If it fails it removes its own nodes and says why (no bound orbit, time warp on, terrain too low on the descent orbit, plane change too large...).
-5. **CLOSE** leaves the nodes in place and starts the DSKY.
+5. **CLOSE** leaves the nodes in place and ends the planner. Fly the burns, then start the DSKY (section 2).
 
 The descent constants are the Apollo 11 pad load for every site. A site with rough terrain under the descent orbit is refused rather than flown into.
 
@@ -205,15 +215,15 @@ PROG shows 64 and the display `V06 N64` flashing. R1 is the look angle to the si
 - Each tap of the pitch keys (W, S) moves the aim point 0.5°.
 - Each tap of the yaw keys (A, D) moves it 2°.
 
-A held key counts as one click. The terminal prints each redesignation and R1 changes. It closes about 34 s before the end of P64. The green "LM SITE" pin in map view follows the aim point.
+A held key counts as one click. R1 changes with each click (the terminal prints nothing per click). It closes about 34 s before the end of P64. A green arrow stands on the landing site in the flight view during P64 and follows the aim point; the labelled green pin shows in map view. When the window closes the terminal prints "REDESIGNATION CLOSED".
 
 ### P65: automatic landing
 
-PROG shows 65 and the display `V06 N60`: R1 horizontal speed, R2 descent rate, R3 height. P65 nulls the horizontal speed and settles to a descent of 3 ft/s (0.9 m/s), following the guidance direction. The ship keeps its roll (a roll key still rolls it in AUTO). You can let it land by itself.
+PROG shows 65 and the display `V06 N60`: R1 horizontal speed, R2 descent rate, R3 height. The top three lines of the terminal show a live readout: "DESCENT RATE" in m/s (positive going down), the P65 target or in P66 the commanded rate, and a key hint. The terminal is cleared when the readout first appears and again when P65 becomes P66 and at touchdown, so older messages do not sit beneath it. P65 nulls the horizontal speed and settles to a descent of 3 ft/s (0.9 m/s), following the guidance direction. The ship keeps its roll (a roll key still rolls it in AUTO). You can let it land by itself.
 
 ### P66: you control the rate of descent
 
-Switch SAS on (the ATT HOLD switch), then tap **Shift** (slower descent) or **Ctrl** (faster descent). Each tap is one rate-of-descent click of 1 ft/s, and the first one starts P66 (PROG 66). The terminal prints the new commanded rate. In P66 the throttle holds your commanded rate and you fly the attitude yourself with SAS on. A click in AUTO (SAS off) is ignored, as in Luminary.
+Switch SAS on (the ATT HOLD switch), then tap **Shift** (slower descent) or **Ctrl** (faster descent). Each tap is one rate-of-descent click of 1 ft/s, and the first one starts P66 (PROG 66). The top lines of the terminal show the descent rate and the commanded rate in m/s. In P66 the throttle holds your commanded rate and you fly the attitude yourself with SAS on. A click in AUTO (SAS off) is ignored, as in Luminary.
 
 ### Touchdown
 
@@ -223,7 +233,7 @@ The CONTACT lamp lights when the lander touches down, the engine cuts off a quar
 
 ## 6. Messages
 
-The terminal prints a short message at each step: "P63: ENGINE ON", "P64: REDESIGNATION PERMITTED...", "P66: COMMANDED DESCENT RATE...", "CONTACT...", "P68: LANDING CONFIRMED". Warnings and refusals are always shown.
+The terminal prints a short message at each step: "P63: ENGINE ON", "P64: REDESIGNATION PERMITTED...", "CONTACT...", "P68: LANDING CONFIRMED". Warnings and refusals are always shown.
 
 **P63 refused** (OPR ERR lights; press **RSET** to clear it):
 
@@ -239,11 +249,11 @@ The terminal prints a short message at each step: "P63: ENGINE ON", "P64: REDESI
 
 ## 7. Settings
 
-The defaults are tuned for the RO LM. They are in `scripts/lm_constants.ks` (installed as `Ships/Script/lm/lm_constants.ks`). Edit and re-run.
+The defaults are tuned for the RO LM. The settings in the table below can be changed in a plain text file, `lm_config.txt` (installed as `Ships/Script/lm/lm_config.txt`). Every setting in it starts commented out with `//`: remove the `//` in front of a setting, change its value, save, and start the DSKY again (`RUN dsky.`). A line with an unknown name or a bad value is skipped and the terminal says so when the DSKY starts. The other tuning constants stay in `lm_constants.ks` (same folder); edit them there only if you know what they do.
 
 | Setting | Default | Use |
 |---|---|---|
-| `LM_LOG` | FALSE | TRUE writes diagnostic logs to `0:/lm/` (`p63.log`, `p64.log`, `p65.log`, `lm_check.log`, `lm_deorbit.log`). Useful for bug reports |
+| `LM_LOG` | FALSE | TRUE writes diagnostic logs to `0:/lm/logs/` (`p63.log`, `p64.log`, `p65.log`, `lm_check.log`, `lm_deorbit.log`). Useful for bug reports |
 | `P63_WINDOW_MODE` | `UP` | Default crew window mode (the planner window sets it too) |
 | `P63_WARP_LEAD_S` | 60 | Seconds before ignition at which the warp stops |
 | `P64_PITCH_SIGN`, `P64_YAW_SIGN` | 1, -1 | Flip if a redesignation key moves the aim point the wrong way |
@@ -265,4 +275,4 @@ The defaults are tuned for the RO LM. They are in `scripts/lm_constants.ks` (ins
 
 - **A key moves the wrong way:** see the sign settings in section 7.
 - **P63 refuses to start:** see the table in section 6.
-- **Anything else:** `V34 E` ends the LM computer and gives you the controls. To report a bug, set `LM_LOG` to TRUE, fly again and send the logs from `0:/lm/`.
+- **Anything else:** `V34 E` ends the LM computer and gives you the controls. To report a bug, set `LM_LOG` to TRUE, fly again and send the logs from `0:/lm/logs/`.

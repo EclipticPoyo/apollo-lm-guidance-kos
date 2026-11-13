@@ -1,15 +1,15 @@
 // test_plan.ks -- pad tests for the deorbit planner (run in the kOS terminal, no flight needed).
-//   RUNPATH("0:/lm/tests/test_plan.ks").
-// Expected values come from scripts/tests/reference.py. Results go to 0:/lm/test_plan.log.
+//   RUNPATH("0:/tests/test_plan.ks").
+// Expected values come from scripts/tests/reference.py. Results go to 0:/lm/logs/test_plan.log.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_site.ks").
-RUNONCEPATH("0:/lm/lm_plan.ks").
-RUNONCEPATH("0:/lm/lm_checks.ks").
-RUNONCEPATH("0:/lm/tests/test_lib.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/planner/lm_site.ks").
+RUNONCEPATH("0:/lm/planner/lm_plan.ks").
+RUNONCEPATH("0:/shared/lm_checks.ks").
+RUNONCEPATH("0:/tests/test_lib.ks").
 
-test_begin("0:/lm/test_plan.log").
+test_begin("0:/lm/logs/test_plan.log").
 
 // ---- Task 1: constants and site input ------------------------------------
 assert_near("site_wrap_lng(190)",     site_wrap_lng(190),     -170,   1e-9).

@@ -1,18 +1,20 @@
 // test_math.ks -- pad tests (run in the kOS terminal, no flight needed).
-//   RUNPATH("0:/lm/tests/test_math.ks").
+//   RUNPATH("0:/tests/test_math.ks").
 // Expected values come from scripts/tests/reference.py.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_nav.ks").
-RUNONCEPATH("0:/lm/lm_display.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/shared/lm_nav.ks").
+RUNONCEPATH("0:/core/dsky_keys.ks").
+RUNONCEPATH("0:/core/dsky_display.ks").
+RUNONCEPATH("0:/lm/lm_nouns.ks").
 
 GLOBAL TESTS_PASSED IS 0.
 GLOBAL TESTS_FAILED IS 0.
 
 // report: print a line to the terminal and append it to a log file Claude can read.
 // LOG appends, so delete the old file first.
-GLOBAL TEST_LOG IS "0:/lm/test_math.log".
+GLOBAL TEST_LOG IS "0:/lm/logs/test_math.log".
 IF EXISTS(TEST_LOG) { DELETEPATH(TEST_LOG). }
 FUNCTION report {
   PARAMETER text.
@@ -164,7 +166,8 @@ assert_true("pad_right cuts",        pad_right("abcdef", 3) = "abc").
 // Plain-text terminal display: display_lines returns the screen as a list of lines.
 LOCAL d_disp IS LEXICON("VALID", TRUE, "HDOT", -3, "VHORIZ", 25, "ABVEL", 25.2, "RANGEDSP", 5000,
                         "LOOKANGL", 42.3, "HCALC", 120, "ALT_RADAR", 118, "DELTAH", -2, "VGU", V(-3, 4, 25)).
-LOCAL flags_none IS LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "").
+// The three register texts reach the display through flags["REGS"] (the core builds them from the vehicle's noun table).
+LOCAL flags_none IS LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "", "REGS", noun_registers(60, d_disp)).
 LOCAL lines_a IS display_lines(d_disp, "63", 16, 60, flags_none).
 assert_true("display_lines count",     lines_a:LENGTH = 17).
 assert_true("display_lines PVN",       lines_a[2] = "PROG 63    VERB 16    NOUN 60").
@@ -176,17 +179,19 @@ assert_true("display_lines ALT",       lines_a[11] = "ALT      +00394 ft").
 assert_true("display_lines ALT RATE",  lines_a[12] = "ALT RATE -00010 ft/s").
 assert_true("display_lines FWD VEL",   lines_a[13] = "FWD VEL  +00082 ft/s").
 assert_true("display_lines LAT VEL",   lines_a[14] = "LAT VEL  +00013 ft/s").
-LOCAL flags_err IS LEXICON("PROG", TRUE, "OPRERR", TRUE, "ENTRY", "V99").
+LOCAL flags_err IS LEXICON("PROG", TRUE, "OPRERR", TRUE, "ENTRY", "V99", "REGS", noun_registers(60, d_disp)).
 LOCAL lines_b IS display_lines(d_disp, "63", 99, 60, flags_err).
 assert_true("display_lines alarms",    lines_b[3] = "ALARMS: [PROG] [OPR ERR]").
 assert_true("display_lines entry",     lines_b[9] = "ENTRY: V99").
-LOCAL lines_c IS display_lines(LEXICON("VALID", FALSE), "63", 16, 60, flags_none).
+LOCAL flags_inv IS LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "", "REGS", noun_registers(60, LEXICON("VALID", FALSE))).
+LOCAL lines_c IS display_lines(LEXICON("VALID", FALSE), "63", 16, 60, flags_inv).
 assert_true("display_lines invalid R1", lines_c[5] = "R1  -----").
 assert_true("display_lines invalid ALT", lines_c[11] = "ALT      ----- ft").
-assert_true("display_lines noun 99 blank regs", display_lines(d_disp, "63", 16, 99, flags_none)[5] = "R1  -----").
+assert_true("display_lines noun 99 blank regs", display_lines(d_disp, "63", 16, 99, LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "", "REGS", noun_registers(99, d_disp)))[5] = "R1  -----").
+assert_true("display_lines without REGS shows no data", display_lines(d_disp, "63", 16, 60, LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", ""))[6] = "R2  -----").
 
 // entry_text: V16 then N pressed must read "V16 N", not "N16" (the old demo bug).
-LOCAL ks_e IS keys_new().
+LOCAL ks_e IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 assert_true("entry_text empty",      entry_text(ks_e) = "").
 key_press(ks_e, "V").
 assert_true("entry_text V",          entry_text(ks_e) = "V").
@@ -216,7 +221,7 @@ FUNCTION type_keys {
   PARAMETER ks, text.
   FROM { LOCAL i IS 0. } UNTIL i >= text:LENGTH STEP { SET i TO i + 1. } DO { key_press(ks, text:SUBSTRING(i, 1)). }
 }
-LOCAL ks IS keys_new().
+LOCAL ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 type_keys(ks, "V16N60E").
 assert_true("V16 N60 ENTR sets verb",  ks["VERB"] = 16).
 assert_true("V16 N60 ENTR sets noun",  ks["NOUN"] = 60).
@@ -229,5 +234,16 @@ assert_true("RSET clears OPR ERR",     NOT ks["OPRERR"]).
 type_keys(ks, "N99E").
 assert_true("N99 ENTR lights OPR ERR", ks["OPRERR"]).
 assert_true("N99 ENTR keeps old noun", ks["NOUN"] = 60).
+SET ks["OPRERR"] TO FALSE.
+// The same checks under the names the 1.1 plan uses (the vehicle's lists, not fixed ones, decide what is known).
+LOCAL ks_u IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+type_keys(ks_u, "V99E").
+assert_true("unknown verb keyed in lights OPRERR and keeps the verb", ks_u["OPRERR"] AND ks_u["VERB"] = 16).
+type_keys(ks_u, "RN99E").
+assert_true("unknown noun keyed in lights OPRERR and keeps the noun", ks_u["OPRERR"] AND ks_u["NOUN"] = 60).
+type_keys(ks_u, "RV37E64E").
+assert_true("V37 ENTR 64 ENTR (not selectable) lights OPRERR and requests nothing", ks_u["OPRERR"] AND ks_u["PROG_REQ"] = -1).
+type_keys(ks_u, "RV37E63E").
+assert_true("V37 ENTR 63 ENTR requests P63", NOT ks_u["OPRERR"] AND ks_u["PROG_REQ"] = 63).
 
 report("TESTS: " + TESTS_PASSED + " passed, " + TESTS_FAILED + " failed").

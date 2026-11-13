@@ -1,17 +1,17 @@
 // probe_lander.ks -- reads the lander's mass, engine and fuel data from kOS and logs it (read-only).
-//   RUNPATH("0:/lm/tests/probe_lander.ks").
-// Run it with the lander as the active vessel, anywhere (pad, orbit). Results go to 0:/lm/lander.log.
+//   RUNPATH("0:/tests/probe_lander.ks").
+// Run it with the lander as the active vessel, anywhere (pad, orbit). Results go to 0:/lm/logs/lander.log.
 // Suffix names were checked against the kOS docs (engine, vessel, part pages). The docs read were for
 // kOS 1.4; this install is 1.6.0.1, so a suffix that errors here is the thing to report.
 // Units: kOS gives mass in tonnes (t), thrust in kN, fuel flow volumetric, Isp in s.
 
-LOCAL log_path IS "0:/lm/lander.log".
+LOCAL log_path IS "0:/lm/logs/lander.log".
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 
 FUNCTION say {
   PARAMETER text.
   PRINT text.
-  LOG text TO "0:/lm/lander.log".
+  LOG text TO "0:/lm/logs/lander.log".
 }
 
 say("== Lander probe, ship '" + SHIP:NAME + "' at " + SHIP:BODY:NAME + " ==").

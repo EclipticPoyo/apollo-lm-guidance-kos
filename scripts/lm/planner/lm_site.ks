@@ -17,7 +17,7 @@ GLOBAL APOLLO_SITES IS LIST(
 // site_wrap_lng and site_check are pure. site_resolve reads kOS (terrain height and the body position).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
 
 // Longitude wrapped into [-180, 180). The double MOD keeps negative inputs in range
 // (kOS's MOD keeps the sign of the dividend, like the C remainder).

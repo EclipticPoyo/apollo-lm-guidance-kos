@@ -3,6 +3,30 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
+## 1.1.1 (2026-11-13)
+
+### Changed
+- **Terminal:** the P64 "REDESIGNATED" message at every click and the P66 "COMMANDED DESCENT RATE" message at every click are gone.
+- **Added:** a live descent-rate readout (descent rate in m/s, target or commanded rate, key hint) in the top three lines of the terminal (P65 and P66), drawn in place so it does not scroll, with the terminal cleared when it first appears and when the programme number changes (P65 to P66, contact); the DSKY core gets a general `STATUS` output for programmes to use.
+- **Added:** during P64 a green arrow (no label) stands on the landing site in the flight view (it follows the redesignated site).
+- **Added:** P64 prints "REDESIGNATION CLOSED" once, when the aim point can no longer be moved.
+
+## 1.1 (2026-11-13)
+
+The DSKY becomes a core that runs programmes from a table; the LM is its first vehicle. The descent itself (P63 to P66, displays, lamps, keys, logs) is meant to behave as in 1.0.
+
+### Changed
+- **Start-up:** `RUN dsky.` starts the DSKY (the stub `dsky.ks` runs `core/dsky.ks`). The planner is run first by itself with `RUN plan.` (a stub for `lm/planner/lm_plan_ui.ks`); `RUN start.` is gone.
+- **Site:** the DSKY takes the landing site from the saved plan only. The site arguments, the perilune fallback, the placeholder site and the start-up plan check line are removed. With no plan the DSKY runs, registers show `-----`, and P63 refuses (OPR ERR and a message).
+- **Layout:** scripts are in `core/` (the DSKY core), `lm/` (with `descent/` and `planner/`) and `shared/`; the install is the folders, not one `lm` folder.
+- **Internals:** `lm_main.ks`, `lm_start.ks` and `lm_display.ks` are replaced by `dsky_core.ks`, `dsky_keys.ks`, `dsky_display.ks`, `lm_vehicle.ks` and `lm_nouns.ks`. A software-version field (`LUMINARY099`) is on the vehicle and changes nothing yet.
+
+### Added
+- **Boot file:** `boot/lm_boot.ks`, optional, selects the archive when the ship loads so `SWITCH TO 0.` is not needed.
+- **Settings file:** `lm/lm_config.txt` (plain text, `NAME = value`, every setting commented out by default) overrides `LM_LOG`, `P63_WINDOW_MODE`, `P63_WARP_LEAD_S`, `P64_PITCH_SIGN`, `P64_YAW_SIGN`, `P66_ROD_SIGN` and `BODY_NAME`. Bad lines are skipped with a warning at start-up. Read by `lm/lm_settings.ks`.
+- Pad test `test_config.ks` for it.
+- Pad test `test_core.ks` for the programme table; `check_paths.py` checks every script path offline.
+
 ## 1.0 (2026-11-13)
 
 First release: a flyable powered descent from a lunar orbit to touchdown, flown in KSP (Realism Overhaul, Sol, kOS 1.6.0.1).

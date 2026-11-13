@@ -19,15 +19,15 @@
 // which takes this programme's state over: the engine, attitude mode, radar and window bookkeeping carry on without a gap.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_plan.ks").
-RUNONCEPATH("0:/lm/lm_guidance.ks").
-RUNONCEPATH("0:/lm/lm_ignition.ks").
-RUNONCEPATH("0:/lm/lm_control.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/planner/lm_plan.ks").
+RUNONCEPATH("0:/lm/descent/lm_guidance.ks").
+RUNONCEPATH("0:/lm/descent/lm_ignition.ks").
+RUNONCEPATH("0:/lm/descent/lm_control.ks").
 
 GLOBAL P63_MIN_LEAD_S IS 40.               // chosen: P63 refuses to start when the ignition is closer than this, s. The countdown
                                            // starts at TIG-35, and the ship needs time to turn and the propellant to settle
-GLOBAL P63_LOG_PATH IS "0:/lm/p63.log".    // one line per cycle, read back after a flight
+GLOBAL P63_LOG_PATH IS "0:/lm/logs/p63.log".    // one line per cycle, read back after a flight
 
 // p63_predict: the ship's coasting state at UT t_ut, in the live raw axes (which turn with the Moon). The orbit
 // prediction (POSITIONAT, VELOCITYAT) is in fixed (inertial) axes, so the result is turned back by the Moon's spin

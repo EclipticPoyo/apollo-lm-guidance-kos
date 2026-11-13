@@ -7,7 +7,7 @@
 // Names: Luminary's R, V, LAND, WM become r_vec etc. (kOS rejects names like R and V).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
 
 // nav_state: a snapshot of everything the programmes need from the ship, taken once per cycle.
 // A LEXICON is kOS's key -> value dictionary: state["R"] reads the entry with key "R".

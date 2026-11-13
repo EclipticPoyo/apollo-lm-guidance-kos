@@ -1,9 +1,9 @@
 // smoke_nav.ks -- in-flight smoke check for lm_nav.ks (plan Task 4, step 5). Run in lunar orbit:
-//   RUNPATH("0:/lm/tests/smoke_nav.ks").
-// Logs every nav_derived key to 0:/lm/smoke_nav.log, and flags any that is not a finite number.
-RUNONCEPATH("0:/lm/lm_nav.ks").
+//   RUNPATH("0:/tests/smoke_nav.ks").
+// Logs every nav_derived key to 0:/lm/logs/smoke_nav.log, and flags any that is not a finite number.
+RUNONCEPATH("0:/shared/lm_nav.ks").
 
-LOCAL log_path IS "0:/lm/smoke_nav.log".
+LOCAL log_path IS "0:/lm/logs/smoke_nav.log".
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 FUNCTION say { PARAMETER text. PRINT text. LOG text TO log_path. }
 

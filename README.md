@@ -8,22 +8,26 @@ Target: the Sol planet pack with Mirage and TiltEm, Realism Overhaul (RO) and kO
 
 ## Install
 
-**From the release zip:** unzip it into your KSP folder (it contains `Ships/Script/start.ks` and `Ships/Script/lm/`). Nothing else to do.
+**From the release zip:** unzip it into your KSP folder (it contains the stubs `Ships/Script/dsky.ks` and `plan.ks` and the folders `core/`, `lm/` and `shared/` beside it). Nothing else to do.
 
 **From the source:**
 
-1. Copy the `scripts` folder to `<KSP>/Ships/Script/lm`, so kOS sees it as `0:/lm/`.
-2. Create `<KSP>/Ships/Script/start.ks` containing: `RUNPATH("0:/lm/lm_start.ks").`
+1. Copy the `core`, `lm` and `shared` folders from `scripts` into `<KSP>/Ships/Script/`, so kOS sees them as `0:/core/`, `0:/lm/` and `0:/shared/`.
+2. Create two one-line stubs in `<KSP>/Ships/Script/`: `dsky.ks` containing `RUNPATH("0:/core/dsky.ks").` and `plan.ks` containing `RUNPATH("0:/lm/planner/lm_plan_ui.ks").`
 
 ## Run
 
-On a lander in lunar orbit, in the kOS terminal:
+On a lander in lunar orbit, in the kOS terminal, first plan the descent:
 
 ```
-RUN start.
+RUN plan.
 ```
 
-Plan the descent in the window that opens, press CLOSE, and the DSKY starts.
+Pick a site, press PLAN, press CLOSE and fly the burns. Then start the DSKY and type `V37 E 63 E`:
+
+```
+RUN dsky.
+```
 
 ## How to fly it
 

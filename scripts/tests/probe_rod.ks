@@ -1,6 +1,6 @@
 // probe_rod.ks -- can the Shift / Ctrl throttle keys be read while a programme holds the throttle (milestone 5 task 2)?
-//   RUNPATH("0:/lm/tests/probe_rod.ks").
-// Log: 0:/lm/probe_rod.log (read it back; the terminal cannot be copied from).
+//   RUNPATH("0:/tests/probe_rod.ks").
+// Log: 0:/lm/logs/probe_rod.log (read it back; the terminal cannot be copied from).
 //
 // Milestone 5 uses the pilot's throttle keys as the P66 rate-of-descent (ROD) clicks. The lever is SHIP:CONTROL:PILOTMAINTHROTTLE
 // (get and set, 0 to 1; names as in lm_control.ks ctl_release and probe_control.ks, kOS docs commands/flight/pilot.rst). The
@@ -10,7 +10,7 @@
 // Setup: the Moon, any orbit, the Realism Overhaul LM upright, engines OFF, SAS OFF. Click into the KSP window for the keys.
 // The script asks for: a Shift tap, a Ctrl tap, Shift held for 2 s, Ctrl held for 2 s, then nothing for 2 s.
 
-LOCAL log_path IS "0:/lm/probe_rod.log".
+LOCAL log_path IS "0:/lm/logs/probe_rod.log".
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 
 FUNCTION say {

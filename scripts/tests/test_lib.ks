@@ -7,7 +7,7 @@
 
 GLOBAL TESTS_PASSED IS 0.
 GLOBAL TESTS_FAILED IS 0.
-GLOBAL TEST_LOG IS "0:/lm/test.log".
+GLOBAL TEST_LOG IS "0:/lm/logs/test.log".
 
 FUNCTION test_begin {
   PARAMETER log_path.

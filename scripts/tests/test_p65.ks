@@ -1,15 +1,15 @@
 // test_p65.ks -- pad tests for the P65/P66 milestone (run in the kOS terminal, no flight needed).
-//   RUNPATH("0:/lm/tests/test_p65.ks").
+//   RUNPATH("0:/tests/test_p65.ks").
 // Expected values come from scripts/tests/reference.py ("Milestone 5" section) or are exact by definition. Results go to
-// 0:/lm/test_p65.log. The log's last line is "TESTS: N passed, M failed".
+// 0:/lm/logs/test_p65.log. The log's last line is "TESTS: N passed, M failed".
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_guidance.ks").
-RUNONCEPATH("0:/lm/lm_control.ks").
-RUNONCEPATH("0:/lm/tests/test_lib.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/descent/lm_guidance.ks").
+RUNONCEPATH("0:/lm/descent/lm_control.ks").
+RUNONCEPATH("0:/tests/test_lib.ks").
 
-test_begin("0:/lm/test_p65.log").
+test_begin("0:/lm/logs/test_p65.log").
 
 // ---- Task 3: constants (pad loads from the research note; sources in lm_constants.ks) -------------------------------
 assert_vec("V2FG", V2FG, V(-0.9144, 0, 0), 1e-9).
@@ -211,9 +211,11 @@ assert_true("contact: no contact at all, no lamp", NOT ct_r["LAMP"]).
 
 // ---- Task 6: the programme on the pad (CTL_DRY: the ship's controls are not touched) ---------------------------------
 // The state is the end of P64 in reference.py (47.1 m up, 20 m before the site, vg = (-0.92, 2.06)), the site on the raw +X axis.
-RUNONCEPATH("0:/lm/lm_nav.ks").
-RUNONCEPATH("0:/lm/lm_display.ks").               // keys_new
-RUNONCEPATH("0:/lm/lm_p65.ks").
+RUNONCEPATH("0:/shared/lm_nav.ks").
+RUNONCEPATH("0:/core/dsky_keys.ks").
+RUNONCEPATH("0:/core/dsky_display.ks").
+RUNONCEPATH("0:/lm/lm_nouns.ks").
+RUNONCEPATH("0:/lm/descent/lm_p65.ks").
 SET CTL_DRY TO TRUE.
 FUNCTION p5_prog {
   PARAMETER att_mode.
@@ -235,7 +237,7 @@ LOCAL p5_land IS V(1737400, 0, 0).
 LOCAL p5_wm IS V(0, 0, 0).
 LOCAL p5_r IS V(1737447.1, 0, -20).
 LOCAL p5_v IS V(-0.92, 0, 2.06).
-LOCAL p5_ks IS keys_new().
+LOCAL p5_ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 LOCAL p5 IS p65_start(p5_prog("AUTO")).
 assert_near("p65_start: programme number", p5["PROG_NO"], 65, 0).
 assert_true("p65_start: mode P65", p5["MODE"] = "P65").
@@ -281,8 +283,21 @@ assert_true("a ROD click with SAS on starts P66", p5["MODE"] = "P66").
 assert_near("and the programme number is 66", out5["PROG_NO"], 66, 0).
 assert_near("VDG started at HDOT plus the click", p5["VDG"], d5["HDOT"] + RODSCALE * P66_ROD_SIGN, 1e-9).
 assert_near("the display is requested again for P66", out5["SET_NOUN"], 60, 0).
-assert_true("the message names the new rate", out5["MSG"]:CONTAINS("FT/S")).
+assert_true("the message does not repeat the new rate (the status readout shows it)", NOT out5["MSG"]:CONTAINS("FT/S") AND NOT out5["MSG"]:CONTAINS("COMMANDED DESCENT RATE")).
 assert_true("and says P66 has started", out5["MSG"]:CONTAINS("RATE OF DESCENT")).
+// The terminal status readout: two fixed lines, descent rate positive going down, in m/s.
+assert_true("status has three lines", out5["STATUS"]:LENGTH = 3).
+assert_true("P66 status line 3 is the key hint", out5["STATUS"][2]:CONTAINS("SHIFT")).
+assert_true("status line 1 is the descent rate in m/s (down positive)", out5["STATUS"][0] = "DESCENT RATE  " + p65_ms_text(-d5["HDOT"]) + " m/s").
+assert_true("P66 status line 2 is the commanded rate in m/s", out5["STATUS"][1] = "P66 COMMANDED " + p65_ms_text(-p5["VDG"]) + " m/s").
+assert_true("p65_ms_text 0.9144", p65_ms_text(0.9144) = "0.91").
+assert_true("p65_ms_text negative", p65_ms_text(-0.304) = "-0.30").
+assert_true("p65_ms_text tiny negative has no minus", p65_ms_text(-0.001) = "0.00").
+assert_true("p65_ms_text two digits", p65_ms_text(12.346) = "12.35").
+assert_true("p65_ms_text zero", p65_ms_text(0) = "0.00").
+LOCAL st_p65 IS p65_status(LEXICON("MODE", "P65", "VDG", 0), LEXICON("VALID", TRUE, "HDOT", -1.2)).
+assert_true("P65 status shows the rate and the target", st_p65[0] = "DESCENT RATE  1.20 m/s" AND st_p65[1] = "P65 TARGET    0.91 m/s" AND st_p65:LENGTH = 3 AND st_p65[2]:CONTAINS("P66")).
+assert_true("status with no data shows -----", p65_status(LEXICON("MODE", "P65", "VDG", 0), LEXICON("VALID", FALSE))[0] = "DESCENT RATE  ----- m/s").
 SET p5_rt TO rod_ramp(p5["ROD"], 0.5, 0.01, 6, p5_rt).
 SET p5_rt TO rod_ramp(p5["ROD"], rod_lever, 0, 12, p5_rt).
 LOCAL vdg_before IS p5["VDG"].
@@ -371,7 +386,7 @@ assert_true("contact: without cutting the engine off again", out5["MSG"]:CONTAIN
 SET CTL_DRY_STATUS TO "FLYING".
 
 // V34 ends P65 at once.
-LOCAL k34 IS keys_new().
+LOCAL k34 IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 SET k34["VERB"] TO 34.
 LOCAL p5v IS p65_start(p5_prog("AUTO")).
 SET st5 TO p5_state(2020, p5_r, p5_v, 13.15).

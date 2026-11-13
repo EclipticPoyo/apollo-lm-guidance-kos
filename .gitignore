@@ -1,8 +1,8 @@
 # Logs
 *.log
 
-# Plan written by lm_deorbit.ks when scripts/ is linked as 0:/lm
-scripts/plan.json
+# Plan written by lm_deorbit.ks when scripts/ is linked as the archive
+scripts/lm/plan.json
 
 # Python cache (test reference script)
 __pycache__/

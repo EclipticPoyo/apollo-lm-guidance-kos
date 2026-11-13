@@ -11,7 +11,7 @@
 //
 // The pins are a LIST: index i is APOLLO_SITES[i], the last entry is the Custom pin.
 
-RUNONCEPATH("0:/lm/lm_site.ks").       // APOLLO_SITES
+RUNONCEPATH("0:/lm/planner/lm_site.ks").       // APOLLO_SITES
 
 GLOBAL PINS_HEIGHT_FRAC IS 0.06.       // pin height as a fraction of the body radius (the Moon: about 104 km)
 GLOBAL PINS_WIDTH IS 0.07.             // screen-relative width of the pin's line (see above)
@@ -36,6 +36,26 @@ FUNCTION pins_one {
     { RETURN site_pos() + pin_len * site_up(). },        // start: above the site (Scale does not affect it)
     { RETURN -(pin_len / pin_scale) * site_up(). },      // vector: straight down, the arrowhead lands on the site
     PINS_COLOR_OTHER, label_text, pin_scale, FALSE, PINS_LABEL_WIDTH, TRUE, TRUE).
+}
+
+// The flight-view site vector (P64, the approach where the aim point can be moved): the same kind of arrow, standing above the
+// site and pointing down at it, but sized for the cockpit view. Its length is a fraction of the distance to the site (with a
+// minimum), so it stays easy to see from several kilometres out and does not tower over the site when close. Width is screen-
+// relative as above. It follows pins_custom_geo, like the Custom pin.
+GLOBAL PINS_FLIGHT_RANGE_FRAC IS 0.08.   // arrow length as a fraction of the distance to the site
+GLOBAL PINS_FLIGHT_MIN_M IS 20.          // ... but never shorter than this, m
+
+// pins_flight: make the flight-view vector, hidden. Show it by setting SHOW.
+FUNCTION pins_flight {
+  PARAMETER label_text.
+  LOCAL site_pos IS { RETURN pins_custom_geo:POSITION. }.
+  LOCAL site_up IS { RETURN (site_pos() - SHIP:BODY:POSITION):NORMALIZED. }.
+  LOCAL arrow_len IS { RETURN MAX(PINS_FLIGHT_MIN_M, PINS_FLIGHT_RANGE_FRAC * site_pos():MAG). }.
+  LOCAL pin_scale IS PINS_WIDTH / PINS_LABEL_WIDTH.
+  RETURN VECDRAW(
+    { RETURN site_pos() + arrow_len() * site_up(). },
+    { RETURN -(arrow_len() / pin_scale) * site_up(). },
+    PINS_COLOR_SELECTED, label_text, pin_scale, FALSE, PINS_LABEL_WIDTH, TRUE, TRUE).
 }
 
 // pins_make: all the pins, hidden. The Custom pin starts at the 0,0 placeholder and is not shown

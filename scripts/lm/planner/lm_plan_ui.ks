@@ -1,11 +1,11 @@
 // lm_plan_ui.ks -- a small window for the deorbit planner: pick an Apollo landing site (or type a latitude and
 // longitude), press PLAN. Run it in lunar orbit with no arguments:
 //
-//   RUNPATH("0:/lm/lm_plan_ui.ks").
+//   RUNPATH("0:/lm/planner/lm_plan_ui.ks").
 //
 // It is only a front end. The planning is lm_deorbit.ks (deorbit_run), run quietly: nothing is printed to the
-// terminal, the window shows a two-line result, and the full report goes to 0:/lm/lm_deorbit.log.
-// The planner adds maneuver nodes to the ship and writes 0:/lm/plan.json, which lm_main.ks then reads (the site; P63 itself warps to before ignition).
+// terminal, the window shows a two-line result, and the full report goes to 0:/lm/logs/lm_deorbit.log.
+// The planner adds maneuver nodes to the ship and writes 0:/lm/plan.json, which the DSKY (dsky.ks) then reads (the site; P63 itself warps to before ignition).
 // CLOSE ends this script; it does not remove the nodes.
 //
 // Descent constants (RIGNX, RIGNZ, VIGN) are the Apollo 11 pad load for every site; the window says so.
@@ -16,8 +16,8 @@
 // function vanished on this install, see lm_gui.ks). Widgets are added by planui_fill.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_deorbit.ks").      // functions only (no arguments); also loads lm_site.ks for APOLLO_SITES
-RUNONCEPATH("0:/lm/lm_site_pins.ks").    // map-view pins for the sites
+RUNONCEPATH("0:/lm/planner/lm_deorbit.ks").      // functions only (no arguments); also loads lm_site.ks for APOLLO_SITES
+RUNONCEPATH("0:/lm/planner/lm_site_pins.ks").    // map-view pins for the sites
 SET DP_QUIET TO TRUE.
 
 GLOBAL PLANUI_WIDTH IS 400.

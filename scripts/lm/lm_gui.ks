@@ -1,9 +1,10 @@
 // lm_gui.ks -- DSKY face as a kOS GUI window with a clickable keypad.
 //
-// A second presentation of the same data as the terminal display in lm_display.ks, and it reuses that
-// file's logic: noun_registers (what each noun shows), key_press / keys_poll (key entry), fmt_reg and
-// zero_pad (number text). Run lm_display.ks first (RUNONCEPATH), then this file.
-//
+// A second presentation of the same data as the terminal display in dsky_display.ks, and it reuses the core's
+// logic: key_press / keys_poll (dsky_keys.ks: key entry), fmt_reg and zero_pad (dsky_display.ks: number text). The
+// three register texts come in through flags["REGS"] (the vehicle's noun table, lm_nouns.ks). Run dsky_keys.ks and
+// dsky_display.ks first (RUNONCEPATH), then this file.
+
 // Layout follows a photograph of a DSKY (supplied by the user, 2026-11-12), top to bottom:
 //   [ lamp panel: 2 columns x 7 rows ] [ display panel: PROG / VERB NOUN / R1 R2 R3 ]
 //   keypad, 7 columns: VERB,NOUN | + - 0 | 7 4 1 | 8 5 2 | 9 6 3 | CLR PRO KEY REL | ENTR,RSET
@@ -11,7 +12,7 @@
 // A kOS layout cannot span rows, so they are two taller buttons stacked in their own column.
 //
 // Things the kOS GUI docs do and do not give us, and what this file does about it:
-//  - No lamp widget: a lamp is a label whose STYLE:BG is a solid-colour image (scripts/lamp_*.png,
+//  - No lamp widget: a lamp is a label whose STYLE:BG is a solid-colour image (scripts/lm/images/lamp_*.png,
 //    display_tag.png) and whose TEXTCOLOR is dark when lit, dim when off.
 //  - The default skin has a grey window background; I found no documented way to make it black.
 //  - Fonts: "digital-7 (mono)" is a seven-segment typeface that appeared in the KSP font list on this
@@ -29,21 +30,21 @@
 // flashing does not exist yet.
 // Second departure (kept on purpose): on the real unit VERB or NOUN also zeroes that register, so pressing
 // VERB, then NOUN, then ENTR without typing a verb alarms. Here a register with nothing typed keeps its old
-// value (key_enter in lm_display.ks), which is more forgiving.
+// value (key_enter in dsky_keys.ks), which is more forgiving.
 
 // The display colour. Sampled from two of the user's photographs of DSKY displays (digit pixels averaged,
 // 2026-11-12): a teal one, RGB 58, 223, 198 (hue 173), judged too blue, and a green one, RGB 52, 163, 86
 // (hue 138, darker). This is the middle hue (155) at the brighter photo's brightness: RGB 58, 223, 154.
 // Published sources give the original electroluminescent glow as roughly 530 nm ("green", one calls it
-// "blueish-green") and no RGB value. Keep it in step with scripts/display_tag.png.
+// "blueish-green") and no RGB value. Keep it in step with scripts/lm/images/display_tag.png.
 GLOBAL GUI_DISPLAY_HEX IS "#3adf9a".
 GLOBAL GUI_DIGIT_FONT IS "digital-7 (mono)".   // "" = default font
 GLOBAL GUI_PARTS IS LIST().                     // every widget gui_fill creates (see gui_keep)
 GLOBAL GUI_RICH IS TRUE.                       // FALSE = plain text, no colour tags
-GLOBAL GUI_LAMP_OFF_BG IS "lm/lamp_off".        // lamp cell backgrounds: solid-colour images in scripts/
-GLOBAL GUI_LAMP_WHITE_BG IS "lm/lamp_white".    // lit, left column
-GLOBAL GUI_LAMP_AMBER_BG IS "lm/lamp_amber".    // lit, right column
-GLOBAL GUI_TAG_BG IS "lm/display_tag".           // solid display-colour image, found relative to the archive (Ships/Script) through the lm junction
+GLOBAL GUI_LAMP_OFF_BG IS "lm/images/lamp_off".        // lamp cell backgrounds: solid-colour images in scripts/lm/images/
+GLOBAL GUI_LAMP_WHITE_BG IS "lm/images/lamp_white".    // lit, left column
+GLOBAL GUI_LAMP_AMBER_BG IS "lm/images/lamp_amber".    // lit, right column
+GLOBAL GUI_TAG_BG IS "lm/images/display_tag".           // solid display-colour image, found relative to the archive (Ships/Script) through the lm junction
 GLOBAL GUI_DISPLAY_W IS 250.                   // display panel width: the keypad is about 462 wide, lamp panel 200, gap about 7
 GLOBAL GUI_LEFT_COL_W IS 116.                  // widths of the two columns of the display panel
 GLOBAL GUI_RIGHT_COL_W IS 116.
@@ -365,8 +366,8 @@ FUNCTION gui_entry_text {
   RETURN (typed + "  "):SUBSTRING(0, 2).
 }
 
-// gui_update: same inputs as display_update in lm_display.ks. flags: "PROG" and "OPRERR" (lamps), "MODE"
-// ("", "V" or "N"), "VBUF" and "NBUF" (digits typed so far); flags_from_keys in lm_display.ks builds it.
+// gui_update: same inputs as display_update in dsky_display.ks. flags: "PROG" and "OPRERR" (lamps), "MODE"
+// ("", "V" or "N"), "VBUF" and "NBUF" (digits typed so far); flags_from_keys in dsky_keys.ks builds it, and the core adds "REGS" (three register texts).
 // Optional flags, added by the P63 programme (each is ignored when absent): "KEYREL", "ALT", "VEL", "CONTACT" (lamps),
 // "BLANK" (blank every display for the countdown) and "FLASH" (the
 // verb and noun flash together, the V99 "please enable engine" prompt).
@@ -413,8 +414,8 @@ FUNCTION gui_update {
     IF gui_set_cells(ui["VERB"], verb_text) { SET changed TO TRUE. }
     IF gui_set_cells(ui["NOUN"], noun_text) { SET changed TO TRUE. }
   }
-  LOCAL regs IS noun_registers(noun, derived).
-  IF regs:LENGTH = 0 { SET regs TO LIST(NA, NA, NA). }
+  LOCAL regs IS LIST(NA, NA, NA).      // the three register texts come in through flags["REGS"] (the vehicle's noun table)
+  IF flags:HASKEY("REGS") { IF flags["REGS"]:LENGTH = 3 { SET regs TO flags["REGS"]. } }
   FROM { LOCAL i IS 0. } UNTIL i >= 3 STEP { SET i TO i + 1. } DO {
     IF gui_set_cells(ui["REGS"][i], regs[i]) { SET changed TO TRUE. }
   }

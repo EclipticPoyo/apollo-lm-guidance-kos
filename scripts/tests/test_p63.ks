@@ -1,17 +1,17 @@
 // test_p63.ks -- pad tests for the P63 milestone (run in the kOS terminal, no flight needed).
-//   RUNPATH("0:/lm/tests/test_p63.ks").
-// Expected values come from scripts/tests/reference.py ("Milestone 3" section). Results go to 0:/lm/test_p63.log.
+//   RUNPATH("0:/tests/test_p63.ks").
+// Expected values come from scripts/tests/reference.py ("Milestone 3" section). Results go to 0:/lm/logs/test_p63.log.
 // The log's last line is "TESTS: N passed, M failed".
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_guidance.ks").
-RUNONCEPATH("0:/lm/lm_control.ks").
-RUNONCEPATH("0:/lm/lm_ignition.ks").
-RUNONCEPATH("0:/lm/lm_p63.ks").
-RUNONCEPATH("0:/lm/tests/test_lib.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/descent/lm_guidance.ks").
+RUNONCEPATH("0:/lm/descent/lm_control.ks").
+RUNONCEPATH("0:/lm/descent/lm_ignition.ks").
+RUNONCEPATH("0:/lm/descent/lm_p63.ks").
+RUNONCEPATH("0:/tests/test_lib.ks").
 
-test_begin("0:/lm/test_p63.log").
+test_begin("0:/lm/logs/test_p63.log").
 
 // ---- Task 1: constants (values from the P63 research note; sources in lm_constants.ks) ----------------
 assert_vec("RBRFG", RBRFG, V(52.375308, 0, -3254.836061), 1e-9).
@@ -347,13 +347,15 @@ assert_vec("cg_apply on a permutation matrix", cg_apply(cg_t, V(1, 2, 3)), V(3, 
 assert_vec("cg_unapply undoes cg_apply", cg_unapply(cg_t, cg_apply(cg_t, V(1, 2, 3))), V(1, 2, 3), 1e-12).
 LOCAL cg_u IS guidance_cg(V(1737400, 0, 0), V(1697618, 0, -436656), V(421, 0, 1637), -69).
 assert_vec("cg_unapply undoes cg_apply on a real guidance matrix", cg_unapply(cg_u, cg_apply(cg_u, V(5, -7, 11))), V(5, -7, 11), 1e-9).
-RUNONCEPATH("0:/lm/lm_display.ks").
+RUNONCEPATH("0:/core/dsky_keys.ks").
+RUNONCEPATH("0:/core/dsky_display.ks").
+RUNONCEPATH("0:/lm/lm_nouns.ks").
 FUNCTION press_all {
   PARAMETER kk, chars.
   FOR ch IN chars { key_press(kk, ch). }
 }
 // V37 ENTR 63 ENTR selects P63 (Luminary: V37 = change programme).
-LOCAL kk IS keys_new().
+LOCAL kk IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 assert_near("no programme requested at the start", kk["PROG_REQ"], -1, 0).
 press_all(kk, LIST("V", "3", "7", "E")).
 assert_true("V37 E waits for a programme number", kk["AWAIT_PROG"] AND NOT kk["OPRERR"]).
@@ -361,7 +363,7 @@ assert_near("V37 shows verb 37 while waiting", kk["VERB"], 37, 0).
 press_all(kk, LIST("6", "3")).
 assert_true("digits go to the programme number, no OPR ERR", kk["PBUF"] = "63" AND NOT kk["OPRERR"]).
 // The window shows the typed programme number in the NOUN cells while waiting (flags the GUI reads), the verb 37 stays.
-LOCAL pk IS keys_new().
+LOCAL pk IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 assert_true("no programme entry shown before V37", NOT flags_from_keys(pk, FALSE)["PROGKEY"]).
 press_all(pk, LIST("V", "3", "7", "E")).
 assert_true("V37 E: the programme entry is active with nothing typed", flags_from_keys(pk, FALSE)["PROGKEY"] AND flags_from_keys(pk, FALSE)["PBUF"] = "").
@@ -378,27 +380,27 @@ assert_near("ENTR requests programme 63", kk["PROG_REQ"], 63, 0).
 assert_true("no longer waiting after ENTR", NOT kk["AWAIT_PROG"]).
 assert_near("the verb returns to the monitor verb", kk["VERB"], 16, 0).
 // V37 E 00 E ends the programme (P00).
-SET kk TO keys_new().
+SET kk TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 press_all(kk, LIST("V", "3", "7", "E", "0", "0", "E")).
 assert_near("V37 E 00 E requests P00", kk["PROG_REQ"], 0, 0).
 // A programme that does not exist, or one digit only, gives OPR ERR and no request.
-SET kk TO keys_new().
+SET kk TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 press_all(kk, LIST("V", "3", "7", "E", "9", "9", "E")).
 assert_true("P99 does not exist: OPR ERR", kk["OPRERR"]).
 assert_near("and no request is made", kk["PROG_REQ"], -1, 0).
 assert_true("and it stops waiting", NOT kk["AWAIT_PROG"]).
-SET kk TO keys_new().
+SET kk TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 press_all(kk, LIST("V", "3", "7", "E", "6", "E")).
 assert_true("one digit is not a programme number: OPR ERR", kk["OPRERR"] AND kk["PROG_REQ"] = -1).
 // Pressing V while waiting cancels the wait; digits with no V, N or wait still give OPR ERR as before.
-SET kk TO keys_new().
+SET kk TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 press_all(kk, LIST("V", "3", "7", "E", "V")).
 assert_true("V cancels the wait", NOT kk["AWAIT_PROG"] AND kk["MODE"] = "V").
-SET kk TO keys_new().
+SET kk TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 press_all(kk, LIST("5")).
 assert_true("a stray digit is still OPR ERR", kk["OPRERR"]).
 // Existing entry still works: V16 N63 E.
-SET kk TO keys_new().
+SET kk TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 press_all(kk, LIST("V", "1", "6", "N", "6", "3", "E")).
 assert_true("V16 N63 E still sets verb 16 noun 63", kk["VERB"] = 16 AND kk["NOUN"] = 63 AND NOT kk["OPRERR"]).
 press_all(kk, LIST("V", "9", "9", "E")).
@@ -517,7 +519,7 @@ assert_true("pad: rate never settled", ctl_rate_deg_s() > P63_SETTLE_RATE_DEG_S)
 // ---- Review fixes: p63_step on the pad with the control writes switched off (CTL_DRY) ----------------------------
 // The whole-branch review found the programme glue untested: V34 blocked in the enable prompt, alarm 1406 not shown.
 // CTL_DRY makes every ctl_* function that writes the ship's controls do nothing, so p63_step can run here.
-RUNONCEPATH("0:/lm/lm_nav.ks").
+RUNONCEPATH("0:/shared/lm_nav.ks").
 SET CTL_DRY TO TRUE.
 FUNCTION dry_prog {
   PARAMETER seq_lex, lit, t_last.
@@ -540,7 +542,7 @@ LOCAL d_wm IS V(0, 2.66e-6, 0).
 LOCAL d_r IS V(1737400 + RIGNX, 0, RIGNZ).
 // In the enable prompt (dt = -2): V99 N62 flashes, KEY REL lights, the ullage is on.
 LOCAL dp IS dry_prog(seq_new(1000), FALSE, 997.75).
-LOCAL dk IS keys_new().
+LOCAL dk IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 LOCAL dst IS dry_state(998, d_r, 0).
 LOCAL dout IS p63_step(dp, dst, nav_derived(dst, d_land, d_wm), dk).
 assert_near("prompt sets verb 99", dout["SET_VERB"], 99, 0).
@@ -560,16 +562,16 @@ assert_true("V34 in the prompt stops the ullage", NOT dp["ULLAGE_ON"]).
 LOCAL burn_seq IS LEXICON("TIG", 1000, "ARMED", TRUE, "IGN_T", 1000, "ZOOMED", FALSE, "ENDED", FALSE).
 LOCAL dp2 IS dry_prog(burn_seq, TRUE, 1004.75).
 LOCAL dst2 IS dry_state_v(1005, V(1737400 + 100, 0, 10), V(1, 0, 1), 43.4547).
-LOCAL dout2 IS p63_step(dp2, dst2, nav_derived(dst2, d_land, d_wm), keys_new()).
+LOCAL dout2 IS p63_step(dp2, dst2, nav_derived(dst2, d_land, d_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_near("an unsolvable time-to-go gives alarm 1406", dout2["ALARM"], 1406, 0).
 assert_true("and says so in a message", dout2["MSG"]:CONTAINS("1406")).
-LOCAL dout3 IS p63_step(dp2, dry_state_v(1005.25, V(1737400 + 100, 0, 10), V(1, 0, 1), 43.4547), nav_derived(dst2, d_land, d_wm), keys_new()).
+LOCAL dout3 IS p63_step(dp2, dry_state_v(1005.25, V(1737400 + 100, 0, 10), V(1, 0, 1), 43.4547), nav_derived(dst2, d_land, d_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_true("the alarm message is not repeated every cycle", NOT dout3["MSG"]:CONTAINS("1406")).
 assert_near("but the alarm stays on", dout3["ALARM"], 1406, 0).
 // A normal burn state gives no alarm.
 LOCAL dp4 IS dry_prog(burn_seq, TRUE, 1004.75).
 LOCAL dst4 IS dry_state(1005, d_r, 43.4547).
-LOCAL dout4 IS p63_step(dp4, dst4, nav_derived(dst4, d_land, d_wm), keys_new()).
+LOCAL dout4 IS p63_step(dp4, dst4, nav_derived(dst4, d_land, d_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_near("a normal burn state gives no alarm", dout4["ALARM"], 0, 0).
 assert_true("and the guidance is not at the handoff", NOT dp4["GP"]["HANDOFF"]).
 assert_true("a normal burn is not a handover", NOT dout4["HANDOVER"]).
@@ -580,14 +582,14 @@ LOCAL dp6 IS dry_prog(LEXICON("TIG", 1000, "ARMED", TRUE, "IGN_T", 1000, "ZOOMED
 SET dp6["ZOOMED"] TO TRUE.
 SET dp6["TGO"] TO 50.5.
 LOCAL dst6 IS dry_state_v(1005, V(1739309.437, 0, -6771.996), V(-40.965, 0, 145.871), 43.4547).
-LOCAL dout6 IS p63_step(dp6, dst6, nav_derived(dst6, d_land, d_wm), keys_new()).
+LOCAL dout6 IS p63_step(dp6, dst6, nav_derived(dst6, d_land, d_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_true("braking over: HANDOVER", dout6["HANDOVER"]).
 assert_true("handover message says P64 starts", dout6["MSG"]:CONTAINS("P64 STARTS")).
 assert_true("handover does not end the programme", NOT dout6["ENDED"]).
-SET dout6 TO p63_step(dp6, dry_state_v(1005.25, V(1739309.437, 0, -6771.996), V(-40.965, 0, 145.871), 43.4547), nav_derived(dst6, d_land, d_wm), keys_new()).
+SET dout6 TO p63_step(dp6, dry_state_v(1005.25, V(1739309.437, 0, -6771.996), V(-40.965, 0, 145.871), 43.4547), nav_derived(dst6, d_land, d_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_true("HANDOVER is returned only once", NOT dout6["HANDOVER"]).
 // The PRO flag is cleared by the step.
-LOCAL dk5 IS keys_new().
+LOCAL dk5 IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 SET dk5["PRO"] TO TRUE.
 p63_step(dry_prog(seq_new(1000), FALSE, 949.75), dry_state(950, d_r, 0), nav_derived(dry_state(950, d_r, 0), d_land, d_wm), dk5).
 assert_true("p63_step clears PRO", NOT dk5["PRO"]).

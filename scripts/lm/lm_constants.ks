@@ -65,7 +65,7 @@ GLOBAL PLAN_CHK_ALT IS 1000.         // predicted PDI altitude vs the pad geomet
 GLOBAL PLAN_CHK_RANGE IS 5000.       // predicted ground range to the site vs |RIGNZ|, m
 GLOBAL PLAN_CHK_SPEED IS 5.          // predicted PDI speed vs the planned value, m/s
 GLOBAL PLAN_CHK_BURN IS 0.01.        // node BURNVECTOR vs intended delta-v, m/s
-GLOBAL LM_LOG IS FALSE.              // TRUE writes the diagnostic logs under 0:/lm/ (cross-check, P63, P64, P65, planner report); off for normal flights
+GLOBAL LM_LOG IS FALSE.              // TRUE writes the diagnostic logs under 0:/lm/logs/ (cross-check, P63, P64, P65, planner report); off for normal flights
 GLOBAL PLAN_PLAN_FILE IS "0:/lm/plan.json".   // where the plan is saved for later programmes
 
 // Conventions that can only be measured in flight by scripts/tests/probe_predict.ks.
@@ -221,3 +221,9 @@ GLOBAL P66_CONTACT_FALLBACK IS FALSE.            // chosen: TRUE adds a contact 
 GLOBAL P66_CONTACT_ALT_M IS 1.                   // chosen, m: the fallback height above the site under this ...
 GLOBAL P66_CONTACT_RATE IS 0.5.                  // chosen, m/s: ... and vertical speed under this
 GLOBAL ROD_LEVER_JUMP IS 0.3.                    // chosen: a lever change bigger than this in one sample is the X (cut) or Z (full throttle) key or our own re-centring, not a ROD click
+
+// The logs go in 0:/lm/logs/. Make the folder if it is missing (a fresh install, or a release zip unzipped without it).
+IF NOT EXISTS("0:/lm/logs") { CREATEDIR("0:/lm/logs"). }
+
+// The pilot's settings file (0:/lm/lm_config.txt) overrides a few of the constants above; see lm_settings.ks.
+RUNONCEPATH("0:/lm/lm_settings.ks").

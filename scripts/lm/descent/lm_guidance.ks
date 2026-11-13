@@ -22,7 +22,7 @@
 // no AGC overflow alarm 1410.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
 
 // guid_cubic_tgo: the time-to-go, in seconds, for the downrange (z) direction. Newton's method from the last answer.
 //

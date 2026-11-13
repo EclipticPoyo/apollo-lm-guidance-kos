@@ -22,8 +22,8 @@
 // 10 passes (Luminary allows 40 and raises alarm 1412 on running out).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_guidance.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/descent/lm_guidance.ks").
 
 // First guess of the time-to-go for the three guidance passes at each IGNALG iteration. The cubic settles from any
 // reasonable start; the Apollo 11 value at ignition is about 553 s.

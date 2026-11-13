@@ -7,15 +7,15 @@
 //   3. PREDICT_AXES_INERTIAL: are POSITIONAT results in axes that stay fixed while the Moon turns?
 //   4. CAN_MAKE_NODES: what Career():CANMAKENODES says.
 // Run in lunar orbit with engines off and NO maneuver nodes. It waits 900 s of game time (warp is used).
-//   RUNPATH("0:/lm/tests/probe_predict.ks").
-// Everything is logged to 0:/lm/probe_predict.log. The probe adds three test nodes one at a time and
+//   RUNPATH("0:/tests/probe_predict.ks").
+// Everything is logged to 0:/lm/logs/probe_predict.log. The probe adds three test nodes one at a time and
 // removes each straight away; it never touches nodes it did not make (it stops if any exist).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_plan.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/planner/lm_plan.ks").
 
-LOCAL log_path IS "0:/lm/probe_predict.log".
+LOCAL log_path IS "0:/lm/logs/probe_predict.log".
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 FUNCTION say {
   PARAMETER text.

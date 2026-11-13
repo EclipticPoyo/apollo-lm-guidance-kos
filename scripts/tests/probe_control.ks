@@ -1,6 +1,6 @@
 // probe_control.ks -- reads and exercises the kOS controls that P63's control layer (lm_control.ks) will use.
-//   RUNPATH("0:/lm/tests/probe_control.ks").
-// Log: 0:/lm/probe_control.log (read it back; the terminal cannot be copied from).
+//   RUNPATH("0:/tests/probe_control.ks").
+// Log: 0:/lm/logs/probe_control.log (read it back; the terminal cannot be copied from).
 //
 // Names checked against the kOS docs (KOS_DOC _sources, 2026-11-12) before this was written:
 //   SHIP:CONTROL:PILOTPITCH / PILOTYAW / PILOTROLL   get-only, scalar [-1,1], what the PLAYER is doing
@@ -16,7 +16,7 @@
 // Setup: the Moon, any orbit, the Realism Overhaul LM upright (engine down, nose up), tanks full, SAS and RCS OFF.
 // The script asks you to move the stick fully for 5 s, then to leave it alone for 5 s.
 
-LOCAL log_path IS "0:/lm/probe_control.log".
+LOCAL log_path IS "0:/lm/logs/probe_control.log".
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 
 FUNCTION say {

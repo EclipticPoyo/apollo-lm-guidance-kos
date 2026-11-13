@@ -22,12 +22,12 @@
 // flash again after each redesignation.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_guidance.ks").
-RUNONCEPATH("0:/lm/lm_control.ks").
-RUNONCEPATH("0:/lm/lm_p63.ks").                 // burn_shared_step and p63_end, which P64 shares
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/descent/lm_guidance.ks").
+RUNONCEPATH("0:/lm/descent/lm_control.ks").
+RUNONCEPATH("0:/lm/descent/lm_p63.ks").                 // burn_shared_step and p63_end, which P64 shares
 
-GLOBAL P64_LOG_PATH IS "0:/lm/p64.log".          // one line per cycle, read back after a flight
+GLOBAL P64_LOG_PATH IS "0:/lm/logs/p64.log".          // one line per cycle, read back after a flight
 
 // ---- The click detector --------------------------------------------------------------------------------------
 
@@ -132,7 +132,7 @@ FUNCTION redes_los {
 // time-to-go gets Luminary's DELTTFAP step (STARTP64: TTF is negative there, so adding DELTTFAP = -110 s lengthens the plain
 // positive time-to-go by 110 s, because the approach targets lie past the braking target in time), the click detector and
 // the redesignation permit are new, and the site is kept as latitude, longitude and height so a redesignated site can follow
-// the turning Moon (lm_main.ks builds the site vector from them each cycle). The old P63 log is left as it is; P64 writes its own.
+// the turning Moon (lm_vehicle.ks builds the site vector from them each cycle). The old P63 log is left as it is; P64 writes its own.
 FUNCTION p64_start {
   PARAMETER prog, site_lat, site_lng, site_alt.
   SET prog["PROG_NO"] TO 64.
@@ -146,6 +146,7 @@ FUNCTION p64_start {
   SET prog["SITE_ALT"] TO site_alt.
   SET prog["EL_TOTAL"] TO 0.                 // clicks applied so far, for the log
   SET prog["AZ_TOTAL"] TO 0.
+  SET prog["REDES_ENDED"] TO FALSE.          // the "redesignation closed" message has been given
   IF LM_LOG AND NOT CTL_DRY {
     IF EXISTS(P64_LOG_PATH) { DELETEPATH(P64_LOG_PATH). }
     LOG "UT,TGO,ALARM,THR,MODE,HCALC,HDOT,ABVEL,LOOKANGL,RGU_X,RGU_Y,RGU_Z,VGU_X,VGU_Y,VGU_Z,ATT_ERR_DEG,PERMIT,REDES_OPEN,EL_CLICKS,AZ_CLICKS,SITE_LAT,SITE_LNG,ALT_LAMP,VEL_LAMP,THRUST_FRAC" TO P64_LOG_PATH.
@@ -163,17 +164,17 @@ FUNCTION p64_sample {
 
 // p64_apply_clicks: use the clicks that have built up since the last cycle. They are used only when the pilot has pressed PRO,
 // the redesignation window is still open and the attitude mode is AUTO (in ATT HOLD Luminary ignores them); otherwise they are
-// thrown away, not kept for later. Returns a message for the terminal ("" for none). The new site is also stored as latitude and
+// thrown away, not kept for later. Returns TRUE when the aim point moved (no terminal message). The new site is also stored as latitude and
 // longitude (kOS Body:GEOPOSITIONOF takes a position measured from the ship, so the body's position is added back).
 // YNB, the LM +Y axis, is the cross product of the window face (LM +Z) and the ship's up axis (LM +X), right-handed.
 FUNCTION p64_apply_clicks {
   PARAMETER prog, state.
   LOCAL clicks IS clk_take(prog["CLK"]).
-  IF clicks["EL"] = 0 AND clicks["AZ"] = 0 { RETURN "". }
-  IF NOT (prog["PERMIT"] AND p64_redes_open(prog["TGO"]) AND prog["ATT"]["MODE"] = "AUTO") { RETURN "". }
+  IF clicks["EL"] = 0 AND clicks["AZ"] = 0 { RETURN FALSE. }
+  IF NOT (prog["PERMIT"] AND p64_redes_open(prog["TGO"]) AND prog["ATT"]["MODE"] = "AUTO") { RETURN FALSE. }
   LOCAL ynb_vec IS lm_cross(ctl_window_face_vec(), state["XNB"]).
   LOCAL new_land IS redes_los(prog["LAND"], state["R"], ynb_vec, clicks["EL"] * P64_ELEACH_RAD, clicks["AZ"] * P64_AZEACH_RAD).
-  IF (new_land - prog["LAND"]):MAG = 0 { RETURN "". }
+  IF (new_land - prog["LAND"]):MAG = 0 { RETURN FALSE. }
   SET prog["LAND"] TO new_land.
   SET prog["EL_TOTAL"] TO prog["EL_TOTAL"] + clicks["EL"].
   SET prog["AZ_TOTAL"] TO prog["AZ_TOTAL"] + clicks["AZ"].
@@ -183,7 +184,7 @@ FUNCTION p64_apply_clicks {
     SET prog["SITE_LNG"] TO geo:LNG.
     SET prog["SITE_ALT"] TO new_land:MAG - SHIP:BODY:RADIUS.
   }
-  RETURN "P64: REDESIGNATED (" + clicks["EL"] + " pitch, " + clicks["AZ"] + " yaw clicks).".
+  RETURN TRUE.
 }
 
 // p64_step: one cycle, the same arguments and returned keys as p63_step (SET_VERB, SET_NOUN, KEY_REL, BLANK, FLASH, ALARM,
@@ -209,8 +210,12 @@ FUNCTION p64_step {
     SET prog["PERMIT"] TO TRUE.
     SET msg TO "P64: REDESIGNATION PERMITTED. PITCH KEYS MOVE THE AIM POINT 0.5 DEG, YAW KEYS 2 DEG (AUTO ONLY).".
   }
-  LOCAL click_msg IS p64_apply_clicks(prog, state).
-  IF click_msg <> "" { SET msg TO click_msg. }
+  p64_apply_clicks(prog, state).               // no terminal message per click: the look angle (R1) and the site vector show it
+  // Once, when the redesignation window closes (about 34 s to go), say that the aim point is now fixed.
+  IF NOT prog["REDES_ENDED"] AND NOT p64_redes_open(prog["TGO"]) {
+    SET prog["REDES_ENDED"] TO TRUE.
+    SET msg TO (msg + " P64: REDESIGNATION CLOSED. THE AIM POINT IS NOW FIXED."):TRIM.
+  }
 
   // ---- guidance with the approach targets ----
   LOCAL gp IS prog["GP"].

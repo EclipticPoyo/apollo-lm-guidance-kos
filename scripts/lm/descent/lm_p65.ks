@@ -22,12 +22,12 @@
 // contact comes from the ship's status (no contact probes); no P67, no landing radar reasonableness test.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_guidance.ks").
-RUNONCEPATH("0:/lm/lm_control.ks").
-RUNONCEPATH("0:/lm/lm_p63.ks").                 // burn_shared_step and p63_end, which P65 shares
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/descent/lm_guidance.ks").
+RUNONCEPATH("0:/lm/descent/lm_control.ks").
+RUNONCEPATH("0:/lm/descent/lm_p63.ks").                 // burn_shared_step and p63_end, which P65 shares
 
-GLOBAL P65_LOG_PATH IS "0:/lm/p65.log".          // one line per cycle, read back after a flight
+GLOBAL P65_LOG_PATH IS "0:/lm/logs/p65.log".          // one line per cycle, read back after a flight
 
 // p65_start: P64 has just reported HANDOVER. prog is P64's programme lexicon and is changed and returned as P65's. The guidance
 // axes P64 left (gp["CG"]) stay frozen for the vertical phase; the throttle lever is centred so both keys have room.
@@ -106,7 +106,6 @@ FUNCTION p65_step {
   IF prog["MODE"] = "P66" AND clicks <> 0 {
     SET prog["VDG"] TO prog["VDG"] + clicks * RODSCALE.
     SET prog["ROD_TOTAL"] TO prog["ROD_TOTAL"] + clicks.
-    SET msg TO msg + " P66: COMMANDED DESCENT RATE " + ROUND(ms_to_fps(prog["VDG"]), 1) + " FT/S (" + ROUND(prog["VDG"], 2) + " M/S, UP POSITIVE).".
   }
 
   // ---- guidance: P65 steers and throttles, P66 only throttles ----
@@ -172,7 +171,30 @@ FUNCTION p65_step {
   p65_log(prog, state, derived, ct_out["LAMP"]).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE,
                  "FLASH", FALSE, "ALARM", 0, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
-                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", FALSE, "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"]).
+                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", FALSE, "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
+                 "STATUS", p65_status(prog, derived)).
+}
+
+// p65_ms_text: a speed in m/s as text with two decimals ("0.91", "-0.30"), so the readout keeps the same width.
+FUNCTION p65_ms_text {
+  PARAMETER ms_value.
+  LOCAL hundredths IS ROUND(ABS(ms_value) * 100).
+  LOCAL whole IS FLOOR(hundredths / 100).
+  LOCAL sign IS "".
+  IF ms_value < 0 AND hundredths > 0 { SET sign TO "-". }
+  RETURN sign + whole + "." + zero_pad(hundredths - whole * 100, 2).
+}
+
+// p65_status: the three terminal readout lines (the DSKY core draws them in place, not as scrolling messages). Descent rate is
+// positive going down, in m/s: the DSKY's R2 shows ft/s with up positive. P66 adds the rate the pilot has commanded with the
+// ROD clicks; P65 shows its fixed target (V2FG, 3 ft/s). The third line is the key hint for the mode.
+FUNCTION p65_status {
+  PARAMETER prog, derived.
+  LOCAL rate_text IS "-----".
+  IF derived["VALID"] { SET rate_text TO p65_ms_text(-derived["HDOT"]). }
+  LOCAL line1 IS "DESCENT RATE  " + rate_text + " m/s".
+  IF prog["MODE"] = "P66" { RETURN LIST(line1, "P66 COMMANDED " + p65_ms_text(-prog["VDG"]) + " m/s", "SHIFT = SLOWER   CTRL = FASTER (SAS ON)"). }
+  RETURN LIST(line1, "P65 TARGET    " + p65_ms_text(-V2FG:X) + " m/s", "SAS ON + SHIFT OR CTRL = P66 RATE CONTROL").
 }
 
 // p65_log: one line per cycle to P65_LOG_PATH.

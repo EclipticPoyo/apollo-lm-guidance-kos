@@ -1,9 +1,9 @@
 // lm_deorbit.ks -- landing-site selection and deorbit planner (milestone 2).
 //
-//   RUNPATH("0:/lm/lm_deorbit.ks", lat, lng).                    plan to the site at lat, lng (degrees)
-//   RUNPATH("0:/lm/lm_deorbit.ks", lat, lng, alt_m).             ...with the site height above sea level (m)
-//   RUNPATH("0:/lm/lm_deorbit.ks", lat, lng, alt_m, 300).        ...accepting a plane change up to 300 m/s
-//   RUNPATH("0:/lm/lm_deorbit.ks", lat, lng, -999999, 200, TRUE). replace existing maneuver nodes
+//   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng).                    plan to the site at lat, lng (degrees)
+//   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng, alt_m).             ...with the site height above sea level (m)
+//   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng, alt_m, 300).        ...accepting a plane change up to 300 m/s
+//   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng, -999999, 200, TRUE). replace existing maneuver nodes
 //
 // It adds up to two maneuver nodes to the ship (a plane change, then the DOI burn that puts PDI at the
 // Apollo 11 pad-loaded ignition geometry before the site) and writes a report. The PILOT flies the
@@ -20,12 +20,12 @@
 PARAMETER in_lat IS -999, in_lng IS 0, in_alt IS -999999, max_pc_dv IS 200, replace IS FALSE.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_site.ks").
-RUNONCEPATH("0:/lm/lm_plan.ks").
-RUNONCEPATH("0:/lm/lm_checks.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/planner/lm_site.ks").
+RUNONCEPATH("0:/lm/planner/lm_plan.ks").
+RUNONCEPATH("0:/shared/lm_checks.ks").
 
-GLOBAL DP_LOG IS "0:/lm/lm_deorbit.log".
+GLOBAL DP_LOG IS "0:/lm/logs/lm_deorbit.log".
 GLOBAL dp_nodes IS LIST().        // nodes THIS script added (only these are ever removed)
 GLOBAL dp_intended IS LIST().     // the delta-v vector the planner meant for each, same order
 GLOBAL DP_QUIET IS FALSE.         // TRUE = print nothing; the full report still goes to DP_LOG (lm_plan_ui.ks sets it)

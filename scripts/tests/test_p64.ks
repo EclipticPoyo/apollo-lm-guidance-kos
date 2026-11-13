@@ -1,16 +1,16 @@
 // test_p64.ks -- pad tests for the P64 milestone (run in the kOS terminal, no flight needed).
-//   RUNPATH("0:/lm/tests/test_p64.ks").
+//   RUNPATH("0:/tests/test_p64.ks").
 // Expected values come from scripts/tests/reference.py ("Milestone 4" section) or are exact by definition. Results go to
-// 0:/lm/test_p64.log. The log's last line is "TESTS: N passed, M failed".
+// 0:/lm/logs/test_p64.log. The log's last line is "TESTS: N passed, M failed".
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").
-RUNONCEPATH("0:/lm/lm_guidance.ks").
-RUNONCEPATH("0:/lm/lm_control.ks").
-RUNONCEPATH("0:/lm/lm_p64.ks").
-RUNONCEPATH("0:/lm/tests/test_lib.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/descent/lm_guidance.ks").
+RUNONCEPATH("0:/lm/descent/lm_control.ks").
+RUNONCEPATH("0:/lm/descent/lm_p64.ks").
+RUNONCEPATH("0:/tests/test_lib.ks").
 
-test_begin("0:/lm/test_p64.log").
+test_begin("0:/lm/logs/test_p64.log").
 
 // ---- Task 2: approach constants (values from the P63 research note; sources in lm_constants.ks) -----------
 assert_vec("RAPFG", RAPFG, V(33.858708, 0, -8.1668112), 1e-9).
@@ -144,8 +144,10 @@ assert_true("redesignation closed at 12 s", NOT p64_redes_open(12)).
 
 // ---- Task 6: the programme on the pad (CTL_DRY: the ship's controls are not touched) ---------------------------
 // States are from reference.py sim_approach (the Apollo 11 braking-then-approach point-mass run), site on the raw +X axis.
-RUNONCEPATH("0:/lm/lm_nav.ks").
-RUNONCEPATH("0:/lm/lm_display.ks").               // keys_new
+RUNONCEPATH("0:/shared/lm_nav.ks").
+RUNONCEPATH("0:/core/dsky_keys.ks").
+RUNONCEPATH("0:/core/dsky_display.ks").
+RUNONCEPATH("0:/lm/lm_nouns.ks").
 SET CTL_DRY TO TRUE.
 FUNCTION d4_prog {
   RETURN LEXICON("REFUSED", "", "WINDOW_MODE", "UP", "TURNED", FALSE, "FORE0", V(1, 0, 0), "WIN0", V(0, 1, 0), "WCMD", V(0, 1, 0),
@@ -163,7 +165,7 @@ LOCAL d4_land IS V(1737400, 0, 0).
 LOCAL d4_wm IS V(0, 2.66e-6, 0).
 LOCAL d4_r0 IS V(1739767.504, 0, -8502.208).
 LOCAL d4_v0 IS V(-42.2285, 0, 178.0790).
-LOCAL d4_ks IS keys_new().
+LOCAL d4_ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 LOCAL p4 IS p64_start(d4_prog(), 0, 23.47, 0).
 assert_near("p64_start: programme number", p4["PROG_NO"], 64, 0).
 assert_near("p64_start: time-to-go gets the DELTTFAP step (60 + 110)", p4["TGO"], 170, 1e-9).
@@ -209,7 +211,7 @@ SET st4 TO d4_state(2001, d4_r0, d4_v0).
 SET out4 TO p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), d4_ks).
 assert_true("a click after PRO moves the site", (p4["LAND"] - land_before):MAG > 10).
 assert_near("the moved site keeps its radius", p4["LAND"]:MAG, 1737400, 1e-3).
-assert_true("and the step says so", out4["MSG"]:CONTAINS("REDESIGNATED")).
+assert_true("and the step prints no message per click", NOT out4["MSG"]:CONTAINS("REDESIGNATED")).
 assert_near("the applied clicks are counted", p4["EL_TOTAL"], P64_PITCH_SIGN, 0).
 clk_sample(p4["CLK"], 0, 0).
 
@@ -233,6 +235,10 @@ SET st4 TO d4_state(2001.75, d4_r0, d4_v0).
 SET out4 TO p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), d4_ks).
 assert_vec("a click inside 34 s to go does not move the site", p4["LAND"], land_hold, 0).
 clk_sample(p4["CLK"], 0, 0).
+assert_true("the first step after the window closes says so", out4["MSG"]:CONTAINS("CLOSED")).
+SET st4 TO d4_state(2001.9, d4_r0, d4_v0).
+SET out4 TO p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), d4_ks).
+assert_true("and it says so only once", NOT out4["MSG"]:CONTAINS("CLOSED")).
 
 // The handover to P65: at the end of the sim (time-to-go 11.56 s) the step asks for it once and does not end the programme.
 LOCAL p4e IS d4_prog().
@@ -242,15 +248,15 @@ LOCAL d4_re IS V(1737447.083, 0, -20.009).
 LOCAL d4_ve IS V(-0.9239, 0, 6.6854).
 LOCAL st4e IS d4_state(3000, d4_re, d4_ve).
 SET p4e["T_LAST"] TO 2999.75.
-LOCAL out4e IS p64_step(p4e, st4e, nav_derived(st4e, d4_land, d4_wm), keys_new()).
+LOCAL out4e IS p64_step(p4e, st4e, nav_derived(st4e, d4_land, d4_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_true("handover: asked for at the end of the approach", out4e["HANDOVER"]).
 assert_true("handover: the message names P65", out4e["MSG"]:CONTAINS("P65")).
 assert_true("handover: the programme does not end itself", NOT out4e["ENDED"]).
 SET st4e TO d4_state(3000.25, d4_re, d4_ve).
-SET out4e TO p64_step(p4e, st4e, nav_derived(st4e, d4_land, d4_wm), keys_new()).
+SET out4e TO p64_step(p4e, st4e, nav_derived(st4e, d4_land, d4_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_true("handover: asked for once only", NOT out4e["HANDOVER"]).
 // V34 ENTR ends P64 at once.
-LOCAL k34 IS keys_new().
+LOCAL k34 IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 SET k34["VERB"] TO 34.
 SET st4 TO d4_state(2002, d4_r0, d4_v0).
 assert_true("V34 ends P64", p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), k34)["ENDED"]).

@@ -11,7 +11,7 @@
 // keep the arrow on the ship as it turns. Width is screen-relative, not metres, so the arrows stay readable at any zoom.
 // Setup: the Moon (any body), any orbit or the ground, the RO LM, tanks irrelevant. Nothing is steered or fired.
 
-LOCAL log_path IS "0:/lm/probe_window.log".
+LOCAL log_path IS "0:/lm/logs/probe_window.log".
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 
 FUNCTION say {

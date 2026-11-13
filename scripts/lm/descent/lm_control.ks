@@ -21,7 +21,7 @@
 //   value (the radar's hardware range is not in the sources).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_frame.ks").               // lm_cross, for the approach window vector (win_exnorm)
+RUNONCEPATH("0:/shared/lm_frame.ks").               // lm_cross, for the approach window vector (win_exnorm)
 
 // ---- Attitude mode -------------------------------------------------------------------------------------------
 

@@ -1,27 +1,29 @@
 // demo_gui.ks -- on-screen check of the GUI DSKY (lm_gui.ks). Run anywhere, no flight needed:
-//   RUNPATH("0:/lm/tests/demo_gui.ks").           full window
-//   RUNPATH("0:/lm/tests/demo_gui.ks", 1).        default font instead of digital-7
-//   RUNPATH("0:/lm/tests/demo_gui.ks", 2).        no colour tags (plain text)
-//   RUNPATH("0:/lm/tests/demo_gui.ks", 3).        both 1 and 2
-//   RUNPATH("0:/lm/tests/demo_gui.ks", 4).        like 3, and the SCRIPT types V16 N60 E, V99 E, R by itself
-//   RUNPATH("0:/lm/tests/demo_gui.ks", 5).        like 0 (full window), and the script types the keys by itself
-//   RUNPATH("0:/lm/tests/demo_gui.ks", 6).        full window, IDLE: after the first draw the loop does almost nothing
-//   RUNPATH("0:/lm/tests/demo_gui.ks", 7).        like 6, but without the first gui_update: the window is never changed after creation
+//   RUNPATH("0:/tests/demo_gui.ks").           full window
+//   RUNPATH("0:/tests/demo_gui.ks", 1).        default font instead of digital-7
+//   RUNPATH("0:/tests/demo_gui.ks", 2).        no colour tags (plain text)
+//   RUNPATH("0:/tests/demo_gui.ks", 3).        both 1 and 2
+//   RUNPATH("0:/tests/demo_gui.ks", 4).        like 3, and the SCRIPT types V16 N60 E, V99 E, R by itself
+//   RUNPATH("0:/tests/demo_gui.ks", 5).        like 0 (full window), and the script types the keys by itself
+//   RUNPATH("0:/tests/demo_gui.ks", 6).        full window, IDLE: after the first draw the loop does almost nothing
+//   RUNPATH("0:/tests/demo_gui.ks", 7).        like 6, but without the first gui_update: the window is never changed after creation
 // With 4 or 5 do not touch the keyboard or mouse: it shows whether the window vanishes when the label
 // texts change by themselves, with no user input.
 // The variants exist to find out what makes the window vanish (bisecting); the variant is logged.
 // Feeds FIXED made-up values. Click the keypad (or type in the terminal): V16 N60 E, V99 E, R.
-// Runs 120 s, then closes the window. Everything is logged to 0:/lm/demo_gui.log: the IPU setting,
+// Runs 120 s, then closes the window. Everything is logged to 0:/lm/logs/demo_gui.log: the IPU setting,
 // loop passes per second, and the window's VISIBLE / X / Y once a second, which shows whether the
 // window was hidden or merely not drawn if it ever disappears.
 
 PARAMETER variant IS 0.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/lm_display.ks").
+RUNONCEPATH("0:/core/dsky_keys.ks").
+RUNONCEPATH("0:/core/dsky_display.ks").
+RUNONCEPATH("0:/lm/lm_nouns.ks").
 RUNONCEPATH("0:/lm/lm_gui.ks").
 
-LOCAL log_path IS "0:/lm/demo_gui.log".
+LOCAL log_path IS "0:/lm/logs/demo_gui.log".
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 
 // kOS runs only CONFIG:IPU instructions per physics tick (default 150), too few for a live window.
@@ -35,7 +37,7 @@ IF variant = 2 OR variant = 3 OR variant = 4 { SET GUI_RICH TO FALSE. }
 // Made-up derived values (SI): 25 m/s horizontal, 3 m/s descent, 120 m high, 5 km from the site.
 LOCAL derived IS LEXICON("VALID", TRUE, "HDOT", -3, "VHORIZ", 25, "ABVEL", 25.2, "RANGEDSP", 5000,
                          "LOOKANGL", 42.3, "HCALC", 120, "ALT_RADAR", 118, "DELTAH", -2, "VGU", V(-3, 4, 25)).
-LOCAL ks IS keys_new().
+LOCAL ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 // The window object is created here at the top level, not in a function: windows made inside a function
 // vanished after a few seconds (see gui_fill in lm_gui.ks). gui_fill then adds the widgets.
 CLEARGUIS().
@@ -62,7 +64,7 @@ LOCAL auto_keys IS LIST(
 LOCAL next_key IS 0.
 // One draw of the initial contents, so the idle variant still shows a filled window.
 IF variant <> 7 {
-  gui_update(ui, derived, "63", ks["VERB"], ks["NOUN"], LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "")).
+  gui_update(ui, derived, "63", ks["VERB"], ks["NOUN"], LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "", "REGS", noun_registers(ks["NOUN"], derived))).
 }
 UNTIL TIME:SECONDS > t_end {
   SET passes TO passes + 1.
@@ -82,6 +84,7 @@ UNTIL TIME:SECONDS > t_end {
   }
   gui_poll(ui, ks).
   LOCAL flags IS flags_from_keys(ks, FALSE).
+  SET flags["REGS"] TO noun_registers(ks["NOUN"], derived).
   gui_update(ui, derived, "63", ks["VERB"], ks["NOUN"], flags).
   LOCAL now IS "V" + ks["VERB"] + " N" + ks["NOUN"] + " OPRERR=" + ks["OPRERR"].
   IF now <> last { LOG now TO log_path. SET last TO now. }
