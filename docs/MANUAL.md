@@ -87,9 +87,9 @@ The descent constants are the Apollo 11 pad load for every site. A site with rou
 
 A window shaped like the LM's DSKY: PROG, VERB, NOUN and three data registers R1, R2, R3, with lamps and a keypad.
 
-![The DSKY window in P63: PROG 63, V06 N63, R1 speed, R2 descent rate, R3 height, with the ALT and VEL lamps lit](images/dsky.png)
+![The DSKY window in P63: PROG 63, V16 N60, R1 horizontal speed, R2 descent rate, R3 height, with COMP ACTY, ALT and VEL lit](images/dsky.png)
 
-*The DSKY in P63 braking: PROG 63, `V06 N63` (R1 speed along the burn in ft/s, R2 descent rate in ft/s, R3 height in ft). The amber ALT and VEL lamps are lit.*
+*The DSKY in P63 braking: PROG 63, `V16 N60` (R1 horizontal speed in ft/s, R2 descent rate in ft/s, R3 calculated height in ft). COMP ACTY (the computer is working) is lit, and so are the amber ALT and VEL lamps.*
 
 **Lamps that work:**
 
