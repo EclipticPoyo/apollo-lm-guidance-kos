@@ -4,7 +4,7 @@ The zip unzips straight into the KSP folder:
   Ships/Script/start.ks          the stub that runs the starter
   Ships/Script/lm/*.ks, *.png    the LM computer and its lamp images (scripts/lm_*.ks; no tests/)
   README.md, CHANGELOG.md, docs/MANUAL.md, docs/MANUAL.pdf (if built), docs/images/*   the readme and the pilot's manual
-Output: dist/Apollo-LM-Guidance-kOS-<version>.zip (dist/ is git-ignored).
+Output: dist/apollo-lm-guidance-kos-<version>.zip (dist/ is git-ignored). The lowercase name is an aesthetic preference.
 """
 import sys, zipfile, pathlib
 
@@ -12,7 +12,7 @@ root = pathlib.Path(__file__).parent
 version = sys.argv[1] if len(sys.argv) > 1 else "dev"
 out_dir = root / "dist"
 out_dir.mkdir(exist_ok=True)
-out = out_dir / f"Apollo-LM-Guidance-kOS-{version}.zip"
+out = out_dir / f"apollo-lm-guidance-kos-{version}.zip"
 
 STUB = '// start.ks -- runs the LM starter (Ships/Script/lm/lm_start.ks, seen here as 0:/lm/).\nRUNPATH("0:/lm/lm_start.ks").\n'
 files = [(p, f"Ships/Script/lm/{p.name}") for p in sorted((root / "scripts").glob("lm_*.ks"))]
