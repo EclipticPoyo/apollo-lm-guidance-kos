@@ -9,14 +9,15 @@ Status: ✅ released · 🔬 researched · 📝 planned
 | Version | Theme | What it adds | Status |
 |---|---|---|---|
 | **1.0** | Descent | Navigation, landing-site planner, P63 to P66, DSKY | ✅ |
-| **1.1** | J-class pads | Luminary 210 pad loads (Apollo 15 to 17), the logic changes in 210's P63 to P66, testing with other landers | 🔬 |
-| **1.2** | Ascent | Ascent guidance, P12 liftoff from the surface | 📝 |
-| **1.3** | Aborts | P70 and P71, abort stage, abort triggers during descent | 📝 |
-| **1.4** | Landing aids | Program alarms, landing radar state updates, fuel display, optional 1201/1202 training mode | 📝 |
-| **1.5** | Burn programmes | P40 to P47 general burns, external delta-V, RCS burns | 📝 |
-| **1.6** | Rendezvous I | Target handling, conic solvers, CSI and CDH | 📝 |
-| **1.7** | Rendezvous II | TPI, TPM, terminal phase, docking hand-off | 📝 |
-| **1.8** | DSKY core | A standalone DSKY with a profile per vehicle | 📝 |
+| **1.1** | DSKY core | The DSKY becomes a core that runs programmes through a common interface; P63 to P66 become the first programmes. A software-version setting is added. No change to what the pilot sees. | 📝 |
+| **1.2** | J-class pads | Luminary 210 pad loads (Apollo 15 to 17), the logic changes in 210's P63 to P66, testing with other landers | 🔬 |
+| **1.3** | Ascent | Ascent guidance, P12 liftoff from the surface | 📝 |
+| **1.4** | Aborts | P70 and P71, abort stage, abort triggers during descent | 📝 |
+| **1.5** | Landing aids | Program alarms, landing radar state updates, fuel display, optional 1201/1202 training mode | 📝 |
+| **1.6** | Burn programmes | P40 to P47 general burns, external delta-V, RCS burns | 📝 |
+| **1.7** | Rendezvous I | Target handling, conic solvers, CSI and CDH | 📝 |
+| **1.8** | Rendezvous II | TPI, TPM, terminal phase, docking hand-off | 📝 |
+| **1.9** | Vehicle profiles | A standalone DSKY with a profile per vehicle (lamps, programme list, verb/noun tables, name, version) | 📝 |
 
 ## Phase 2: the full mission (2.x)
 
@@ -33,21 +34,22 @@ Saturn launch, then the command module, the lunar module, the command module aga
 
 ```mermaid
 flowchart LR
-    v10["1.0 Descent ✅"] --> v11["1.1 J-class pads"]
-    v11 --> v12["1.2 Ascent"]
-    v12 --> v13["1.3 Aborts"]
-    v12 --> v15["1.5 Burn programmes"]
-    v15 --> v16["1.6 Rendezvous I"]
-    v16 --> v17["1.7 Rendezvous II"]
-    v10 --> v14["1.4 Landing aids"]
-    v17 --> v18["1.8 DSKY core"]
-    v18 --> v20["2.0 CSM basics"]
+    v10["1.0 Descent ✅"] --> v11["1.1 DSKY core"]
+    v11 --> v12["1.2 J-class pads"]
+    v12 --> v13["1.3 Ascent"]
+    v13 --> v14["1.4 Aborts"]
+    v13 --> v16["1.6 Burn programmes"]
+    v16 --> v17["1.7 Rendezvous I"]
+    v17 --> v18["1.8 Rendezvous II"]
+    v11 --> v15["1.5 Landing aids"]
+    v18 --> v19["1.9 Vehicle profiles"]
+    v19 --> v20["2.0 CSM basics"]
     v20 --> v21["2.1 Entry"]
     v21 --> v22["2.2 Launch"]
     v22 --> v23["2.3 Full mission"]
 ```
 
-1.4 does not depend on the ascent work and can be done at any point after 1.0.
+1.5 does not depend on the ascent work and can be done at any point after 1.1 (the alarm facility lives in the DSKY core).
 
 ## Between releases
 
