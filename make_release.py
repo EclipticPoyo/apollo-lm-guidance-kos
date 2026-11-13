@@ -6,12 +6,16 @@ The zip unzips straight into the KSP folder:
   Ships/Script/boot/lm_boot.ks   an optional boot file that selects the archive, so SWITCH TO 0. is not needed
   Ships/Script/core, lm (with descent/, planner/, images/, lm_config.txt, an empty logs/), shared   from scripts/ (no tests/)
   README.md, CHANGELOG.md, docs/MANUAL.md, docs/MANUAL.pdf (if built), docs/images/*   the readme and the pilot's manual
+VERSION (the version defaults to it, and a different argument is refused).
 Output: dist/apollo-lm-guidance-kos-<version>.zip (dist/ is git-ignored). The lowercase name is an aesthetic preference.
 """
 import sys, zipfile, pathlib
 
 root = pathlib.Path(__file__).parent
-version = sys.argv[1] if len(sys.argv) > 1 else "dev"
+file_version = (root / "VERSION").read_text(encoding="utf-8").strip()   # bump VERSION first; the wiki manual shows it too
+version = sys.argv[1] if len(sys.argv) > 1 else file_version
+if version != file_version:
+    sys.exit(f"refusing: asked for {version} but VERSION says {file_version}. Edit VERSION first.")
 out_dir = root / "dist"
 out_dir.mkdir(exist_ok=True)
 out = out_dir / f"apollo-lm-guidance-kos-{version}.zip"
@@ -24,7 +28,7 @@ for folder in ("core", "lm", "shared", "boot"):
     for p in sorted((root / "scripts" / folder).rglob("*")):
         if p.is_file() and p.suffix in (".ks", ".png", ".txt"):
             files.append((p, f"Ships/Script/{p.relative_to(root / 'scripts').as_posix()}"))
-files += [(root / "README.md", "README.md"), (root / "CHANGELOG.md", "CHANGELOG.md"), (root / "docs" / "MANUAL.md", "docs/MANUAL.md")]
+files += [(root / "VERSION", "VERSION"), (root / "README.md", "README.md"), (root / "CHANGELOG.md", "CHANGELOG.md"), (root / "docs" / "MANUAL.md", "docs/MANUAL.md")]
 if (root / "docs" / "MANUAL.pdf").exists():
     files.append((root / "docs" / "MANUAL.pdf", "docs/MANUAL.pdf"))
 files += [(p, f"docs/images/{p.name}") for p in sorted((root / "docs" / "images").glob("*.png"))]
