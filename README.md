@@ -31,7 +31,7 @@ See the **[Pilot's Manual](docs/MANUAL.md)** ([PDF](docs/MANUAL.pdf)).
 
 ## Made with Claude
 
-I wrote this with Claude (Anthropic's AI) in Claude Code. I decided what to build and tested it all in KSP; Claude wrote most of the code.
+I wrote this with Claude (Anthropic's AI) in Claude Code. I decided what to build, flew and tested everything in KSP, and checked it against the Apollo source. Claude wrote most of the code.
 
 ## More
 
