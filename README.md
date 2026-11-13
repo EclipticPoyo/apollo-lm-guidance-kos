@@ -35,5 +35,6 @@ I wrote this with Claude (Anthropic's AI) in Claude Code. I decided what to buil
 
 ## More
 
+- [Roadmap](https://github.com/EclipticPoyo/apollo-lm-guidance-kos/blob/main/ROADMAP.md): what is planned next
 - [Development notes and pad tests](docs/DEVELOPMENT.md)
 - Based on the [Apollo Lunar Surface Journal](https://www.ibiblio.org/apollo/) and the Luminary 099 source in [chrislgarry/apollo-11](https://github.com/chrislgarry/apollo-11); [kOS documentation](https://ksp-kos.github.io/KOS_DOC/)
