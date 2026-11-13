@@ -1,0 +1,17 @@
+# Logs
+*.log
+
+# Plan written by lm_deorbit.ks when scripts/ is linked as 0:/lm
+scripts/plan.json
+
+# Python cache (test reference script)
+__pycache__/
+*.pyc
+
+# Release zips
+dist/
+
+# OS clutter
+Thumbs.db
+desktop.ini
+.DS_Store
