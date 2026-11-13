@@ -209,6 +209,8 @@ FUNCTION core_run {
   LOCAL next_t IS TIME:SECONDS.
   LOCAL running IS TRUE.
   UNTIL NOT running {
+    LOCAL cycle_t0 IS TIME:SECONDS.        // start of this cycle's work, for COMP ACTY
+    LOCAL job_ran IS FALSE.                // did the "computer" do a job this cycle (COMP ACTY)?
     LOCAL nav IS vehicle["NAV"]:CALL(crun["PROG"]).
     IF NOT nav["OK"] {
       IF nav:HASKEY("MSG") { PRINT nav["MSG"]. } ELSE { PRINT "Navigation lost. Stopping.". }
@@ -219,6 +221,7 @@ FUNCTION core_run {
       IF ks["PROG_REQ"] >= 0 {
         LOCAL req IS ks["PROG_REQ"].
         SET ks["PROG_REQ"] TO -1.
+        SET job_ran TO TRUE.
         LOCAL req_res IS core_request(crun, vehicle, ks, req).
         IF req_res["MSG"] <> "" { PRINT req_res["MSG"]. }
       }
@@ -228,6 +231,12 @@ FUNCTION core_run {
       vehicle["HOOK"]:CALL(crun["PROG"], nav).
       LOCAL flags IS step_res["FLAGS"].
       SET flags["REGS"] TO vehicle["NOUN_REGS"]:CALL(ks["NOUN"], nav["DERIVED"]).
+      // COMP ACTY: lit while the Executive runs a job and dark when it idles (Luminary EXECUTIVE.agc: NUCHANG2 and
+      // NUDIRECT turn the light on, DUMMYJOB turns it off). Here a job is a programme step or a programme request;
+      // BUSY is how long this cycle's work took (the display adds its own minimum so a short job is still visible).
+      IF crun["PROG"]:ISTYPE("Lexicon") { SET job_ran TO TRUE. }
+      SET flags["JOB"] TO job_ran.
+      SET flags["BUSY"] TO TIME:SECONDS - cycle_t0.
       gui_update(ui, nav["DERIVED"], step_res["PROG_TEXT"], ks["VERB"], ks["NOUN"], flags).
       // V34 ENTR: terminate.
       IF ks["VERB"] = 34 { SET running TO FALSE. }

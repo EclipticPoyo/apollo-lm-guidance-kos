@@ -12,6 +12,9 @@ The DSKY becomes a core that runs programmes from a table; the LM is its first v
 - **Start-up:** `RUN dsky.` starts the DSKY (the stub `dsky.ks` runs `core/dsky.ks`). The planner is run first by itself with `RUN plan.` (a stub for `lm/planner/lm_plan_ui.ks`); `RUN start.` is gone.
 - **Site:** the DSKY takes the landing site from the saved plan only. The site arguments, the perilune fallback, the placeholder site and the start-up plan check line are removed. With no plan the DSKY runs, registers show `-----`, and P63 refuses (OPR ERR and a message).
 - **Layout:** scripts are in `core/` (the DSKY core), `lm/` (with `descent/` and `planner/`) and `shared/`; the install is the folders, not one `lm` folder.
+- **DSKY window look:** grey housing with rounded corners, framed lamp and display panels of equal width, black square keys with white captions laid out as on the real keypad, bold annunciator and VERB/NOUN/PROG captions, thicker register rules, no rule below R3.
+- **COMP ACTY:** lights while the computer is working (a programme step, a programme request, or a display change) and is dark when idle, as the Luminary Executive does; before, it lit for a quarter second at any display change.
+- **Registers:** R1 to R3 refresh once a second like a monitor verb (Luminary `MONDEL`), and at once when the noun changes.
 - **Internals:** `lm_main.ks`, `lm_start.ks` and `lm_display.ks` are replaced by `dsky_core.ks`, `dsky_keys.ks`, `dsky_display.ks`, `lm_vehicle.ks` and `lm_nouns.ks`. A software-version field (`LUMINARY099`) is on the vehicle and changes nothing yet.
 
 ### Added

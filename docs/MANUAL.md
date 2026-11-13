@@ -95,7 +95,7 @@ A window shaped like the LM's DSKY: PROG, VERB, NOUN and three data registers R1
 
 | Lamp | Lit when |
 |---|---|
-| COMP ACTY | a displayed value is changing (the computer is working) |
+| COMP ACTY | the computer is working: it flickers with each cycle of a running programme and blips when a displayed value changes or a key is processed. Dark when nothing is running |
 | PROG | a programme alarm (1406, time-to-go not converged) |
 | OPR ERR | a bad key entry or a refused programme. **RSET** clears it |
 | KEY REL | the programme wants the display back (for example at the engine prompt) |

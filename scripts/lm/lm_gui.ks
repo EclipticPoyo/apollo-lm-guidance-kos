@@ -19,8 +19,8 @@
 //    install. It is set with STYLE:FONT; if a font is missing it simply will not look like segments.
 //  - The window needs the main loop to keep running (gui_poll). Call gui_close when the script ends.
 //  - The window object must be created at the top level of the main script, see gui_fill below.
-// Simplifications: only PROG, OPR ERR and COMP ACTY ever light (COMP ACTY: whenever a displayed value
-// changes), the other lamps are placeholders;
+// Simplifications: only PROG, OPR ERR and COMP ACTY ever light (COMP ACTY: while a job runs or a displayed value
+// changes, see gui_update), the other lamps are placeholders;
 // + - and KEY REL can be pressed but do nothing (key_press ignores them) until something needs them.
 // Departure from the real DSKY (deliberate, user choice 2026-11-12): while VERB or NOUN is being keyed, the typed
 // digits show in its cells and the whole verb and noun line flashes until ENTR. On the real unit (Luminary 099, PINBALL_GAME_BUTTONS_AND_LIGHTS.agc,
@@ -45,16 +45,31 @@ GLOBAL GUI_LAMP_OFF_BG IS "lm/images/lamp_off".        // lamp cell backgrounds:
 GLOBAL GUI_LAMP_WHITE_BG IS "lm/images/lamp_white".    // lit, left column
 GLOBAL GUI_LAMP_AMBER_BG IS "lm/images/lamp_amber".    // lit, right column
 GLOBAL GUI_TAG_BG IS "lm/images/display_tag".           // solid display-colour image, found relative to the archive (Ships/Script) through the lm junction
-GLOBAL GUI_DISPLAY_W IS 250.                   // display panel width: the keypad is about 462 wide, lamp panel 200, gap about 7
+GLOBAL GUI_DISPLAY_W IS 250.                   // display panel width (the registers); the lamp panel is the same width, gap about 7
+GLOBAL GUI_LAMP_W IS 250.                      // lamp panel width: equal to the display panel
+GLOBAL GUI_LAMP_COL_W IS 110.                  // width of one lamp cell (two cells, the gap and the panel padding fit GUI_LAMP_W)
+GLOBAL GUI_LAMP_INSET IS 8.                    // space between the lamp panel's edge and the lamps, all four sides (the lamps used to overlap the frame)
+GLOBAL GUI_LAMP_H IS 40.                       // height of one lamp cell
 GLOBAL GUI_LEFT_COL_W IS 116.                  // widths of the two columns of the display panel
 GLOBAL GUI_RIGHT_COL_W IS 116.
 GLOBAL GUI_RIGHT_SHIFT IS 32.                  // spacer that pushes PROG and NOUN to the right edge
-GLOBAL GUI_OFF_TEXT IS RGB(0.62, 0.68, 0.78).  // text of a lamp that is off
-GLOBAL GUI_COMP_HOLD IS 0.25.                  // seconds COMP ACTY stays lit after a display change
-GLOBAL GUI_PANEL_H IS 370.                     // height of the lamp panel and the display panel, pixels
+GLOBAL GUI_OFF_TEXT IS RGB(0.04, 0.04, 0.05).  // text of a lamp that is off: black on the light-grey off cell
+GLOBAL GUI_REG_PERIOD IS 1.0.                  // seconds between refreshes of R1 to R3: a monitor verb shows its numbers once a second (Luminary PINBALL MONDEL, OCT 144 = 100 centiseconds)
+GLOBAL GUI_COMP_HOLD IS 0.1.                   // seconds COMP ACTY stays lit at least, after a job or a display change
+GLOBAL GUI_HOUSING_BG IS "lm/images/housing_grey".  // grey housing of the window and the lamp panel (RGB 118,122,128, from a photo of the real unit)
+GLOBAL GUI_BEZEL_BG IS "lm/images/bezel_panel".    // frame of the lamp and display panels: darker rim round a near-black centre
+GLOBAL GUI_SCREEN_BG IS "lm/images/bezel_screen".  // frame of the display: the same rim, a lighter centre
+GLOBAL GUI_BEZEL_W IS 3.                            // rim width of bezel_panel.png in pixels (also the panel padding)
+GLOBAL GUI_HOUSING_CORNER IS 12.                    // corner size of housing_grey.png in pixels (it is 32x32 with a radius of 12)
+GLOBAL GUI_KEY_BG IS "lm/images/key_black".         // keypad key faces: solid-colour images in scripts/lm/images/
+GLOBAL GUI_KEY_HOVER_BG IS "lm/images/key_hover".   // mouse over a key
+GLOBAL GUI_KEY_PRESS_BG IS "lm/images/key_press".   // key held down
+GLOBAL GUI_KEY_TEXT IS RGB(1, 1, 1).                // key caption colour (white)
+GLOBAL GUI_KEY_SIZE IS 64.                    // keypad keys are squares of this size, pixels (7 columns across the 510 window)
+GLOBAL GUI_PANEL_H IS 370.                    // height of the lamp panel and the display panel, pixels
 GLOBAL GUI_DIGIT_SIZE IS 54.                   // font size of PROG, VERB, NOUN and the registers: sized so a
                                                // six-character register fills the display panel width
-GLOBAL GUI_WINDOW_WIDTH IS 460.                // the width to pass to GUI() in the main script
+GLOBAL GUI_WINDOW_WIDTH IS 510.               // the width to pass to GUI() in the main script
 
 // gui_keep: remember a widget in the global GUI_PARTS list and return it. This is how the windows that
 // survived in the probe tests were built. Holding references was one theory for why windows built in a
@@ -71,6 +86,13 @@ FUNCTION lit_text {
   PARAMETER text.
   IF NOT GUI_RICH { RETURN text. }
   RETURN "<color=" + GUI_DISPLAY_HEX + ">" + text + "</color>".
+}
+
+// bold_text: caption text in rich-text bold (the annunciator lamps). Plain when GUI_RICH is FALSE.
+FUNCTION bold_text {
+  PARAMETER text.
+  IF NOT GUI_RICH { RETURN text. }
+  RETURN "<b>" + text + "</b>".
 }
 
 // gui_lamp_style: a lamp is a cell: a dark cell with dim text when off, a bright cell with dark text when lit
@@ -149,7 +171,7 @@ FUNCTION gui_set_cells {
 // solid image stretches to any size, so display_tag.png is one solid colour.
 FUNCTION gui_tag {
   PARAMETER holder, text, width.
-  LOCAL tag_w IS gui_label(holder, text, width, 12, "", "CENTER").
+  LOCAL tag_w IS gui_label(holder, bold_text(text), width, 12, "", "CENTER").
   SET tag_w:STYLE:BG TO GUI_TAG_BG.
   SET tag_w:STYLE:TEXTCOLOR TO RGB(0.04, 0.1, 0.05).
   SET tag_w:STYLE:HEIGHT TO 18.
@@ -157,14 +179,13 @@ FUNCTION gui_tag {
 }
 
 // gui_comp_style: COMP ACTY is the display colour when lit. Off it has no background at all (transparent, so it shows the
-// panel behind it), only dim text, unlike the other lamps whose off state is a dark cell.
-// STYLE:BG "" falls back to transparent (kOS docs, StyleState:BG).
+// panel behind it), unlike the other lamps whose off state is a grey cell. The text is black either way.
 FUNCTION gui_comp_style {
   PARAMETER label_w, lit.
   IF lit {
     gui_lamp_style(label_w, TRUE, GUI_TAG_BG).
   } ELSE {
-    SET label_w:STYLE:BG TO "".
+    SET label_w:STYLE:BG TO "".     // transparent: "" falls back to no background (kOS docs, StyleState:BG)
     SET label_w:STYLE:TEXTCOLOR TO GUI_OFF_TEXT.
   }
 }
@@ -183,19 +204,73 @@ FUNCTION gui_comp_show {
 // (A solid bar made from an empty label with the tag image was tried and the underscores were preferred.)
 FUNCTION gui_rule {
   PARAMETER holder.
-  LOCAL rule_w IS gui_label(holder, lit_text("________________________________________"), GUI_DISPLAY_W - 20, 10, "", "CENTER").
+  LOCAL rule_w IS gui_label(holder, lit_text("___________"), GUI_DISPLAY_W - 6, 32, "", "CENTER").   // label is left-anchored, so extra width moves the centred text right
   SET rule_w:STYLE:WORDWRAP TO FALSE.
-  SET rule_w:STYLE:HEIGHT TO 12.
+  SET rule_w:STYLE:HEIGHT TO 12.   // kept at 12 so the register rows do not move
+  // A big underscore sits at the bottom of a tall text line, so it drew below the label. Pull the text up
+  // (negative top padding; the docs do not say negative values work, so this is a test).
+  SET rule_w:STYLE:PADDING:TOP TO -20.
+}
+
+// gui_skin: give a window or box a background image in every state (they switch between states, a window with
+// focus is "on"; STYLE:BG alone sets only NORMAL). Used for the grey housing and the darker panel frames.
+FUNCTION gui_skin {
+  PARAMETER widget_w, image.
+  SET widget_w:STYLE:NORMAL:BG TO image.
+  SET widget_w:STYLE:ON:BG TO image.
+  SET widget_w:STYLE:HOVER:BG TO image.
+  SET widget_w:STYLE:HOVER_ON:BG TO image.
+  SET widget_w:STYLE:ACTIVE:BG TO image.
+  SET widget_w:STYLE:ACTIVE_ON:BG TO image.
+  SET widget_w:STYLE:FOCUSED:BG TO image.
+  SET widget_w:STYLE:FOCUSED_ON:BG TO image.
+  // The images have rounded, transparent corners. BORDER says how many pixels at each edge are the corners
+  // (the "9-slice" edges): they are kept as drawn and only the middle stretches (kOS docs, Style:BORDER).
+  SET widget_w:STYLE:BORDER:LEFT TO GUI_HOUSING_CORNER.
+  SET widget_w:STYLE:BORDER:RIGHT TO GUI_HOUSING_CORNER.
+  SET widget_w:STYLE:BORDER:TOP TO GUI_HOUSING_CORNER.
+  SET widget_w:STYLE:BORDER:BOTTOM TO GUI_HOUSING_CORNER.
+}
+
+// gui_key_spacer: an empty half-key-high gap at the top of a keypad column.
+FUNCTION gui_key_spacer {
+  PARAMETER column_w.
+  LOCAL gap_w IS gui_label(column_w, "", GUI_KEY_SIZE, 12, "", "CENTER").
+  SET gap_w:STYLE:HEIGHT TO FLOOR(GUI_KEY_SIZE / 2).
 }
 
 // gui_add_key: add one keypad button of the given size to a column and record it in ui["KEYS"] as
 // LIST(button, character sent to key_press).
 FUNCTION gui_add_key {
-  PARAMETER ui, column_w, caption, key_char, height.
+  PARAMETER ui, column_w, caption, key_char.
   LOCAL key_w IS gui_keep(column_w:ADDBUTTON(caption)).
-  SET key_w:STYLE:WIDTH TO 58.
-  SET key_w:STYLE:HEIGHT TO height.
-  SET key_w:STYLE:FONTSIZE TO 13.
+  SET key_w:STYLE:WIDTH TO GUI_KEY_SIZE.
+  SET key_w:STYLE:HEIGHT TO GUI_KEY_SIZE.   // every key is the same square
+  IF caption:LENGTH = 1 {
+    SET key_w:STYLE:FONTSIZE TO 22.   // digits, + and -: larger, like the real keycaps
+  } ELSE {
+    SET key_w:STYLE:FONTSIZE TO 13.   // word keys (VERB, ENTR, ...)
+  }
+  // Black keys with white text. STYLE:BG and STYLE:TEXTCOLOR set only the NORMAL state (kOS docs, Style), so
+  // the states a click goes through are set one by one: HOVER (mouse over), ACTIVE (held down), FOCUSED.
+  // The "on" states matter too: a click sets the button "on" until TAKEPRESS pops it out, and in that
+  // moment (and while it has keyboard focus) the default grey skin showed through.
+  SET key_w:STYLE:NORMAL:BG TO GUI_KEY_BG.
+  SET key_w:STYLE:ON:BG TO GUI_KEY_BG.
+  SET key_w:STYLE:HOVER:BG TO GUI_KEY_HOVER_BG.
+  SET key_w:STYLE:HOVER_ON:BG TO GUI_KEY_HOVER_BG.
+  SET key_w:STYLE:ACTIVE:BG TO GUI_KEY_PRESS_BG.
+  SET key_w:STYLE:ACTIVE_ON:BG TO GUI_KEY_PRESS_BG.
+  SET key_w:STYLE:FOCUSED:BG TO GUI_KEY_BG.
+  SET key_w:STYLE:FOCUSED_ON:BG TO GUI_KEY_BG.
+  SET key_w:STYLE:NORMAL:TEXTCOLOR TO GUI_KEY_TEXT.
+  SET key_w:STYLE:ON:TEXTCOLOR TO GUI_KEY_TEXT.
+  SET key_w:STYLE:HOVER:TEXTCOLOR TO GUI_KEY_TEXT.
+  SET key_w:STYLE:HOVER_ON:TEXTCOLOR TO GUI_KEY_TEXT.
+  SET key_w:STYLE:ACTIVE:TEXTCOLOR TO GUI_KEY_TEXT.
+  SET key_w:STYLE:ACTIVE_ON:TEXTCOLOR TO GUI_KEY_TEXT.
+  SET key_w:STYLE:FOCUSED:TEXTCOLOR TO GUI_KEY_TEXT.
+  SET key_w:STYLE:FOCUSED_ON:TEXTCOLOR TO GUI_KEY_TEXT.
   ui["KEYS"]:ADD(LIST(key_w, key_char)).
 }
 
@@ -216,14 +291,27 @@ FUNCTION gui_fill {
   PARAMETER win_w.
   LOCAL ui IS LEXICON().
   SET ui["WIN"] TO win_w.
+  gui_skin(win_w, GUI_HOUSING_BG).     // grey DSKY housing behind everything
 
   LOCAL top_row IS gui_keep(win_w:ADDHLAYOUT()).
 
   // ---- Lamp panel: two columns of seven, in the order of the photograph. "" is an empty slot. ----
   LOCAL lamp_panel IS gui_keep(top_row:ADDVBOX()).
-  SET lamp_panel:STYLE:WIDTH TO 200.
+  gui_skin(lamp_panel, GUI_BEZEL_BG).   // darker frame round the annunciators; its dark centre shows between the lamps
+  SET lamp_panel:STYLE:WIDTH TO GUI_LAMP_W.
   SET lamp_panel:STYLE:HEIGHT TO GUI_PANEL_H.
-  LOCAL lamp_h IS FLOOR((GUI_PANEL_H - 12) / 7) - 9.    // seven rows fill the panel, like the real one (9: the gap between rows)
+  // No padding top and bottom. Every label also has a default margin of about 4 px, which pushed the first lamp
+  // down by that much and the last one past the bottom edge (measured 2026-11-13: the padding change alone left
+  // the column 5 px low). So the first row has no top margin and the last row no bottom margin (below), which
+  // puts the first and last lamp on the top and bottom edges of the display panel next to it.
+  SET lamp_panel:STYLE:PADDING:TOP TO GUI_LAMP_INSET.     // keep the lamps clear of the frame's rim
+  SET lamp_panel:STYLE:PADDING:BOTTOM TO GUI_LAMP_INSET.
+  SET lamp_panel:STYLE:PADDING:LEFT TO GUI_LAMP_INSET.
+  SET lamp_panel:STYLE:PADDING:RIGHT TO GUI_LAMP_INSET.
+  LOCAL lamp_h IS GUI_LAMP_H.
+  // The seven rows still fill the panel from top to bottom: the space the shorter lamps leave is shared out as
+  // equal gaps. Each lamp's top margin makes the gap above it, its bottom margin is 0 (set below).
+  LOCAL lamp_gap IS FLOOR((GUI_PANEL_H - 2 * GUI_LAMP_INSET - 7 * lamp_h) / 6).
   LOCAL left_names IS LIST("UPLINK ACTY", "NO ATT", "STBY", "KEY REL", "OPR ERR", "CONTACT", "").   // CONTACT: the P65/P66 touchdown lamp (on the real LM it was on the main panel, not the DSKY)
   LOCAL right_names IS LIST("TEMP", "GIMBAL LOCK", "PROG", "RESTART", "TRACKER", "ALT", "VEL").
   SET ui["LAMPS"] TO LEXICON().
@@ -231,12 +319,20 @@ FUNCTION gui_fill {
   SET ui["LAMP_BG"] TO LEXICON().
   FROM { LOCAL i IS 0. } UNTIL i >= 7 STEP { SET i TO i + 1. } DO {
     LOCAL lamp_row IS gui_keep(lamp_panel:ADDHLAYOUT()).
-    LOCAL lamp_l IS gui_label(lamp_row, left_names[i], 94, 12, "", "CENTER").
-    LOCAL lamp_r IS gui_label(lamp_row, right_names[i], 94, 12, "", "CENTER").
+    LOCAL lamp_l IS gui_label(lamp_row, bold_text(left_names[i]), GUI_LAMP_COL_W, 12, "", "CENTER").
+    LOCAL lamp_r IS gui_label(lamp_row, bold_text(right_names[i]), GUI_LAMP_COL_W, 12, "", "CENTER").
     SET lamp_l:STYLE:HEIGHT TO lamp_h.
     SET lamp_r:STYLE:HEIGHT TO lamp_h.
-    SET lamp_l:STYLE:PADDING:TOP TO FLOOR((lamp_h - 14) / 2).    // text starts at the top of a label: pad it to the middle
-    SET lamp_r:STYLE:PADDING:TOP TO FLOOR((lamp_h - 14) / 2).
+    LOCAL gap_above IS lamp_gap.
+    IF i = 0 { SET gap_above TO 0. }
+    SET lamp_l:STYLE:MARGIN:TOP TO gap_above.
+    SET lamp_r:STYLE:MARGIN:TOP TO gap_above.
+    SET lamp_l:STYLE:MARGIN:BOTTOM TO 0.
+    SET lamp_r:STYLE:MARGIN:BOTTOM TO 0.
+    SET lamp_l:STYLE:MARGIN:LEFT TO 4.      // centres the two cells in the panel: 4 + 110 + 10 + 110 = 234 of the 234 inside the padding
+    SET lamp_r:STYLE:MARGIN:LEFT TO 10.     // 10 = the vertical gap between the two columns
+    SET lamp_l:STYLE:PADDING:TOP TO FLOOR((lamp_h - 14) / 2) - 6.    // text starts at the top of a label: pad it to the middle (-6: measured from a screenshot, it sat low)
+    SET lamp_r:STYLE:PADDING:TOP TO FLOOR((lamp_h - 14) / 2) - 6.
     // Left column lights white, right column amber, as on the real panel. An empty slot is a dark cell.
     gui_lamp_style(lamp_l, FALSE, GUI_LAMP_WHITE_BG).
     gui_lamp_style(lamp_r, FALSE, GUI_LAMP_AMBER_BG).
@@ -252,6 +348,7 @@ FUNCTION gui_fill {
 
   // ---- Display panel: COMP ACTY, PROG, VERB and NOUN, three signed registers ----------------------
   LOCAL disp_panel IS gui_keep(top_row:ADDVBOX()).
+  gui_skin(disp_panel, GUI_SCREEN_BG).    // same frame round the display
   SET disp_panel:STYLE:WIDTH TO GUI_DISPLAY_W.
   SET disp_panel:STYLE:HEIGHT TO GUI_PANEL_H.
   SET disp_panel:STYLE:PADDING:LEFT TO 3.       // less left padding: VERB starts nearer the left edge
@@ -271,9 +368,9 @@ FUNCTION gui_fill {
   // Flown DSKYs read COMP ACTY (user, 2026-11-12; the LM panel drawing 300LM5-18 prints CMPTR ACTY).
   // The lit box is large: about as tall as the PROG tag plus its digits, and as wide as the VERB tag (84)
   // so its edges line up with VERB below it.
-  SET ui["COMP"] TO gui_label(comp_col, "COMP" + CHAR(10) + "ACTY", 84, 12, "", "CENTER").
+  SET ui["COMP"] TO gui_label(comp_col, bold_text("COMP" + CHAR(10) + "ACTY"), 84, 12, "", "CENTER").
   SET ui["COMP"]:STYLE:HEIGHT TO 72.
-  SET ui["COMP"]:STYLE:PADDING:TOP TO 22.        // a label draws its text from the top: padding moves it to the middle
+  SET ui["COMP"]:STYLE:PADDING:TOP TO 14.     // a label draws its text from the top: padding moves it to the middle
   SET ui["COMP_LIT"] TO FALSE.
   gui_comp_style(ui["COMP"], FALSE).
   // The right column (PROG over NOUN) is pushed against the right edge with a spacer ahead of its tag and
@@ -303,40 +400,43 @@ FUNCTION gui_fill {
   SET ui["NOUN"] TO gui_cells(noun_dig_row, 2, 40).
 
   // R1 to R3: sign cell plus five digit cells each, six cells across the panel, a rule above each and
-  // one below the last, as on the real display.
-  SET ui["COMP_UNTIL"] TO 0.     // UT until which COMP ACTY stays lit after a display change
+  // (three rules in all: below VERB/NOUN, below R1, below R2; none below R3).
+  SET ui["REG_NEXT"] TO 0.      // UT of the next refresh of R1 to R3 (a monitor shows its numbers once a second)
+  SET ui["REG_NOUN"] TO -1.     // the noun the registers were last refreshed for: a new noun refreshes at once
+  SET ui["COMP_UNTIL"] TO 0.     // UT until which COMP ACTY stays lit (after a job or a display change)
   SET ui["REGS"] TO LIST().
   FROM { LOCAL i IS 0. } UNTIL i >= 3 STEP { SET i TO i + 1. } DO {
     gui_rule(disp_panel).
     LOCAL reg_row IS gui_keep(disp_panel:ADDHLAYOUT()).
     ui["REGS"]:ADD(gui_cells(reg_row, 6, 35)).
   }
-  gui_rule(disp_panel).
 
-  // ---- Keypad: seven columns, as in the photograph ------------------------------------------------
-  // Each column is a vertical strip of buttons. Heights: 34 for a normal key, 52 for the tall keys,
-  // which together stand in for the one-and-a-half-row keys of the real unit.
+  // ---- Keypad: seven columns of identical square keys, as on the real unit ---------------------------
+  // VERB/NOUN and ENTR/RSET are two keys each, set half a key lower than the three-key columns
+  // (a blank half-key spacer on top).
   SET ui["KEYS"] TO LIST().
   LOCAL pad IS gui_keep(win_w:ADDHLAYOUT()).
   LOCAL col_verb IS gui_keep(pad:ADDVLAYOUT()).
-  gui_add_key(ui, col_verb, "VERB", "V", 52).
-  gui_add_key(ui, col_verb, "NOUN", "N", 52).
+  gui_key_spacer(col_verb).
+  gui_add_key(ui, col_verb, "VERB", "V").
+  gui_add_key(ui, col_verb, "NOUN", "N").
   LOCAL col_sign IS gui_keep(pad:ADDVLAYOUT()).
-  gui_add_key(ui, col_sign, "+", "+", 34).
-  gui_add_key(ui, col_sign, "-", "-", 34).
-  gui_add_key(ui, col_sign, "0", "0", 34).
+  gui_add_key(ui, col_sign, "+", "+").
+  gui_add_key(ui, col_sign, "-", "-").
+  gui_add_key(ui, col_sign, "0", "0").
   LOCAL digit_cols IS LIST(LIST("7", "4", "1"), LIST("8", "5", "2"), LIST("9", "6", "3")).
   FOR digit_col IN digit_cols {
     LOCAL col_w IS gui_keep(pad:ADDVLAYOUT()).
-    FOR digit_key IN digit_col { gui_add_key(ui, col_w, digit_key, digit_key, 34). }
+    FOR digit_key IN digit_col { gui_add_key(ui, col_w, digit_key, digit_key). }
   }
   LOCAL col_clr IS gui_keep(pad:ADDVLAYOUT()).
-  gui_add_key(ui, col_clr, "CLR", "C", 34).
-  gui_add_key(ui, col_clr, "PRO", "P", 34).
-  gui_add_key(ui, col_clr, "KEY" + CHAR(10) + "REL", "K", 34).
+  gui_add_key(ui, col_clr, "CLR", "C").
+  gui_add_key(ui, col_clr, "PRO", "P").
+  gui_add_key(ui, col_clr, "KEY" + CHAR(10) + "REL", "K").
   LOCAL col_entr IS gui_keep(pad:ADDVLAYOUT()).
-  gui_add_key(ui, col_entr, "ENTR", "E", 52).
-  gui_add_key(ui, col_entr, "RSET", "R", 52).
+  gui_key_spacer(col_entr).
+  gui_add_key(ui, col_entr, "ENTR", "E").
+  gui_add_key(ui, col_entr, "RSET", "R").
 
   RETURN ui.
 }
@@ -385,11 +485,16 @@ FUNCTION gui_update {
     gui_set_cells(ui["VERB"], "").
     gui_set_cells(ui["NOUN"], "").
     FOR reg_cells IN ui["REGS"] { gui_set_cells(reg_cells, ""). }
+    SET ui["REG_NEXT"] TO 0.      // show the numbers again at once when the blanking ends
     RETURN.
   }
   LOCAL flash_all IS flags:HASKEY("FLASH") AND flags["FLASH"].
-  // COMP ACTY lights whenever a displayed value (PROG, VERB, NOUN, R1 to R3) changes, and stays lit for
-  // GUI_COMP_HOLD seconds so a single change is visible.
+  // COMP ACTY: lit while the computer is working (Luminary: on when the Executive runs a job, off when it idles,
+  // EXECUTIVE.agc). Two things count as work: a job the core reports (flags JOB: a programme step ran or a programme
+  // was requested, and BUSY: how long that cycle's work took) and a displayed value (PROG, VERB, NOUN, R1 to R3)
+  // changing, which is the display routine running. The light stays lit for the work time, at least GUI_COMP_HOLD
+  // seconds so that a short job is still visible. An idle P00 is dark between key presses; a running programme
+  // flickers with its cycle.
   LOCAL changed IS FALSE.
   IF gui_set_cells(ui["PROG"], prog) { SET changed TO TRUE. }
   // While VERB or NOUN is being keyed, the whole verb and noun line flashes together (the real VERB/NOUN FLASH
@@ -416,10 +521,22 @@ FUNCTION gui_update {
   }
   LOCAL regs IS LIST(NA, NA, NA).      // the three register texts come in through flags["REGS"] (the vehicle's noun table)
   IF flags:HASKEY("REGS") { IF flags["REGS"]:LENGTH = 3 { SET regs TO flags["REGS"]. } }
-  FROM { LOCAL i IS 0. } UNTIL i >= 3 STEP { SET i TO i + 1. } DO {
-    IF gui_set_cells(ui["REGS"][i], regs[i]) { SET changed TO TRUE. }
+  // R1 to R3 are a monitored noun: the real computer redisplays them once a second (Luminary monitor verbs,
+  // "PERIODIC (1 PER SEC) DISPLAY", MONDEL = 1 s), not at our faster cycle. A new noun, or a blanked display, shows at
+  // once; otherwise the digits only change when GUI_REG_PERIOD has passed since the last refresh.
+  IF noun <> ui["REG_NOUN"] OR TIME:SECONDS >= ui["REG_NEXT"] {
+    SET ui["REG_NOUN"] TO noun.
+    SET ui["REG_NEXT"] TO TIME:SECONDS + GUI_REG_PERIOD.
+    FROM { LOCAL i IS 0. } UNTIL i >= 3 STEP { SET i TO i + 1. } DO {
+      IF gui_set_cells(ui["REGS"][i], regs[i]) { SET changed TO TRUE. }
+    }
   }
-  IF changed { SET ui["COMP_UNTIL"] TO TIME:SECONDS + GUI_COMP_HOLD. }
+  LOCAL job IS changed OR (flags:HASKEY("JOB") AND flags["JOB"]).
+  IF job {
+    LOCAL hold_s IS GUI_COMP_HOLD.
+    IF flags:HASKEY("BUSY") { SET hold_s TO MAX(hold_s, flags["BUSY"]). }
+    SET ui["COMP_UNTIL"] TO TIME:SECONDS + hold_s.
+  }
   gui_comp_show(ui, TIME:SECONDS < ui["COMP_UNTIL"]).
 }
 
