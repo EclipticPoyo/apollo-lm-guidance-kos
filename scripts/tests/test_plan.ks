@@ -37,6 +37,26 @@ assert_near("pdi PHI",     geo["PHI"],     14.424743871061887, 1.5e-5).
 assert_near("pdi ALT_PDI", geo["ALT_PDI"], 15775.779272097163, 0.0158).
 assert_true("pdi PHI positive although RIGNZ negative", geo["PHI"] > 0).
 
+// ---- Release 1.2: pad-load profiles (Apollo 17 values, expected from the same formulas in Python, same site and body radii) ----
+LOCAL pv_a IS plan_pdi_values("A11").
+LOCAL pv_j IS plan_pdi_values("J").
+assert_near("profile A11 RIGNX", pv_a["RIGNX"], RIGNX, 1e-9).
+assert_near("profile A11 VIGN", pv_a["VIGN"], 1690.256208, 1e-6).
+assert_near("profile J RIGNX", pv_j["RIGNX"], -47593.00514, 1e-6).
+assert_near("profile J RIGNZ", pv_j["RIGNZ"], -469983.8606, 1e-6).
+assert_near("profile J VIGN", pv_j["VIGN"], 1689.475188, 1e-6).
+assert_near("profile unknown name is A11", plan_pdi_values("X")["VIGN"], 1690.256208, 1e-6).
+LOCAL geo_j IS plan_pdi_geometry(1737400, pv_j["RIGNX"], pv_j["RIGNZ"], 1737100).
+assert_near("pdi J R_PDI",   geo_j["R_PDI"],   1753947.6928067908, 1.754).
+assert_near("pdi J PHI",     geo_j["PHI"],     15.542776577296411, 1.6e-5).
+assert_near("pdi J ALT_PDI", geo_j["ALT_PDI"], 16847.692806790816, 0.017).
+assert_true("plan_profile_of: J plan", plan_profile_of(LEXICON("PROFILE", "J")) = "J").
+assert_true("plan_profile_of: A11 plan", plan_profile_of(LEXICON("PROFILE", "A11")) = "A11").
+assert_true("plan_profile_of: plan without the key (made before 1.2)", plan_profile_of(LEXICON("T_PDI", 1)) = "A11").
+assert_true("plan_profile_of: unknown value", plan_profile_of(LEXICON("PROFILE", "Z")) = "A11").
+assert_true("plan_profile_of: no plan", plan_profile_of(FALSE) = "A11").
+assert_true("the default profile is A11", PAD_PROFILE = "A11").
+
 LOCAL wm_t IS V(0, 1e-5, 0).
 LOCAL rot_a IS V(1737000, 0, 0).
 assert_vec("spin rotate 1 rad",  plan_spin_rotate(rot_a, wm_t, 1e5),  V(938505.1052929588, 0, 1461635.100611316),  1.8).

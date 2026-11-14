@@ -60,6 +60,7 @@ FUNCTION check_log {
 //   WARP_RATE         current time-warp rate (1 = none)
 //   NODES_OK          the game lets us make maneuver nodes
 //   TERRAIN_CLEAR_MIN smallest height above the terrain on the descent orbit, m (-999999 = not measured)
+//   VIGN              (optional) the profile's speed at PDI, m/s; the Apollo 11 VIGN when missing
 // Returns LEXICON("ERRORS", LIST, "WARNINGS", LIST) of strings. Any error means: do not use this plan.
 FUNCTION check_plan_pre {
   PARAMETER p.
@@ -85,8 +86,10 @@ FUNCTION check_plan_pre {
     errors:ADD("descent orbit comes within " + ROUND(p["TERRAIN_CLEAR_MIN"]) + " m of the terrain (minimum "
       + PLAN_TERRAIN_MIN_M + " m)").
   }
-  IF ABS(p["V_PDI"] - VIGN) > PLAN_VIGN_TOL {
-    warnings:ADD("PDI speed " + ROUND(p["V_PDI"], 1) + " m/s differs from VIGN " + ROUND(VIGN, 1)
+  LOCAL vign_used IS VIGN.                                       // the Apollo 11 value unless the caller names the profile's own
+  IF p:HASKEY("VIGN") { SET vign_used TO p["VIGN"]. }
+  IF ABS(p["V_PDI"] - vign_used) > PLAN_VIGN_TOL {
+    warnings:ADD("PDI speed " + ROUND(p["V_PDI"], 1) + " m/s differs from VIGN " + ROUND(vign_used, 1)
       + " m/s by more than " + PLAN_VIGN_TOL + " m/s (P63 ignition timing will absorb small differences)").
   }
   IF ABS(p["ALT_PDI"] - p["ALT_PDI_NOM"]) > PLAN_CHK_ALT {

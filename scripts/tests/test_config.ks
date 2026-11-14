@@ -9,6 +9,7 @@ RUNONCEPATH("0:/tests/test_lib.ks").
 test_begin("0:/lm/logs/test_config.log").
 
 LOCAL keep_log IS LM_LOG.
+LOCAL keep_start IS DSKY_START.
 LOCAL keep_mode IS P63_WINDOW_MODE.
 LOCAL keep_warp IS P63_WARP_LEAD_S.
 LOCAL keep_pitch IS P64_PITCH_SIGN.
@@ -29,12 +30,16 @@ cfg_apply_line("lm_log=false   // lower case, no spaces, trailing comment").
 assert_true("LM_LOG false, any case, comment after", NOT LM_LOG).
 cfg_apply_line("P63_WINDOW_MODE = keep").
 assert_true("P63_WINDOW_MODE keep becomes KEEP", P63_WINDOW_MODE = "KEEP").
+cfg_apply_line("dsky_start = n60").
+assert_true("DSKY_START n60 becomes N60", DSKY_START = "N60").
+assert_true("DSKY_START other than BLANK or N60 is skipped", cfg_apply_line("DSKY_START = X") <> "" AND DSKY_START = "N60").
+CFG_WARNINGS:CLEAR().
 cfg_apply_line("P63_WARP_LEAD_S = 45.5").
 assert_near("P63_WARP_LEAD_S 45.5", P63_WARP_LEAD_S, 45.5, 1e-9).
-cfg_apply_line("P64_PITCH_SIGN = -1").
+cfg_apply_line("P64_PITCH_SIGN = 1").
 cfg_apply_line("P64_YAW_SIGN = 1").
 cfg_apply_line("P66_ROD_SIGN = -1").
-assert_true("sign settings", P64_PITCH_SIGN = -1 AND P64_YAW_SIGN = 1 AND P66_ROD_SIGN = -1).
+assert_true("sign settings", P64_PITCH_SIGN = 1 AND P64_YAW_SIGN = 1 AND P66_ROD_SIGN = -1).
 cfg_apply_line("BODY_NAME = Mun").
 assert_true("BODY_NAME text", BODY_NAME = "Mun").
 assert_true("good lines gave no warnings", CFG_WARNINGS:LENGTH = 0).
@@ -50,7 +55,7 @@ assert_true("bad boolean is skipped", cfg_apply_line("LM_LOG = maybe") <> "" AND
 assert_true("bad window mode is skipped", cfg_apply_line("P63_WINDOW_MODE = SIDEWAYS") <> "" AND P63_WINDOW_MODE = "KEEP").
 assert_true("text for a number is skipped", cfg_apply_line("P63_WARP_LEAD_S = soon") <> "" AND P63_WARP_LEAD_S = 45.5).
 assert_true("negative warp lead is skipped", cfg_apply_line("P63_WARP_LEAD_S = -5") <> "" AND P63_WARP_LEAD_S = 45.5).
-assert_true("sign other than 1 or -1 is skipped", cfg_apply_line("P64_PITCH_SIGN = 2") <> "" AND P64_PITCH_SIGN = -1).
+assert_true("sign other than 1 or -1 is skipped", cfg_apply_line("P64_PITCH_SIGN = 2") <> "" AND P64_PITCH_SIGN = 1).
 assert_true("warnings name the line", CFG_WARNINGS[CFG_WARNINGS:LENGTH - 1]:CONTAINS("P64_PITCH_SIGN")).
 
 // A missing file is not an error and changes nothing.
@@ -69,6 +74,7 @@ SET LM_LOG TO keep_log.
 SET P63_WINDOW_MODE TO keep_mode.
 SET P63_WARP_LEAD_S TO keep_warp.
 SET P64_PITCH_SIGN TO keep_pitch.
+SET DSKY_START TO keep_start.
 SET P64_YAW_SIGN TO keep_yaw.
 SET P66_ROD_SIGN TO keep_rod.
 SET BODY_NAME TO keep_body.

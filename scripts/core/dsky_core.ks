@@ -3,6 +3,7 @@
 //
 // Vehicle LEXICON (read here, built by the vehicle's own file):
 //   "NOUNS", "VERBS", "PROGS"  LISTs of the numbers the keypad accepts (PROGS: what V37 may ask for)
+//   "START_VN"     (optional) LIST(verb, noun) shown at start; LIST(-1, -1) = a blank display; default V16 and the first noun
 //   "NOUN_REGS"    delegate (noun_no, derived) -> LIST of three register texts (empty LIST = no such noun)
 //   "NAV"          delegate (prog) -> LEXICON("OK", bool, "STATE", state, "DERIVED", derived[, "MSG", text]);
 //                  prog is the running programme's LEXICON or FALSE; OK FALSE stops the loop (MSG is printed)
@@ -204,7 +205,9 @@ FUNCTION core_step {
 // fixed-rate slot. Ends on V34 ENTR, or when the vehicle's navigation says stop; a running programme is always ended.
 FUNCTION core_run {
   PARAMETER ui, vehicle.
-  LOCAL ks IS keys_new(vehicle["NOUNS"], vehicle["VERBS"], vehicle["PROGS"]).
+  LOCAL start_vn IS LIST().
+  IF vehicle:HASKEY("START_VN") { SET start_vn TO vehicle["START_VN"]. }
+  LOCAL ks IS keys_new(vehicle["NOUNS"], vehicle["VERBS"], vehicle["PROGS"], start_vn).
   LOCAL crun IS core_new(vehicle).
   LOCAL next_t IS TIME:SECONDS.
   LOCAL running IS TRUE.

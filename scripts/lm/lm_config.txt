@@ -8,6 +8,10 @@
 // TRUE writes diagnostic logs to 0:/lm/logs/ (p63.log, p64.log, p65.log, lm_check.log, lm_deorbit.log). Useful for bug reports.
 // LM_LOG = TRUE
 
+// What the DSKY shows when it starts: BLANK (PROG 00 and nothing else, like a real DSKY after a fresh start; key V16 N60 E
+// yourself) or N60 (V16 N60, the descent monitor, up from the start).
+// DSKY_START = BLANK
+
 // The crew window in P63: UP (the ship turns so the window faces the site) or KEEP (the roll is kept, as Apollo 11).
 // The planner window sets it too.
 // P63_WINDOW_MODE = UP
@@ -16,7 +20,7 @@
 // P63_WARP_LEAD_S = 60
 
 // Flip (1 or -1) if a redesignation key in P64 moves the aim point the wrong way.
-// P64_PITCH_SIGN = 1
+// P64_PITCH_SIGN = -1
 // P64_YAW_SIGN = -1
 
 // Flip (1 or -1) if Shift/Ctrl in P66 change the rate of descent the wrong way.

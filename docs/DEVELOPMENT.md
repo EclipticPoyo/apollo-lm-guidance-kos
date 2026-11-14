@@ -53,3 +53,11 @@ Milestone 5 (P65 final descent, P66 rate of descent, touchdown; flown and workin
 3. **Touchdown:** the CONTACT lamp lights when the lander touches down (the ship's status turns LANDED) and the engine cuts off on the next cycle, a quarter of a second later (stop it yourself first if you like); PROG shows 68 and the programme ends with the controls handed back. This is not what the crew did (they stopped the engine by hand) and is documented as a simplification.
 4. **Site marker (experimental):** while a programme runs, the same green map pin the planner window uses, labelled "LM SITE", stands on the landing site in map view (during P64 an unlabelled arrow also stands on it in the flight view) (kOS cannot create real map waypoints, so it is a vecdraw arrow standing above the site and pointing down at it). Its size is set by `PINS_*` in `lm/planner/lm_site_pins.ks`. It follows the site when you redesignate.
 5. Pad tests: `RUNPATH("0:/tests/test_p65.ks").`, `test_p64.ks`, `test_p63.ks` and `test_math.ks`. Flight log: `0:/lm/logs/p65.log`. Reference numbers: `python scripts/tests/reference.py` ("Milestone 5" section). One-off probe: `tests/probe_rod.ks` (the throttle keys as the ROD input).
+
+## Release 1.2: J-class descent (Luminary 210)
+
+Design and findings: `docs/superpowers/specs/2026-11-13-j-class-pads-design.md`, `...-luminary210-logic-changes.md`, `...-luminary210-padloads-research.md`, `...-j-class-mass-performance-study.md`. The J programmes are copies of the Apollo 11 ones in `scripts/lm/descent_j/` (names `j_...` and `J_...`; the 099 files are untouched), chosen by the plan's `PROFILE` (`lm_vehicle.ks`).
+
+1. Offline: `python scripts/tests/check_names.py`, `python scripts/tests/check_paths.py`, `python scripts/tests/reference_j.py` (expected numbers for `test_j.ks` and the mass study).
+2. Pad tests: `RUN pad.` (now includes `test_j`; logs `0:/lm/logs/test_j.log` and so on). `test_plan` and `test_core` gained profile checks.
+3. Flights: the batch is in `docs/superpowers/ksp-batch-1.2.md`. Logs: `j_p63.log`, `j_p64.log`, `j_p66.log`.

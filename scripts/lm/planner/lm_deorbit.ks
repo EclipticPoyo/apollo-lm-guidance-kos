@@ -29,6 +29,8 @@ GLOBAL DP_LOG IS "0:/lm/logs/lm_deorbit.log".
 GLOBAL dp_nodes IS LIST().        // nodes THIS script added (only these are ever removed)
 GLOBAL dp_intended IS LIST().     // the delta-v vector the planner meant for each, same order
 GLOBAL DP_QUIET IS FALSE.         // TRUE = print nothing; the full report still goes to DP_LOG (lm_plan_ui.ks sets it)
+GLOBAL DP_RESULT IS LEXICON().    // the plan for a window: DOI, PDI, LDG as the game's UT clock, "HH:MM", and WARN (list of warnings); empty when the plan failed
+GLOBAL DP_REASON IS "".          // why the last plan failed, in one sentence (no "PLAN FAILED" prefix), for a window to show
 GLOBAL DP_SUMMARY IS LIST().      // the result in one or two short lines, for a window to show (set by deorbit_run)
 
 // dp_say: print a line (unless DP_QUIET) and append it to the report log.
@@ -38,16 +40,21 @@ FUNCTION dp_say {
   IF LM_LOG { LOG text TO DP_LOG. }
 }
 
-// dp_met: the mission elapsed time (MET) of universal time ut, as "HHH:MM:SS". MISSIONTIME is the ship's MET
-// now, so the MET of a future moment is MISSIONTIME plus the time until then. Hours are not capped: past 99 h
-// the text just gets longer. A time already past is shown as 0.
+// dp_met: the universal time (UT) of universal time ut, as the game's clock shows it: "D12 14:03:22" (day of the year, then
+// the clock; the game's calendar, so the day length is the game's). Set the game's clock to UT (the clock toggles between
+// MET and UT) and the burn times printed here are the times that clock shows when the burn happens. The name dp_met is
+// from when this was the vessel's mission elapsed time (MISSIONTIME), which is not the clock the pilot watches.
+// A time that is already past is still printed as its UT.
 FUNCTION dp_met {
   PARAMETER ut.
-  LOCAL total IS ROUND(MAX(0, MISSIONTIME + (ut - TIME:SECONDS))).
-  LOCAL hours IS FLOOR(total / 3600).
-  LOCAL mins IS FLOOR((total - hours * 3600) / 60).
-  LOCAL secs IS total - hours * 3600 - mins * 60.
-  RETURN dp_pad(hours, 3) + ":" + dp_pad(mins, 2) + ":" + dp_pad(secs, 2).
+  RETURN "D" + TIME(ut):DAY + " " + TIME(ut):CLOCK.
+}
+
+// dp_met_hm: the UT as hours and minutes only: "14:03", as the game's clock shows them (the minute is cut off, not rounded, so
+// the clock has reached that minute at or before the burn). No day: the result line stays short.
+FUNCTION dp_met_hm {
+  PARAMETER ut.
+  RETURN dp_pad(TIME(ut):HOUR, 2) + ":" + dp_pad(TIME(ut):MINUTE, 2).
 }
 
 // dp_pad: the whole number n as text, padded with leading zeros to at least width characters.
@@ -75,6 +82,8 @@ FUNCTION dp_clear {
 FUNCTION dp_fail {
   PARAMETER reason.
   dp_clear().
+  SET DP_RESULT TO LEXICON().
+  SET DP_REASON TO reason.
   SET DP_SUMMARY TO LIST("PLAN FAILED: " + reason, "No maneuver nodes were left by this run.").
   dp_say("PLAN FAILED: " + reason).
   dp_say("No maneuver nodes were left on the ship by this run.").
@@ -157,7 +166,7 @@ FUNCTION deorbit_run {
   IF ALLNODES:LENGTH > 0 {
     dp_say("The ship already has " + ALLNODES:LENGTH + " maneuver node(s):").
     FOR nd IN ALLNODES { dp_say("  in " + ROUND(nd:ETA) + " s, " + ROUND(nd:BURNVECTOR:MAG, 1) + " m/s"). }
-    IF NOT replace_nodes { RETURN dp_fail("existing nodes kept. Remove them yourself, or rerun with replace = TRUE."). }
+    IF NOT replace_nodes { RETURN dp_fail("the ship already has maneuver nodes. Delete them, or tick Replace nodes."). }
     LOCAL old_nodes IS ALLNODES:COPY.
     FOR nd IN old_nodes { REMOVE nd. }
     dp_say("replace = TRUE: removed the existing nodes.").
@@ -174,7 +183,8 @@ FUNCTION deorbit_run {
   LOCAL site_radius IS land_vec:MAG.
   LOCAL wm_vec IS moon_spin().
   LOCAL mu IS SHIP:BODY:MU.
-  LOCAL geo IS plan_pdi_geometry(site_radius, RIGNX, RIGNZ, SHIP:BODY:RADIUS).
+  LOCAL pad IS plan_pdi_values(PAD_PROFILE).      // RIGNX, RIGNZ, VIGN of the chosen pad-load profile
+  LOCAL geo IS plan_pdi_geometry(site_radius, pad["RIGNX"], pad["RIGNZ"], SHIP:BODY:RADIUS).
   LOCAL n_cur IS VCRS(-SHIP:BODY:POSITION, SHIP:VELOCITY:ORBIT):NORMALIZED.
   LOCAL period IS SHIP:ORBIT:PERIOD.
   LOCAL span IS period * 1.02.          // search window: one orbit plus a margin so a pass at the edge is not missed
@@ -227,7 +237,7 @@ FUNCTION deorbit_run {
       SET dv_pc TO plan_plane_change(r_pc, v_pc, n_cur, tgt["N_T"]).
       IF dv_pc:MAG > max_pc {
         RETURN dp_fail("plane change needs " + ROUND(dv_pc:MAG, 1) + " m/s, above the accepted " + ROUND(max_pc, 1)
-                       + " m/s. Rerun with a larger max_pc_dv to accept it.").
+                       + " m/s. Increase Max plane change.").
       }
       dp_add_node(t_pc, dv_pc, r_pc, v_pc).
       SET n_use TO tgt["N_T"].
@@ -253,7 +263,7 @@ FUNCTION deorbit_run {
     IF t_pc > 0 { SET first_t TO t_pc. }
     LOCAL pre IS check_plan_pre(LEXICON("LEAD_S", first_t - t_start, "DV_DOI", doi["DV"]:MAG, "DV_PC", dv_pc:MAG,
         "MAX_PC_DV", max_pc, "ALT_PDI", geo["ALT_PDI"], "ALT_PDI_NOM", geo["ALT_PDI"], "V_PDI", doi["V_PDI"],
-        "WARP_RATE", KUNIVERSE:TIMEWARP:RATE, "NODES_OK", nodes_ok, "TERRAIN_CLEAR_MIN", -999999)).
+        "WARP_RATE", KUNIVERSE:TIMEWARP:RATE, "NODES_OK", nodes_ok, "TERRAIN_CLEAR_MIN", -999999, "VIGN", pad["VIGN"])).
     IF pre["ERRORS"]:LENGTH > 0 { RETURN dp_fail(pre["ERRORS"][0]). }
     dp_add_node(t_doi, doi["DV"], r_doi, v_doi).
 
@@ -289,7 +299,7 @@ FUNCTION deorbit_run {
   IF t_pc > 0 { SET first_burn TO t_pc. }
   LOCAL pre_all IS check_plan_pre(LEXICON("LEAD_S", first_burn - t_start, "DV_DOI", doi["DV"]:MAG, "DV_PC", dv_pc:MAG,
       "MAX_PC_DV", max_pc, "ALT_PDI", geo["ALT_PDI"], "ALT_PDI_NOM", geo["ALT_PDI"], "V_PDI", doi["V_PDI"],
-      "WARP_RATE", KUNIVERSE:TIMEWARP:RATE, "NODES_OK", nodes_ok, "TERRAIN_CLEAR_MIN", terrain_min)).
+      "WARP_RATE", KUNIVERSE:TIMEWARP:RATE, "NODES_OK", nodes_ok, "TERRAIN_CLEAR_MIN", terrain_min, "VIGN", pad["VIGN"])).
   IF pre_all["ERRORS"]:LENGTH > 0 { RETURN dp_fail(pre_all["ERRORS"][0]). }
 
   // ---- 6. Independent post-check: kOS's own prediction at the planned PDI time ------------------------------
@@ -297,7 +307,7 @@ FUNCTION deorbit_run {
   LOCAL v_pdi IS dp_vel_at(t_pdi).
   LOCAL post IS check_plan_post(LEXICON(
       "ALT_PDI_PRED", p_pdi:MAG - SHIP:BODY:RADIUS, "ALT_PDI_NOM", geo["ALT_PDI"],
-      "RANGE_PRED", site_radius * VANG(p_pdi, s_land) / rad_to_deg, "RANGE_NOM", ABS(RIGNZ),
+      "RANGE_PRED", site_radius * VANG(p_pdi, s_land) / rad_to_deg, "RANGE_NOM", ABS(pad["RIGNZ"]),
       "SPEED_PRED", v_pdi:MAG, "SPEED_PLAN", doi["V_PDI"],
       "XRANGE_PRED", site_radius * ARCSIN(MAX(-1, MIN(1, VDOT(VCRS(p_pdi, v_pdi):NORMALIZED, s_land)))) / rad_to_deg,
       "BURN_ERR", burn_err)).
@@ -314,7 +324,7 @@ FUNCTION deorbit_run {
          + doi["DV"] + ".").
   dp_say("Descent orbit: apolune " + ROUND(doi["RA"] - SHIP:BODY:RADIUS) + " m, perilune (PDI) " + ROUND(geo["ALT_PDI"]) + " m altitude.").
   dp_say("PDI at " + dp_met(t_pdi) + " (UT " + ROUND(t_pdi) + ", DOI + " + ROUND(doi["T_HALF"]) + " s), landing at UT " + ROUND(t_land) + ".").
-  dp_say("Speed at PDI " + ROUND(doi["V_PDI"], 1) + " m/s against VIGN " + ROUND(VIGN, 1) + " m/s.").
+  dp_say("Speed at PDI " + ROUND(doi["V_PDI"], 1) + " m/s against VIGN " + ROUND(pad["VIGN"], 1) + " m/s (" + PAD_PROFILE + " pad loads).").
   dp_say("Lowest height above terrain on the descent orbit: " + ROUND(terrain_min) + " m.").
   FOR line IN post["LINES"] { dp_say("check: " + line). }
   FOR warn IN pre_all["WARNINGS"] { dp_say("WARNING: " + warn). }
@@ -322,10 +332,11 @@ FUNCTION deorbit_run {
 
   plan_write(PLAN_PLAN_FILE, LEXICON("SITE_LAT", site["LAT"], "SITE_LNG", site["LNG"], "SITE_ALT", site["ALT"],
       "T_MADE", t_start, "T_DOI", t_doi, "T_PDI", t_pdi, "T_LAND", t_land, "T_PC", t_pc, "WINDOW_MODE", P63_WINDOW_MODE,
-      "DV_DOI", doi["DV"]:MAG, "DV_PC", dv_pc:MAG, "V_PDI", doi["V_PDI"], "ALT_PDI", geo["ALT_PDI"])).
+      "PROFILE", PAD_PROFILE, "DV_DOI", doi["DV"]:MAG, "DV_PC", dv_pc:MAG, "V_PDI", doi["V_PDI"], "ALT_PDI", geo["ALT_PDI"])).
   dp_say("PLAN OK. " + dp_nodes:LENGTH + " maneuver node(s) added. Plan saved to " + PLAN_PLAN_FILE + "." + (CHOOSE " Report: " + DP_LOG IF LM_LOG ELSE "")).
   LOCAL pc_text IS "no plane change".
   IF t_pc > 0 { SET pc_text TO "plane change at " + dp_met(t_pc) + ", " + ROUND(dv_pc:MAG, 1) + " m/s". }
+  SET DP_RESULT TO LEXICON("DOI", dp_met_hm(t_doi), "PDI", dp_met_hm(t_pdi), "LDG", dp_met_hm(t_land), "WARN", pre_all["WARNINGS"]).
   SET DP_SUMMARY TO LIST("PLAN OK: " + dp_nodes:LENGTH + " node(s) added. " + pc_text + ".",
                          "DOI at " + dp_met(t_doi) + ", " + ROUND(doi["DV"]:MAG, 1) + " m/s. PDI at " + dp_met(t_pdi) + ".").
   RETURN TRUE.

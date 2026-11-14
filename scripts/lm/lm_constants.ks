@@ -138,6 +138,7 @@ GLOBAL P63_SETTLE_HOLD_S IS 5.                   // config: for this long, s
 //   "UP"   the window is held toward straight up from the Moon from the first turn: the profile of the later missions
 //          (user's report; NOT verified in the source, which is Luminary 099, the Apollo 11 version). No stick roll in the burn.
 //   "KEEP" Luminary 099 (Apollo 11): the ship keeps the roll it had; no programmed roll; in AUTO the stick can roll it.
+GLOBAL DSKY_START IS "BLANK".                  // what the DSKY shows when it starts: BLANK (PROG 00, nothing else, as a real DSKY after a fresh start) or N60 (V16 N60, a descent monitor); config file setting
 GLOBAL P63_WINDOW_MODE IS "UP".
 // Window roll (Luminary: none in P63; the pilot may roll with the stick in AUTO, see lm_control.ks win_hold).
 GLOBAL P63_ROLL_DETENT IS 0.1.                   // config: roll stick (-1 to 1) beyond this overrides the roll, like the LM hand controller out of detent
@@ -179,7 +180,7 @@ GLOBAL P64_AZEACH_RAD IS 0.03491.                // source line 1211: one yaw cl
 // Pilot clicks (the keyboard gives -1, 0 or 1 on each axis, held for as long as the key is down). Not Apollo values.
 GLOBAL P64_CLICK_THRESH IS 0.5.                  // chosen: a stick value at or beyond this (either sign) is a click
 GLOBAL P64_CLICK_REARM IS 0.2.                   // chosen: the stick must come back inside this before the next click counts
-GLOBAL P64_PITCH_SIGN IS 1.                      // chosen: flip to -1 if a forward-stick click moves the aim point the wrong way (UNVERIFIED, flight 2)
+GLOBAL P64_PITCH_SIGN IS -1.                     // chosen: -1 because the user found W and S moving the aim point the wrong way in the J flight (2026-11-14): W should bring the aim point closer to the ship and S send it farther away (the user's wish; the real LM's direction is not confirmed, see the Luminary redesignator monitor); flip to 1 for the other way
 GLOBAL P64_YAW_SIGN IS -1.                       // chosen: -1 because flight 2 showed the A key (yaw -1) moved the aim point to the RIGHT; with -1 A moves it left, D right (user, 2026-11-12)
 GLOBAL P64_REDES_CLOSE_S IS 4.                   // chosen: redesignation stops this long above TCGFAPPR (Luminary: TREDES reaches zero two 2 s guidance passes before it, TDISPSET)
 

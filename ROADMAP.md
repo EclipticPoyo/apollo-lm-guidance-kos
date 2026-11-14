@@ -1,6 +1,6 @@
 # Roadmap
 
-Where the project is going. 1.0 and 1.1 are released; everything else is planned and may change.
+Where the project is going. 1.0, 1.1 and 1.2 are released; everything else is planned and may change.
 
 Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 
@@ -10,7 +10,7 @@ Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 |---|---|---|---|
 | **1.0** | Descent | Navigation, landing-site planner, P63 to P66, DSKY | ✅ |
 | **1.1** | DSKY core | The DSKY becomes a core that runs programmes through a common interface; P63 to P66 become the first programmes. A software-version setting is added. No change to what the pilot sees. Started with `RUN dsky.`; the planner is run first. | ✅ |
-| **1.2** | J-class pads | Luminary 210 pad loads (Apollo 15 to 17), the logic changes in 210's P63 to P66, testing with other landers | 🔬 |
+| **1.2** | J-class pads | Luminary 210 pad loads (Apollo 15 to 17), the logic changes in 210's P63 to P66 (no P65), DSKY digits drawn as pictures (no font to install) | ✅ |
 | **1.3** | Ascent | Ascent guidance, P12 liftoff from the surface | 📝 |
 | **1.4** | Aborts | P70 and P71, abort stage, abort triggers during descent | 📝 |
 | **1.5** | Landing aids | Program alarms, landing radar state updates, fuel display, optional 1201/1202 training mode | 📝 |
@@ -35,7 +35,7 @@ Saturn launch, then the command module, the lunar module, the command module aga
 ```mermaid
 flowchart LR
     v10["1.0 Descent ✅"] --> v11["1.1 DSKY core"]
-    v11 --> v12["1.2 J-class pads"]
+    v11 --> v12["1.2 J-class pads ✅"]
     v12 --> v13["1.3 Ascent"]
     v13 --> v14["1.4 Aborts"]
     v13 --> v16["1.6 Burn programmes"]

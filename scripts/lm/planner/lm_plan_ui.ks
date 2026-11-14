@@ -1,101 +1,174 @@
-// lm_plan_ui.ks -- a small window for the deorbit planner: pick an Apollo landing site (or type a latitude and
-// longitude), press PLAN. Run it in lunar orbit with no arguments:
+// lm_plan_ui.ks -- the deorbit planner window. Run it in lunar orbit with no arguments:
 //
 //   RUNPATH("0:/lm/planner/lm_plan_ui.ks").
 //
+// One column, top to bottom:
+//   LANDING SITE   site menu (the Apollo sites, or Custom)  |  latitude and longitude
+//   PARAMETERS     max plane change  |  replace existing nodes
+//                  pad loads menu    |  windows up in P63
+//   PLAN | CLOSE
+//   one result line: "Plan OK! DOI: 14:03, PDI: 14:55, LDG: 15:03" (the game's UT clock: set the clock to UT), or why it failed.
+// Every row is a left part that stretches and a right part of fixed width, so the right column lines up.
+//
 // It is only a front end. The planning is lm_deorbit.ks (deorbit_run), run quietly: nothing is printed to the
-// terminal, the window shows a two-line result, and the full report goes to 0:/lm/logs/lm_deorbit.log.
-// The planner adds maneuver nodes to the ship and writes 0:/lm/plan.json, which the DSKY (dsky.ks) then reads (the site; P63 itself warps to before ignition).
+// terminal, and the full report goes to 0:/lm/logs/lm_deorbit.log when LM_LOG is TRUE.
+// The planner adds maneuver nodes to the ship and writes 0:/lm/plan.json, which the DSKY (dsky.ks) then reads.
 // CLOSE ends this script; it does not remove the nodes.
 //
-// Descent constants (RIGNX, RIGNZ, VIGN) are the Apollo 11 pad load for every site; the window says so.
-// Not verified for other sites: a site with rough terrain under the descent orbit is refused by the planner's
-// terrain check, not flown into.
+// The pad loads (RIGNX, RIGNZ, VIGN) are one set per profile, the same for every site. A site with rough terrain
+// under the descent orbit is refused by the planner's terrain check, not flown into. The height is always the terrain.
 //
 // The GUI() window is created below at the top level of this script, not in a function (windows made inside a
 // function vanished on this install, see lm_gui.ks). Widgets are added by planui_fill.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/planner/lm_deorbit.ks").      // functions only (no arguments); also loads lm_site.ks for APOLLO_SITES
+RUNONCEPATH("0:/lm/planner/lm_deorbit.ks").      // functions only (no arguments); also loads lm_site.ks, lm_plan.ks
 RUNONCEPATH("0:/lm/planner/lm_site_pins.ks").    // map-view pins for the sites
 SET DP_QUIET TO TRUE.
 
-GLOBAL PLANUI_WIDTH IS 400.
-GLOBAL PLANUI_LABEL_W IS 150.             // width of the label in front of each field
-GLOBAL PLANUI_FIELD_W IS 220.
+GLOBAL PLANUI_WIDTH IS 500.
+GLOBAL PLANUI_RIGHT_W IS 240.             // width of the right part of every row
+GLOBAL PLANUI_LAT_LABEL_W IS 32.          // width of the "LAT" label
+GLOBAL PLANUI_LONG_LABEL_W IS 44.         // width of the "LONG" label
+GLOBAL PLANUI_LATLNG_FIELD_W IS 64.       // width of the latitude and longitude fields
+GLOBAL PLANUI_PAD IS 8.                   // padding between a section's frame and what is inside
+GLOBAL PLANUI_GAP IS 6.                   // space between the sections
+GLOBAL PLANUI_BLUE IS "#8fc1e8".
+GLOBAL PLANUI_GREY IS "#a0a0a0".
+GLOBAL PLANUI_GREEN IS "#7fe27f".
+GLOBAL PLANUI_RED IS "#ff7070".
+GLOBAL PLANUI_AMBER IS "#ffc04d".
 GLOBAL PLANUI_NOT_A_NUMBER IS -1e9.       // what TONUMBER returns for text that is not a number (no real input is this)
 GLOBAL planui_parts IS LIST().            // keeps a reference to every widget made (same habit as gui_keep in lm_gui.ks)
 
-// planui_row: a horizontal strip with a fixed-width label and a text field, returns the field.
-FUNCTION planui_row {
-  PARAMETER holder, caption, start_text.
-  LOCAL row_box IS holder:ADDHBOX().
-  LOCAL label_w IS row_box:ADDLABEL(caption).
-  SET label_w:STYLE:WIDTH TO PLANUI_LABEL_W.
-  LOCAL field_w IS row_box:ADDTEXTFIELD(start_text).
-  SET field_w:STYLE:WIDTH TO PLANUI_FIELD_W.
-  planui_parts:ADD(row_box).
-  planui_parts:ADD(label_w).
-  planui_parts:ADD(field_w).
-  RETURN field_w.
+// planui_flat: a strip with no padding of its own and padding_lr at the left and right, so the widgets in it start
+// where the widgets directly in a section start (the default box style adds padding that pushed rows inward).
+FUNCTION planui_flat {
+  PARAMETER strip, padding_lr.
+  SET strip:STYLE:PADDING:LEFT TO padding_lr.
+  SET strip:STYLE:PADDING:RIGHT TO padding_lr.
+  SET strip:STYLE:PADDING:TOP TO 0.
+  SET strip:STYLE:PADDING:BOTTOM TO 0.
+  SET strip:STYLE:MARGIN:LEFT TO 0.
+  SET strip:STYLE:MARGIN:RIGHT TO 0.
+  planui_parts:ADD(strip).
 }
 
-// planui_fill: add all the widgets to the window. Returns a lexicon of the ones the loop reads.
+// planui_section: a framed box with a blue bold heading; the rows of one group go inside it. Returns the box.
+FUNCTION planui_section {
+  PARAMETER win, section_title.
+  planui_parts:ADD(win:ADDSPACING(PLANUI_GAP)).
+  LOCAL section_box IS win:ADDVBOX().
+  SET section_box:STYLE:PADDING:LEFT TO PLANUI_PAD.
+  SET section_box:STYLE:PADDING:RIGHT TO PLANUI_PAD.
+  SET section_box:STYLE:PADDING:TOP TO PLANUI_PAD.
+  SET section_box:STYLE:PADDING:BOTTOM TO PLANUI_PAD.
+  LOCAL title_w IS section_box:ADDLABEL("<color=" + PLANUI_BLUE + "><b>" + section_title + "</b></color>").
+  planui_parts:ADD(section_box).
+  planui_parts:ADD(title_w).
+  RETURN section_box.
+}
+
+// planui_fill: add all the widgets to the window. Returns a lexicon of the ones the loop reads. The explanations
+// are tooltips (hover the control).
 FUNCTION planui_fill {
   PARAMETER win.
-  LOCAL title_w IS win:ADDLABEL("<b>Deorbit planner</b>").
+  LOCAL title_w IS win:ADDLABEL("<size=16><b>Deorbit planner</b></size>").
   planui_parts:ADD(title_w).
 
-  // The site menu: one entry per Apollo site, then "Custom" (typing in the fields below).
-  LOCAL menu IS win:ADDPOPUPMENU().
+  // ---- Landing site: the site menu on the left, latitude and longitude in the right column ----
+  // The menu has one entry per Apollo site, then "Custom" (typing in the fields). The height is always the terrain.
+  LOCAL site_box IS planui_section(win, "LANDING SITE").
+  LOCAL site_row IS site_box:ADDHBOX().
+  planui_flat(site_row, 0).
+  planui_parts:ADD(site_row).
+  LOCAL menu IS site_row:ADDPOPUPMENU().
   FOR apollo_site IN APOLLO_SITES { menu:ADDOPTION(apollo_site["NAME"]). }
   menu:ADDOPTION("Custom").
+  SET menu:TOOLTIP TO "Pick an Apollo site, or type a latitude and longitude (Custom). The height is the terrain height.".
   planui_parts:ADD(menu).
+  LOCAL latlng_cell IS site_row:ADDHBOX().
+  planui_flat(latlng_cell, 0).
+  SET latlng_cell:STYLE:WIDTH TO PLANUI_RIGHT_W.
+  planui_parts:ADD(latlng_cell).
+  LOCAL lat_label IS latlng_cell:ADDLABEL("LAT").
+  SET lat_label:STYLE:WIDTH TO PLANUI_LAT_LABEL_W.
+  LOCAL lat_field IS latlng_cell:ADDTEXTFIELD("").
+  SET lat_field:STYLE:WIDTH TO PLANUI_LATLNG_FIELD_W.
+  LOCAL lng_label IS latlng_cell:ADDLABEL("LONG").
+  SET lng_label:STYLE:WIDTH TO PLANUI_LONG_LABEL_W.
+  LOCAL lng_field IS latlng_cell:ADDTEXTFIELD("").
+  SET lng_field:STYLE:WIDTH TO PLANUI_LATLNG_FIELD_W.
+  SET lat_field:TOOLTIP TO "Latitude, degrees north.".
+  SET lng_field:TOOLTIP TO "Longitude, degrees east.".
+  planui_parts:ADD(lat_label).
+  planui_parts:ADD(lat_field).
+  planui_parts:ADD(lng_label).
+  planui_parts:ADD(lng_field).
 
-  LOCAL lat_field IS planui_row(win, "Latitude (deg N)", "").
-  LOCAL lng_field IS planui_row(win, "Longitude (deg E)", "").
-  LOCAL alt_field IS planui_row(win, "Height (m, blank = terrain)", "").
-  LOCAL pc_field IS planui_row(win, "Max plane change (m/s)", "200").
-  LOCAL replace_box IS win:ADDCHECKBOX("Replace existing maneuver nodes", FALSE).
+  // ---- Parameters: two rows ----
+  LOCAL param_box IS planui_section(win, "PARAMETERS").
+  LOCAL pc_row IS param_box:ADDHBOX().
+  planui_flat(pc_row, 0).
+  planui_parts:ADD(pc_row).
+  LOCAL pc_cell IS pc_row:ADDHBOX().                   // the left part: label and field
+  planui_flat(pc_cell, 0).
+  planui_parts:ADD(pc_cell).
+  LOCAL pc_label IS pc_cell:ADDLABEL("Max plane change (m/s)").
+  SET pc_label:STYLE:WORDWRAP TO FALSE.                 // one line
+  SET pc_label:STYLE:PADDING:TOP TO -2.                 // the row is as tall as the checkbox; this lines the label text up with the field text
+  LOCAL pc_field IS pc_cell:ADDTEXTFIELD("200").
+  SET pc_field:STYLE:WIDTH TO 50.
+  SET pc_field:TOOLTIP TO "The largest plane-change burn the planner may use. A plane change is only planned if the site is more than 2 km out of your orbit plane.".
+  LOCAL replace_box IS pc_row:ADDCHECKBOX("Replace nodes", FALSE).
+  SET replace_box:STYLE:WIDTH TO PLANUI_RIGHT_W.
+  SET replace_box:TOOLTIP TO "Remove the maneuver nodes already on the ship before planning. Off: planning stops if there are any.".
+  planui_parts:ADD(pc_label).
+  planui_parts:ADD(pc_field).
   planui_parts:ADD(replace_box).
 
-  // The crew window in P63: held up from the Moon (later missions) or the roll kept (Apollo 11). Saved in the plan.
-  LOCAL window_label IS win:ADDLABEL("Crew window in P63:").
-  planui_parts:ADD(window_label).
-  LOCAL window_menu IS win:ADDPOPUPMENU().
-  window_menu:ADDOPTION("Windows up (later missions)").
-  window_menu:ADDOPTION("Keep the roll (Apollo 11)").
-  IF P63_WINDOW_MODE = "KEEP" { SET window_menu:INDEX TO 1. }
-  planui_parts:ADD(window_menu).
+  LOCAL pad_row IS param_box:ADDHBOX().
+  planui_flat(pad_row, 0).
+  planui_parts:ADD(pad_row).
+  LOCAL pad_menu IS pad_row:ADDPOPUPMENU().
+  pad_menu:ADDOPTION("Apollo 11 (Luminary 099)").
+  pad_menu:ADDOPTION("J-class (Luminary 210)").
+  IF PAD_PROFILE = "J" { SET pad_menu:INDEX TO 1. }
+  SET pad_menu:TOOLTIP TO "Pad loads and descent guidance (the flight software), same for every site. J-class is Apollo 15 to 17: P66 follows P64, no P65.".
+  LOCAL window_box IS pad_row:ADDCHECKBOX("Windows up in P63", P63_WINDOW_MODE <> "KEEP").
+  SET window_box:STYLE:WIDTH TO PLANUI_RIGHT_W.
+  SET window_box:TOOLTIP TO "On: P63 holds the windows up, away from the Moon (later missions). Off: the roll is kept as Apollo 11 flew it.".
+  planui_parts:ADD(pad_menu).
+  planui_parts:ADD(window_box).
 
-  LOCAL note_w IS win:ADDLABEL("Descent constants: Apollo 11 pad load (all sites).").
-  planui_parts:ADD(note_w).
-
-  LOCAL button_row IS win:ADDHBOX().
+  // ---- PLAN | CLOSE, then the one-line result ----
+  planui_parts:ADD(win:ADDSPACING(PLANUI_GAP)).
+  LOCAL button_row IS win:ADDHBOX().                  // padded like a section, so PLAN and CLOSE line up with the rows above
+  planui_flat(button_row, PLANUI_PAD).
+  planui_parts:ADD(button_row).
   LOCAL plan_button IS button_row:ADDBUTTON("PLAN").
   LOCAL close_button IS button_row:ADDBUTTON("CLOSE").
-  planui_parts:ADD(button_row).
+  SET close_button:STYLE:WIDTH TO PLANUI_RIGHT_W.
   planui_parts:ADD(plan_button).
   planui_parts:ADD(close_button).
 
-  // Two status lines, with word wrap so a long failure reason stays inside the window.
-  LOCAL status1 IS win:ADDLABEL("Pick a site and press PLAN.").
-  LOCAL status2 IS win:ADDLABEL("").
-  SET status1:STYLE:WORDWRAP TO TRUE.
-  SET status2:STYLE:WORDWRAP TO TRUE.
-  planui_parts:ADD(status1).
-  planui_parts:ADD(status2).
+  LOCAL result_row IS win:ADDHBOX().                  // padded like a section, so the text starts where the rows above start
+  planui_flat(result_row, PLANUI_PAD).
+  LOCAL result_w IS result_row:ADDLABEL("").
+  SET result_w:STYLE:WORDWRAP TO TRUE.
+  planui_parts:ADD(result_w).
 
-  RETURN LEXICON("MENU", menu, "LAT", lat_field, "LNG", lng_field, "ALT", alt_field, "PC", pc_field,
-                 "REPLACE", replace_box, "WINDOW", window_menu, "PLAN", plan_button, "CLOSE", close_button,
-                 "STATUS1", status1, "STATUS2", status2).
+  LOCAL ui IS LEXICON("MENU", menu, "LAT", lat_field, "LNG", lng_field, "PC", pc_field,
+                      "REPLACE", replace_box, "WINDOW", window_box, "PAD", pad_menu, "PLAN", plan_button, "CLOSE", close_button,
+                      "RESULT", result_w).
+  planui_result(ui, "Pick a site and press PLAN.", PLANUI_GREY).
+  RETURN ui.
 }
 
-// planui_status: show up to two lines of status text.
-FUNCTION planui_status {
-  PARAMETER ui, line1, line2.
-  SET ui["STATUS1"]:TEXT TO line1.
-  SET ui["STATUS2"]:TEXT TO line2.
+// planui_result: the one result line, small, in a colour (green good, red failure, grey hint, amber warning).
+FUNCTION planui_result {
+  PARAMETER ui, message, colour.
+  SET ui["RESULT"]:TEXT TO "<size=12><color=" + colour + ">" + message + "</color></size>".
 }
 
 // planui_pick: put the chosen Apollo site's latitude and longitude in the fields. The fields' CHANGED flags are
@@ -105,10 +178,8 @@ FUNCTION planui_pick {
   IF index < 0 OR index >= APOLLO_SITES:LENGTH { RETURN. }
   SET ui["LAT"]:TEXT TO "" + APOLLO_SITES[index]["LAT"].
   SET ui["LNG"]:TEXT TO "" + APOLLO_SITES[index]["LNG"].
-  SET ui["ALT"]:TEXT TO "".
   LOCAL ignore IS ui["LAT"]:CHANGED.
   SET ignore TO ui["LNG"]:CHANGED.
-  SET ignore TO ui["ALT"]:CHANGED.
 }
 
 // planui_number: the text as a number, or PLANUI_NOT_A_NUMBER. TONUMBER's argument is the value to return when
@@ -138,27 +209,33 @@ FUNCTION planui_sync_menu {
   LOCAL ignore IS ui["MENU"]:CHANGED.
 }
 
-// planui_run: read the fields, run the planner quietly, show its summary.
+// planui_run: read the fields, run the planner quietly, show its result on the result line.
 FUNCTION planui_run {
   PARAMETER ui.
   LOCAL lat IS planui_number(ui["LAT"]:TEXT).
   LOCAL lng IS planui_number(ui["LNG"]:TEXT).
-  IF lat = PLANUI_NOT_A_NUMBER { planui_status(ui, "Latitude is not a number.", ""). RETURN. }
-  IF lng = PLANUI_NOT_A_NUMBER { planui_status(ui, "Longitude is not a number.", ""). RETURN. }
-  // Blank height: let the planner read the terrain height at the site (-999999 is its "use terrain" value).
+  IF lat = PLANUI_NOT_A_NUMBER { planui_result(ui, "Latitude is not a number.", PLANUI_RED). RETURN. }
+  IF lng = PLANUI_NOT_A_NUMBER { planui_result(ui, "Longitude is not a number.", PLANUI_RED). RETURN. }
+  // The height is always the terrain height at the site (-999999 is the planner's "use terrain" value).
   LOCAL height IS -999999.
-  IF ui["ALT"]:TEXT:TRIM <> "" {
-    SET height TO planui_number(ui["ALT"]:TEXT).
-    IF height = PLANUI_NOT_A_NUMBER { planui_status(ui, "Height is not a number (or leave it blank).", ""). RETURN. }
-  }
   LOCAL max_pc IS planui_number(ui["PC"]:TEXT).
-  IF max_pc = PLANUI_NOT_A_NUMBER OR max_pc < 0 { planui_status(ui, "Max plane change must be a number, 0 or more.", ""). RETURN. }
+  IF max_pc = PLANUI_NOT_A_NUMBER OR max_pc < 0 { planui_result(ui, "Max plane change must be a number, 0 or more.", PLANUI_RED). RETURN. }
 
-  IF ui["WINDOW"]:INDEX = 1 { SET P63_WINDOW_MODE TO "KEEP". } ELSE { SET P63_WINDOW_MODE TO "UP". }   // saved into the plan by deorbit_run
-  planui_status(ui, "Planning...", "").
+  IF ui["WINDOW"]:PRESSED { SET P63_WINDOW_MODE TO "UP". } ELSE { SET P63_WINDOW_MODE TO "KEEP". }   // saved into the plan by deorbit_run
+  IF ui["PAD"]:INDEX = 1 { SET PAD_PROFILE TO "J". } ELSE { SET PAD_PROFILE TO "A11". }                    // likewise
+  SET DP_RESULT TO LEXICON().
+  SET DP_REASON TO "".
+  planui_result(ui, "Planning...", PLANUI_GREY).
   WAIT 0.2.                                       // let the window redraw before the planner takes over
   deorbit_run(lat, lng, height, max_pc, ui["REPLACE"]:PRESSED).
-  planui_status(ui, DP_SUMMARY[0], DP_SUMMARY[1]).
+  IF DP_RESULT:LENGTH > 0 {
+    planui_result(ui, "Plan OK! DOI: " + DP_RESULT["DOI"] + ", PDI: " + DP_RESULT["PDI"] + ", LDG: " + DP_RESULT["LDG"], PLANUI_GREEN).
+    IF DP_RESULT["WARN"]:LENGTH > 0 {
+      SET ui["RESULT"]:TEXT TO ui["RESULT"]:TEXT + CHAR(10) + "<size=12><color=" + PLANUI_AMBER + ">Warning: " + DP_RESULT["WARN"][0] + "</color></size>".
+    }
+  } ELSE {
+    planui_result(ui, "Plan failed: " + DP_REASON, PLANUI_RED).     // the reason; the full report is in the log
+  }
 }
 
 // ---- Main: the window is made here, at the top level ------------------------------------------------------

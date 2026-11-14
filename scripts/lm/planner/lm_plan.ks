@@ -10,6 +10,32 @@
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/lm/descent_j/lm_j_constants.ks").   // J_RIGNX, J_RIGNZ, J_VIGN for the J-class profile
+
+// ---- Pad-load profile (release 1.2) -----------------------------------------------
+// "A11" = Luminary 099 (Apollo 11), "J" = Luminary 210 (Apollo 15 to 17, the Apollo 17 values). The planner window sets
+// PAD_PROFILE (the same way it sets P63_WINDOW_MODE) and deorbit_run saves it in the plan as PROFILE. A plan without the
+// key, or with an unknown one, is an Apollo 11 plan (every plan made before 1.2).
+GLOBAL PAD_PROFILE IS "A11".
+
+// plan_profile_of: the profile name in a plan lexicon ("A11" or "J"); FALSE (no plan) and anything else give "A11".
+FUNCTION plan_profile_of {
+  PARAMETER plan_lex.
+  // Nested IFs, not AND: kOS evaluates both sides of AND, so HASKEY on FALSE (no plan) would be an error.
+  IF plan_lex:ISTYPE("Lexicon") {
+    IF plan_lex:HASKEY("PROFILE") {
+      IF plan_lex["PROFILE"] = "J" { RETURN "J". }
+    }
+  }
+  RETURN "A11".
+}
+
+// plan_pdi_values: the ignition position and speed of a profile as a lexicon (RIGNX, RIGNZ, VIGN).
+FUNCTION plan_pdi_values {
+  PARAMETER profile.
+  IF profile = "J" { RETURN LEXICON("RIGNX", J_RIGNX, "RIGNZ", J_RIGNZ, "VIGN", J_VIGN). }
+  RETURN LEXICON("RIGNX", RIGNX, "RIGNZ", RIGNZ, "VIGN", VIGN).
+}
 
 // ---- Spec 6A: where powered descent starts -----------------------------------
 // The pad loads RIGNX, RIGNZ give the PDI position relative to the site (x up, z downrange).
@@ -195,7 +221,8 @@ FUNCTION plan_find_pass {
 // ---- The plan file -------------------------------------------------------------------
 // lm_deorbit.ks writes the plan so later programmes (P63) can read it. Keys: SITE_LAT, SITE_LNG,
 // SITE_ALT, T_MADE (UT the plan was made), T_DOI, T_PDI, T_LAND, T_PC (-1 when no plane change),
-// DV_DOI, DV_PC (m/s), V_PDI (m/s), ALT_PDI (m), WINDOW_MODE ("UP" or "KEEP": the crew window in P63, chosen in the planner window).
+// DV_DOI, DV_PC (m/s), V_PDI (m/s), ALT_PDI (m), WINDOW_MODE ("UP" or "KEEP": the crew window in P63, chosen in the planner window),
+// PROFILE ("A11" or "J": which pad loads and which descent programmes, chosen in the planner window; absent in plans made before 1.2).
 // WRITEJSON/READJSON store a LEXICON as JSON text. The old file is deleted first so a failed write
 // never leaves a stale plan looking valid.
 FUNCTION plan_write {

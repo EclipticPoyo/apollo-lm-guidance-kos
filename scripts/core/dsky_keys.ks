@@ -12,12 +12,17 @@
 // between V37 ENTR and the programme number's ENTR, PBUF the digits typed so far, VERB_BEFORE the verb to go back to,
 // PROG_REQ the programme asked for (-1 none; the main loop reads it and sets it back to -1).
 // nouns, verbs, progs: LISTs of the numbers the vehicle accepts (stored as "NOUNS", "VERBS", "PROGS").
+// start_vn (optional): LIST(verb, noun) shown at start. -1 for both is a blank display (no verb or noun, the registers dark),
+// as a real DSKY powers up. Without it the start is V16 and the vehicle's first noun.
 FUNCTION keys_new {
-  PARAMETER nouns, verbs, progs.
+  PARAMETER nouns, verbs, progs, start_vn IS LIST().
   LOCAL first_noun IS 0.
   IF nouns:LENGTH > 0 { SET first_noun TO nouns[0]. }     // the noun shown at start is the vehicle's first
-  RETURN LEXICON("VERB", 16, "NOUN", first_noun, "MODE", "", "VBUF", "", "NBUF", "", "OPRERR", FALSE, "PRO", FALSE,
-                 "AWAIT_PROG", FALSE, "PBUF", "", "PROG_REQ", -1, "VERB_BEFORE", 16,
+  LOCAL start_verb IS 16.
+  LOCAL start_noun IS first_noun.
+  IF start_vn:LENGTH = 2 { SET start_verb TO start_vn[0]. SET start_noun TO start_vn[1]. }
+  RETURN LEXICON("VERB", start_verb, "NOUN", start_noun, "MODE", "", "VBUF", "", "NBUF", "", "OPRERR", FALSE, "PRO", FALSE,
+                 "AWAIT_PROG", FALSE, "PBUF", "", "PROG_REQ", -1, "VERB_BEFORE", start_verb,
                  "NOUNS", nouns, "VERBS", verbs, "PROGS", progs).
 }
 
@@ -56,6 +61,10 @@ FUNCTION key_enter {
     IF ks["NBUF"]:LENGTH = 2 AND ks["NOUNS"]:CONTAINS(ks["NBUF"]:TONUMBER(-1)) { SET noun_new TO ks["NBUF"]:TONUMBER(-1). }
     ELSE { SET bad TO TRUE. }
   }
+  // A blank verb (-1) means nothing is displayed yet: ENTR needs a verb, and a noun unless it is V37 (programme change) or
+  // V34 (terminate), which take none.
+  IF verb_new < 0 { SET bad TO TRUE. }
+  IF noun_new < 0 AND verb_new <> 37 AND verb_new <> 34 { SET bad TO TRUE. }
   IF bad { SET ks["OPRERR"] TO TRUE. }
   ELSE {
     // V37 ENTR: the DSKY now waits for the programme number. VERB shows 37 meanwhile.

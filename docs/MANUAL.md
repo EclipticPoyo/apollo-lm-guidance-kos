@@ -3,7 +3,7 @@
 How to fly a powered descent and landing with the Apollo-inspired LM computer in KSP (kOS, Realism Overhaul, Sol).
 For installation see the [README](../README.md).
 
-Flown and confirmed: planning, P63 braking, P64 approach with redesignation (in `UP` window mode), P65 automatic landing, P66 rate of descent, touchdown. Not flown: `KEEP` window mode in P64.
+Flown and confirmed: planning, P63 braking, P64 approach with redesignation (in `UP` window mode), P65 automatic landing, P66 rate of descent, touchdown; the J-class profile (planning, P63, P64, P66 straight from P64, touchdown). Not flown: `KEEP` window mode in P64.
 
 ## Contents
 
@@ -61,7 +61,7 @@ The **planner window** opens (section 3). Plan, press CLOSE, and fly the burns. 
 RUN dsky.
 ```
 
-The **DSKY window** opens on the site in the saved plan, and `V37 E 63 E` starts P63. If there is no saved plan the DSKY still runs, but its registers show `-----`, and P63 refuses: OPR ERR lights and the terminal says why. Then end the DSKY with `V34 E`, run the planner and start the DSKY again. Start the DSKY before the descent and do not restart it during the descent.
+The **DSKY window** opens on the site in the saved plan, and `V37 E 63 E` starts P63. If there is no saved plan the DSKY still runs, but P63 refuses: OPR ERR lights and the terminal says why. Then end the DSKY with `V34 E`, run the planner and start the DSKY again. Start the DSKY before the descent and do not restart it during the descent.
 
 This differs from 1.0, where `RUN start.` opened the planner and then the DSKY, and the DSKY could take a site as an argument or fall back to the point under the next perilune. The DSKY now takes its site from the saved plan only.
 
@@ -71,15 +71,16 @@ In the planner window:
 
 ![The deorbit planner window with Apollo 11 selected](images/planner.png)
 
-*The planner window: site menu, latitude and longitude, optional height, largest plane change, replace-nodes tick box, crew window choice, then PLAN and CLOSE. The line at the bottom shows the result after PLAN.*
+*The planner window, one column: landing site (menu, LAT, LONG), parameters (largest plane change, replace nodes, pad loads, windows up), PLAN and CLOSE, and a one-line result.*
 
-1. Pick an Apollo landing site from the menu, or choose Custom and type a latitude and longitude (degrees; east is positive). Leave the height blank to use the terrain height.
-2. Optional: set the largest plane-change burn you will accept (m/s, default 200), tick "Replace existing maneuver nodes", and choose the **crew window in P63**: "Windows up (later missions)" (`UP`: the ship turns so the window faces the site) or "Keep the roll (Apollo 11)" (`KEEP`: the roll is kept).
-3. Press **PLAN**. The window shows a two-line result. The planner adds up to two maneuver nodes: a plane change (only if the site is more than 2 km out of your orbit plane) and the DOI burn that puts you on the descent orbit, with PDI (powered descent initiation) at the perilune.
-4. If it fails it removes its own nodes and says why (no bound orbit, time warp on, terrain too low on the descent orbit, plane change too large...).
-5. **CLOSE** leaves the nodes in place and ends the planner. Fly the burns, then start the DSKY (section 2).
+1. Pick an Apollo landing site from the menu, or choose Custom and type a latitude and longitude (degrees; east is positive). The height is always the terrain height at the site.
+2. Optional: set the largest plane-change burn you will accept (m/s, default 200), tick "Replace existing maneuver nodes", and tick or clear **Windows up in P63**: ticked (`UP`, later missions) the ship turns so the window faces the site, clear (`KEEP`, Apollo 11) the roll is kept.
+3. Choose the **pad loads and descent guidance**: "Apollo 11 (Luminary 099)" (the default, as in 1.1) or "J-class (Luminary 210, Apollo 15 to 17)", which uses the Apollo 17 pad loads and the later guidance (see "J-class descent" in section 5). The choice is saved with the plan.
+4. Press **PLAN**. The line under the buttons reads "Plan OK! DOI: HH:MM, PDI: HH:MM, LDG: HH:MM" (universal time, hours and minutes: set the game's clock to UT and these are the times it shows when each burn happens), or says why it failed. The planner adds up to two maneuver nodes: a plane change (only if the site is more than 2 km out of your orbit plane) and the DOI burn that puts you on the descent orbit, with PDI (powered descent initiation) at the perilune.
+5. If it fails it removes its own nodes and says why (no bound orbit, time warp on, terrain too low on the descent orbit, plane change too large...).
+6. **CLOSE** leaves the nodes in place and ends the planner. Fly the burns, then start the DSKY (section 2).
 
-The descent constants are the Apollo 11 pad load for every site. A site with rough terrain under the descent orbit is refused rather than flown into.
+The pad loads are those of the profile you chose, for every site. A site with rough terrain under the descent orbit is refused rather than flown into.
 
 **Fly the nodes yourself** (kOS does not steer them), warping to each as usual. After the DOI burn you are on the descent orbit. You do not need to coast or warp to PDI: start P63 straight away (section 5) and it warps you there.
 
@@ -89,7 +90,7 @@ A window shaped like the LM's DSKY: PROG, VERB, NOUN and three data registers R1
 
 ![The DSKY window in P63: PROG 63, V16 N60, R1 horizontal speed, R2 descent rate, R3 height, with COMP ACTY, ALT and VEL lit](images/dsky.png)
 
-*The DSKY in P63 braking: PROG 63, `V16 N60` (R1 horizontal speed in ft/s, R2 descent rate in ft/s, R3 calculated height in ft). COMP ACTY (the computer is working) is lit, and so are the amber ALT and VEL lamps.*
+*The DSKY in P63 braking: PROG 63, `V16 N60` (R1 horizontal speed and R2 descent rate in tenths of ft/s, R3 calculated height in ft). COMP ACTY (the computer is working) is lit, and so are the amber ALT and VEL lamps.*
 
 **Lamps that work:**
 
@@ -129,7 +130,7 @@ The VERB and NOUN cells say two things:
 - The **verb** is what you want done: show something, or change the programme.
 - The **noun** is which data the three registers R1, R2 and R3 show (speed, height, time...).
 
-To change what the display shows, key a verb and a noun and press ENTR: `V16 N61 E`. The display starts at `V16 N60`.
+To change what the display shows, key a verb and a noun and press ENTR: `V16 N61 E`. At start the display is blank except PROG `00`, like a real DSKY after a fresh start: key a verb and a noun to see anything (a noun with no verb, or a verb that needs a noun without one, lights OPR ERR). Set `DSKY_START = N60` in `lm_config.txt` to have `V16 N60` up from the start instead (a departure from Apollo, handy as a descent monitor).
 
 - While you key a verb or noun, the digits you type appear in its cells and the VERB/NOUN line flashes until you press **ENTR**.
 - You can key only the noun (`N61 E`) and keep the verb, or only the verb and keep the noun.
@@ -153,16 +154,16 @@ On the real DSKY V06 shows a noun once and V16 keeps updating it. Here both upda
 
 #### Nouns
 
-Units are Apollo's: feet, ft/s, nautical miles. A register shows NA until its value exists (the P63 values do not exist before P63 starts).
+Units are Apollo's: feet, ft/s, nautical miles. A register is five digits with no decimal point (the real DSKY has none): speeds are in tenths of a ft/s (`-00030` is a descent of 3.0 ft/s, as Luminary's VELOCITY3 `XXXX.X`), distances in tenths of a nautical mile, heights in whole feet. A register driven by a noun always shows a number: until P63 or P64 supplies a value it shows zeros (`+00 00`, `+00000`), as Luminary's displays do with an erasable nothing has written to. A register is blank only when there is no navigation state at all. The real DSKY cannot show dashes, only digits or blank.
 
 | Noun | R1 | R2 | R3 |
 |---|---|---|---|
-| N60 | horizontal speed (ft/s) | descent rate (ft/s) | height above the site (ft) |
-| N61 | time to ignition (`+MM SS`) | braking time to go (`MM SS`) | out-of-plane distance (nm) |
-| N62 | speed along the burn (ft/s) | time to go (`MM SS`) | delta-v gained (ft/s) |
-| N63 | speed along the burn (ft/s) | descent rate (ft/s) | height (ft) |
-| N64 | look angle to the site (deg) | descent rate (ft/s) | height (ft) |
-| N68 | range to the site (nm) | not used | height difference (ft) |
+| N60 | horizontal speed (0.1 ft/s) | descent rate (0.1 ft/s) | height above the site (ft) |
+| N61 | braking time to go (`MM SS`) | time to ignition (`+MM SS`, negative after ignition) | out-of-plane distance (tenths of a nm, five digits) |
+| N62 | speed along the burn (0.1 ft/s) | time to go (`MM SS`) | delta-v gained (0.1 ft/s) |
+| N63 | speed along the burn (0.1 ft/s) | descent rate (0.1 ft/s) | height (ft) |
+| N64 | seconds left to redesignate and look angle (deg), as `+TT LL` | descent rate (0.1 ft/s) | height (ft) |
+| N68 | range to the site (tenths of a nm, five digits) | braking time to go (`MM SS`, as N61 R1) | height difference (ft) |
 
 #### Useful ones
 
@@ -170,7 +171,7 @@ Units are Apollo's: feet, ft/s, nautical miles. A register shows NA until its va
 |---|---|
 | `V16 N60 E` | The general descent view: how fast you are moving sideways, how fast you are falling, how high. Before P63, a check of your height above the site |
 | `V16 N68 E` | The range to the landing site. Before P63 it tells you how far you still are |
-| `V16 N61 E` | During P63: time to ignition and the braking time to go |
+| `V16 N61 E` | During P63: the braking time to go and the time to ignition |
 | `V16 N64 E` | The look angle to the site, to judge a redesignation |
 | `V37 E 63 E` | Start P63 |
 | `V34 E` | End it all and take the controls back |
@@ -181,9 +182,9 @@ Units are Apollo's: feet, ft/s, nautical miles. A register shows NA until its va
 |---|---|---|---|---|
 | P63 countdown (TIG-30 to TIG-5) | `V06 N62` | speed along the burn | time to ignition (`+MM SS`) | delta-v gained |
 | P63 engine prompt (TIG-5, flashing) | `V99 N62` | same as above | same | same |
-| P63 burning | `V06 N63` | speed along the burn (ft/s) | descent rate (ft/s) | height (ft) |
-| P64 approach | `V06 N64` | look angle to the site (deg) | descent rate (ft/s) | height (ft) |
-| P65 and P66 | `V06 N60` | horizontal speed (ft/s) | descent rate (ft/s) | height (ft) |
+| P63 burning | `V06 N63` | speed along the burn (0.1 ft/s) | descent rate (0.1 ft/s) | height (ft) |
+| P64 approach | `V06 N64` | seconds left to redesignate and look angle (deg), `+TT LL` | descent rate (0.1 ft/s) | height (ft) |
+| P65 and P66 | `V06 N60` | horizontal speed (0.1 ft/s) | descent rate (0.1 ft/s) | height (ft) |
 
 You can key a different noun at any time during a programme and the programme carries on. The programme only sets the display when its state changes (the countdown, the engine prompt, the engine lighting, the hand-over to the next programme), so a noun you key stays until the next change.
 
@@ -208,7 +209,7 @@ The SAS button is the AUTO / ATT HOLD switch: SAS on holds attitude, SAS off let
 
 ### P64: approach and redesignation
 
-PROG shows 64 and the display `V06 N64` flashing. R1 is the look angle to the site, R2 the descent rate (ft/s), R3 the height (ft). P64 steers and throttles to the approach targets and hands over to P65 by itself about 150 s later.
+PROG shows 64 and the display `V06 N64` flashing. R1 is the seconds left to redesignate and the look angle in degrees (`+TT LL`, two digits each, as Luminary's FUNNYDSP), R2 the descent rate (0.1 ft/s), R3 the height (ft). P64 steers and throttles to the approach targets and hands over to P65 by itself about 150 s later.
 
 **Redesignation** (moving the aim point): press **PRO** once to permit it (the flashing stops). Then, with SAS off (AUTO only), use the KSP flight keys:
 
@@ -230,6 +231,17 @@ Switch SAS on (the ATT HOLD switch), then tap **Shift** (slower descent) or **Ct
 The CONTACT lamp lights when the lander touches down, the engine cuts off a quarter of a second later (you can stop it first) and PROG shows 68. The programme ends and the controls are yours.
 
 `V34 E` ends any programme at any time and hands the controls back.
+
+### J-class descent (Luminary 210)
+
+With the J-class profile (`RUN dsky.` prints `LUMINARY210`) P63 and P64 work as above, with the Apollo 17 pad loads and these differences:
+
+- The ignition point is lower and further out, so the planner puts the descent orbit's perilune about 16.8 km up (Apollo 11: 15.8 km).
+- P64 is shorter at its start (the time-to-go step is -70 s, not -110 s), and each redesignation click moves the aim point **1 degree** on both axes (pitch keys and yaw keys).
+- **There is no P65.** When the time to go falls below 12 s, P64 hands over to **P66** straight away. P66 holds the descent rate the approach had at that moment, and Shift and Ctrl change it by 1 ft/s a click, in AUTO or with SAS on. The top lines of the terminal show the descent rate, the commanded rate and the horizontal speed.
+- In P66 the guidance also **nulls the horizontal speed** over the ground by itself: the thrust leans against the drift (time constant about 7 s). You can let it land by itself.
+- The landing radar is not used below 50 ft (15 m).
+
 
 ## 6. Messages
 
@@ -256,7 +268,8 @@ The defaults are tuned for the RO LM. The settings in the table below can be cha
 | `LM_LOG` | FALSE | TRUE writes diagnostic logs to `0:/lm/logs/` (`p63.log`, `p64.log`, `p65.log`, `lm_check.log`, `lm_deorbit.log`). Useful for bug reports |
 | `P63_WINDOW_MODE` | `UP` | Default crew window mode (the planner window sets it too) |
 | `P63_WARP_LEAD_S` | 60 | Seconds before ignition at which the warp stops |
-| `P64_PITCH_SIGN`, `P64_YAW_SIGN` | 1, -1 | Flip if a redesignation key moves the aim point the wrong way |
+| `DSKY_START` | BLANK | `BLANK` or `N60`: what the DSKY shows when it starts |
+| `P64_PITCH_SIGN`, `P64_YAW_SIGN` | -1, -1 | Flip if a redesignation key moves the aim point the wrong way |
 | `P66_ROD_SIGN` | 1 | Flip if Shift/Ctrl change the rate the wrong way |
 | `BODY_NAME` | `Moon` | The body you land on |
 
@@ -270,6 +283,7 @@ The defaults are tuned for the RO LM. The settings in the table below can be cha
 - The RO LMDE gives more thrust than the throttle command at low settings. P65 and P66 compensate with the engine's measured throttle curve and a thrust trim.
 - The landing radar is simulated from the terrain height kOS gives, so the ALT and VEL lamps follow Luminary's tests on that data. Only the lamps listed in section 4 are driven. The + / - and KEY REL keys do nothing. V37, V34, V06, V16 and V99 are the only verbs.
 - `KEEP` window mode in P64 is assumed, not flown.
+- J-class (1.2): the Apollo 17 pad loads are used as read from the printed load; the three missions share them except the ignition point and one timing value. P66 leaves out Luminary's alarm 1466 logic, the engine-arm test and the early P66 start from a ROD click in P63 or P64, and the programme ends at engine cut-off, so the PROCEED that ends the horizontal control after touchdown is not needed.
 
 ## 9. If something goes wrong
 

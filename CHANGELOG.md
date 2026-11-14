@@ -3,6 +3,27 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
+## 1.2 (2026-11-14, J-class pads)
+
+The planner chooses between the Apollo 11 pad loads (as before) and the J-class loads of Luminary 210 (Apollo 15 to 17, the Apollo 17 values). The J-class descent has its own files in `lm/descent_j/`; the Apollo 11 files are unchanged.
+
+### Changed
+- **DSKY digits** are pictures (rendered from the Zerlina font, SIL Open Font License, by Eugene Dorr) instead of text in the `digital-7` font, so nothing has to be installed and the digits look like the real display. All digits are the same size. Small spacing tidy-ups on the display side (rounded COMP ACTY and PROG corners).
+
+- **DSKY numbers match the Luminary displays:** no decimal points anywhere (fractional registers are five digits in the unit of the last digit: N61 R3 and N68 R1 in tenths of a nm, N60, N62, N63 and N64 R2 in tenths of ft/s); N64 R1 shows `+TT LL` (time to redesignation close and look angle); N68 R2 is the time to go; MIN/SEC clamps at 59:59.
+- **No dashes:** the real DSKY cannot show a dash, so a register with no value yet shows zeros (the stored value) and is blank only when there is no navigation state.
+- **Start-up:** the DSKY starts blank (PROG 00, no verb or noun) like a real DSKY after a fresh start; key `V16 N60 E` yourself, or set `DSKY_START = N60` in `lm_config.txt` for the old behaviour. ENTR needs a verb (and a noun, except V37 and V34), otherwise OPR ERR. A typed verb stays on the display while the noun is keyed.
+- **P64 redesignation:** the default pitch sign is now -1 (both profiles): W brings the aim point closer, S sends it farther.
+
+### Added
+- **Planner:** the result line gives DOI, PDI and LDG as the game's UT clock (HH:MM; set the game's clock to UT); it used to give the vessel's mission elapsed time.
+- **Planner:** a "Pad loads and descent guidance" menu; the choice is saved in `plan.json` as `PROFILE` (`A11` or `J`; plans without it are Apollo 11).
+- **J-class descent:** Apollo 17 pad loads (`lm_j_constants.ks`), P63 and P64 with them, redesignation clicks of 1 degree on both axes, a 15 m landing-radar cut-off, and **P66 straight after P64** (Luminary 210 has no P65), starting at the current descent rate.
+- **P66 horizontal control (J-class):** the thrust direction nulls the horizontal speed over the surface (Luminary `P66HZ`).
+- Pad test `test_j.ks`; `reference_j.py` (expected numbers and the mass and performance study).
+
+Flown 2026-11-14 (J Class craft, Apollo 11 site): P63, P64 with redesignation, the handover to P66 at 12 s, horizontal nulling (1.9 to 0.1 m/s), the rate clicks and touchdown all behaved; the Apollo 11 profile was also re-flown on the same craft with no change from 1.1.
+
 ## 1.1 (2026-11-13)
 
 The DSKY becomes a core that runs programmes from a table; the LM is its first vehicle. The descent itself (P63 to P66, displays, lamps, keys, logs) flies as in 1.0; only the terminal output changed.

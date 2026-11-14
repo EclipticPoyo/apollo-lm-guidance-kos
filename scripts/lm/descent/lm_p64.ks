@@ -273,7 +273,7 @@ FUNCTION p64_step {
     SET prog["LAST_ALARM"] TO alarm_no.
   }
   IF terminating { SET prog["ENDED"] TO TRUE. }
-  LOCAL extra IS LEXICON("TTOGO", prog["TIG"] - now_ut, "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"], "TTFDISP", prog["TGO"]).
+  LOCAL extra IS LEXICON("TTOGO", prog["TIG"] - now_ut, "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"], "TTFDISP", prog["TGO"], "TREDES", MAX(0, prog["TGO"] - TCGFAPPR - P64_REDES_CLOSE_S)).
 
   p64_log(prog, gp, state, derived).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", flashing, "BLANK", FALSE,

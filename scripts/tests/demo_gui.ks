@@ -1,6 +1,6 @@
 // demo_gui.ks -- on-screen check of the GUI DSKY (lm_gui.ks). Run anywhere, no flight needed:
 //   RUNPATH("0:/tests/demo_gui.ks").           full window
-//   RUNPATH("0:/tests/demo_gui.ks", 1).        default font instead of digital-7
+//   RUNPATH("0:/tests/demo_gui.ks", 1).        digits as text in the default font instead of the Zerlina pictures
 //   RUNPATH("0:/tests/demo_gui.ks", 2).        no colour tags (plain text)
 //   RUNPATH("0:/tests/demo_gui.ks", 3).        both 1 and 2
 //   RUNPATH("0:/tests/demo_gui.ks", 4).        like 3, and the SCRIPT types V16 N60 E, V99 E, R by itself
@@ -31,7 +31,7 @@ IF EXISTS(log_path) { DELETEPATH(log_path). }
 SET CONFIG:IPU TO 2000.
 LOG "IPU now " + CONFIG:IPU TO log_path.
 LOG "variant " + variant TO log_path.
-IF variant = 1 OR variant = 3 OR variant = 4 { SET GUI_DIGIT_FONT TO "". }
+IF variant = 1 OR variant = 3 OR variant = 4 { SET GUI_DIGIT_FONT TO "". SET GUI_DIGIT_IMAGES TO FALSE. }
 IF variant = 2 OR variant = 3 OR variant = 4 { SET GUI_RICH TO FALSE. }
 
 // Made-up derived values (SI): 25 m/s horizontal, 3 m/s descent, 120 m high, 5 km from the site.

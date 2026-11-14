@@ -424,15 +424,15 @@ LOCAL nd IS LEXICON("VALID", TRUE, "VHORIZ", 0, "ABVEL", 100, "HDOT", -10, "HCAL
 LOCAL n61 IS noun_registers(61, nd).
 assert_true("N61 R1 braking time to go", n61[0] = "+05 00").
 assert_true("N61 R2 time to ignition (plus before TIG)", n61[1] = "+01 15").
-assert_true("N61 R3 out of plane in nautical miles", n61[2] = "+001.0").
+assert_true("N61 R3 out of plane in nautical miles", n61[2] = "+00010").
 LOCAL n62 IS noun_registers(62, nd).
-assert_true("N62 R1 speed in ft/s", n62[0] = "+00328").
+assert_true("N62 R1 speed in tenths of ft/s (VEL3)", n62[0] = "+03281").
 assert_true("N62 R2 time to ignition (plus before TIG)", n62[1] = "+01 15").
-assert_true("N62 R3 delta-v gained in ft/s", n62[2] = "+00033").
+assert_true("N62 R3 delta-v gained in tenths of ft/s (VEL3)", n62[2] = "+00328").
 LOCAL nd2 IS LEXICON("VALID", TRUE, "VHORIZ", 0, "ABVEL", 100, "HDOT", -10, "HCALC", 1000, "RANGEDSP", 5000, "LOOKANGL", 0, "DELTAH", 0).
-assert_true("N62 without P63 values is as before: speed then no data", noun_registers(62, nd2)[0] = "+00328" AND noun_registers(62, nd2)[1] = NA AND noun_registers(62, nd2)[2] = NA).
-assert_true("N61 without P63 values: no data", noun_registers(61, nd2)[0] = NA).
-assert_true("N63 unchanged", noun_registers(63, nd)[0] = "+00328" AND noun_registers(63, nd)[1] = "-00033").
+assert_true("N62 without P63 values is as before: speed then no data", noun_registers(62, nd2)[0] = "+03281" AND noun_registers(62, nd2)[1] = "+00 00" AND noun_registers(62, nd2)[2] = "+00000").
+assert_true("N61 without P63 values: zero", noun_registers(61, nd2)[0] = "+00 00").
+assert_true("N63 unchanged", noun_registers(63, nd)[0] = "+03281" AND noun_registers(63, nd)[1] = "-00328").
 
 // ---- Turn, then warp (warp_step is pure: attitude error and turn rate come in as numbers) ----
 LOCAL wt IS warp_new().

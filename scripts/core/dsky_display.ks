@@ -16,28 +16,42 @@ FUNCTION zero_pad {
   RETURN text.
 }
 
-// fmt_reg: a signed register like the DSKY's: sign plus five digits ("+12345", "-00012").
-// With decimals > 0 there are four digits and a decimal point ("+123.4"), so the width stays six
-// characters. Values too big to show are clamped to the largest digits, keeping the sign.
+// fmt_reg: a signed register like the DSKY's: sign plus five digits ("+12345", "-00012"). The real DSKY has no decimal
+// point: a noun with a fractional scale (Luminary's POS7 "XXXX.X NAUT MI") shows the value in units of its last digit,
+// so with decimals = 1 the value is multiplied by 10 and shown as five plain digits ("+01235" for 123.5). Values too
+// big to show are clamped to the largest digits, keeping the sign.
 FUNCTION fmt_reg {
   PARAMETER value, decimals.
-  LOCAL ndigits IS 5 - MIN(decimals, 1).
+  LOCAL ndigits IS 5.
   LOCAL biggest IS 10 ^ ndigits - 1.
   LOCAL n IS MIN(ROUND(ABS(value) * 10 ^ decimals), biggest).
   LOCAL sign IS "+".
   IF value < 0 AND n > 0 { SET sign TO "-". }      // no "-00000"
-  LOCAL digits IS zero_pad(n, ndigits).
-  IF decimals > 0 {
-    SET digits TO digits:SUBSTRING(0, ndigits - decimals) + "." + digits:SUBSTRING(ndigits - decimals, decimals).
-  }
-  RETURN sign + digits.
+  RETURN sign + zero_pad(n, ndigits).
+}
+
+// vn_digits: a verb or noun number as the two digits of its cells; a negative number (nothing displayed) is two blanks.
+FUNCTION vn_digits {
+  PARAMETER number.
+  IF number < 0 { RETURN "  ". }
+  RETURN zero_pad(number, 2).
+}
+
+// fmt_2int: two integers in one register like Luminary's 2INTOUT (PINBALL_GAME_BUTTONS_AND_LIGHTS.agc, "TWO CONTIGUOUS SP POSITIVE
+// INTEGERS ... IN RXD1-RXD2 AND RXD4-RXD5 (RXD3 IS BLANKED)"): a plus sign, the first integer in two digits, a blank, the
+// second in two digits ("+12 45"). Each is clamped to 0 to 99.
+FUNCTION fmt_2int {
+  PARAMETER first, second.
+  RETURN "+" + zero_pad(MIN(99, MAX(0, ROUND(first))), 2) + " " + zero_pad(MIN(99, MAX(0, ROUND(second))), 2).
 }
 
 // fmt_minsec: a time in seconds as a DSKY MIN/SEC register: sign, minutes, a blank, seconds ("+02 05", "-00 35"). The
-// real register has no colon; the blank stands where the colon would be. Clamped to 99 min 59 s either way; no "-00 00".
+// real register has no colon; the blank stands where the colon would be (Luminary M/SOUT, PINBALL_GAME_BUTTONS_AND_LIGHTS.agc
+// 1594-1640: seconds in digits 4-5, digit 3 blanked, minutes in digits 1-2). Clamped to 59 min 59 s either way, as M/SLIMIT
+// does ("FORCE MPAC, MPAC+1 TO +/- 59M59.5S"); no "-00 00".
 FUNCTION fmt_minsec {
   PARAMETER seconds.
-  LOCAL total IS MIN(ROUND(ABS(seconds)), 99 * 60 + 59).
+  LOCAL total IS MIN(ROUND(ABS(seconds)), 59 * 60 + 59).
   LOCAL sign IS "+".
   IF seconds < 0 AND total > 0 { SET sign TO "-". }
   LOCAL mins IS FLOOR(total / 60).
@@ -45,7 +59,7 @@ FUNCTION fmt_minsec {
 }
 
 // ---- Nouns -----------------------------------------------------------------
-GLOBAL NA IS "-----".                      // register with no data
+GLOBAL NA IS "".                           // register with no data: blank (digit cells and sign off). The real DSKY has no dash glyph; its digit relays take only 0 to 9 or blank (PINBALL_GAME_BUTTONS_AND_LIGHTS.agc, relay codes)
 
 // ---- Screen: plain-text terminal display (fallback) --------------------------------------------
 // The main display is the GUI window (the vehicle's window file). This is a plain text readout of the same values for
@@ -89,7 +103,7 @@ FUNCTION display_lines {
   RETURN LIST(
     "APOLLO LM GUIDANCE",
     "",
-    "PROG " + prog + "    VERB " + zero_pad(verb, 2) + "    NOUN " + zero_pad(noun, 2),
+    "PROG " + prog + "    VERB " + vn_digits(verb) + "    NOUN " + vn_digits(noun),
     "ALARMS:" + alarms,
     "",
     "R1  " + regs[0],

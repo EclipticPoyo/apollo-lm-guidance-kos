@@ -1,11 +1,11 @@
 // run_all.ks -- runs every pad test in turn and prints one summary line per test.
 //   RUN pad.                       (the one-line stub pad.ks in Ships/Script runs this file)
 //   RUNPATH("0:/tests/run_all.ks").
-// The tests are the ones that need no flight: test_core, test_config, test_math, test_plan, test_p63, test_p64, test_p65. Each writes its own
+// The tests are the ones that need no flight: test_core, test_config, test_math, test_plan, test_p63, test_p64, test_p65, test_j. Each writes its own
 // log under 0:/lm/logs/ (test_*.log); this script reads the last line of each ("TESTS: N passed, M failed") and writes the
 // summary to 0:/lm/logs/tests_summary.log. If a test stops with an error, the summary says so and the next test still runs.
 
-LOCAL ra_names IS LIST("test_core", "test_config", "test_math", "test_plan", "test_p63", "test_p64", "test_p65").
+LOCAL ra_names IS LIST("test_core", "test_config", "test_math", "test_plan", "test_p63", "test_p64", "test_p65", "test_j").
 LOCAL ra_summary IS "0:/lm/logs/tests_summary.log".
 IF EXISTS(ra_summary) { DELETEPATH(ra_summary). }
 

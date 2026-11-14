@@ -152,11 +152,16 @@ assert_true("core_end twice calls END once", CALLS["E1"] = e1_b11).
 // 12: the LM vehicle (lm_vehicle.ks): its table has the shape the core reads, and with no saved plan the registers have no
 // data and P63 refuses with the reason. Needs no flight; the no-plan checks are skipped when a plan.json exists.
 LOCAL lmv IS lm_vehicle_new().
-assert_true("LM vehicle: version is LUMINARY099", lmv["VERSION"] = "LUMINARY099").
+// Release 1.2: the saved plan's PROFILE ("A11" or "J"; none = A11) picks the programme set and the version.
+LOCAL veh_j IS plan_profile_of(plan_read(PLAN_PLAN_FILE)) = "J".
+assert_true("LM vehicle: version follows the plan profile",
+            lmv["VERSION"] = (CHOOSE "LUMINARY210" IF veh_j ELSE "LUMINARY099") AND LM_VEH["PROFILE"] = (CHOOSE "J" IF veh_j ELSE "A11")).
 assert_true("LM vehicle: only P63 is selectable by V37",
-            lmv["PROGRAMMES"]["63"]["SELECTABLE"] AND NOT lmv["PROGRAMMES"]["64"]["SELECTABLE"] AND NOT lmv["PROGRAMMES"]["65"]["SELECTABLE"]).
-assert_true("LM vehicle: P63 hands over to P64, P64 to P65, P65 to nothing",
-            lmv["PROGRAMMES"]["63"]["NEXT"] = 64 AND lmv["PROGRAMMES"]["64"]["NEXT"] = 65 AND lmv["PROGRAMMES"]["65"]["NEXT"] = -1).
+            lmv["PROGRAMMES"]["63"]["SELECTABLE"] AND NOT lmv["PROGRAMMES"]["64"]["SELECTABLE"] AND NOT lmv["PROGRAMMES"]["65"]["SELECTABLE"]
+            AND NOT lmv["PROGRAMMES"]["66"]["SELECTABLE"]).
+assert_true("LM vehicle: P63 hands over to P64, P64 to P65 (J: P66), P65 and P66 to nothing",
+            lmv["PROGRAMMES"]["63"]["NEXT"] = 64 AND lmv["PROGRAMMES"]["64"]["NEXT"] = (CHOOSE 66 IF veh_j ELSE 65)
+            AND lmv["PROGRAMMES"]["65"]["NEXT"] = -1 AND lmv["PROGRAMMES"]["66"]["NEXT"] = -1).
 assert_true("LM vehicle: only P64 and P65 have a SAMPLE hook",
             lmv["PROGRAMMES"]["63"]["SAMPLE"]:ISTYPE("Boolean") AND NOT lmv["PROGRAMMES"]["64"]["SAMPLE"]:ISTYPE("Boolean") AND NOT lmv["PROGRAMMES"]["65"]["SAMPLE"]:ISTYPE("Boolean")).
 assert_true("LM vehicle: CONTACT stays lit while PROG shows 68", lmv["IDLE_LAMPS"]:CALL("68")["CONTACT"] AND NOT lmv["IDLE_LAMPS"]:CALL("00")["CONTACT"]).

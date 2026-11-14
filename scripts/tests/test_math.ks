@@ -154,11 +154,12 @@ assert_true("fmt_reg(12345,0)",     fmt_reg(12345, 0) = "+12345").
 assert_true("fmt_reg(-12,0)",       fmt_reg(-12, 0) = "-00012").
 assert_true("fmt_reg(123456,0)",    fmt_reg(123456, 0) = "+99999").
 assert_true("fmt_reg(-123456,0)",   fmt_reg(-123456, 0) = "-99999").
-assert_true("fmt_reg(123.46,1)",    fmt_reg(123.46, 1) = "+123.5").
+assert_true("fmt_reg(123.46,1)",    fmt_reg(123.46, 1) = "+01235").
 assert_true("fmt_reg(-0.04,0) no negative zero", fmt_reg(-0.04, 0) = "+00000").
 assert_true("fmt_minsec(125)",      fmt_minsec(125) = "+02 05").
 assert_true("fmt_minsec(-35)",      fmt_minsec(-35) = "-00 35").
 assert_true("fmt_minsec(-0.2) has no minus", fmt_minsec(-0.2) = "+00 00").
+assert_true("fmt_minsec clamps at 59 59 (M/SLIMIT)", fmt_minsec(4000) = "+59 59" AND fmt_minsec(-9000) = "-59 59").
 
 assert_true("pad_right pads",        pad_right("ab", 5) = "ab   ").
 assert_true("pad_right cuts",        pad_right("abcdef", 3) = "abc").
@@ -209,12 +210,22 @@ assert_true("entry_text after ENTR", entry_text(ks_e) = "").
 // Noun 60: VHORIZ, HDOT (ft/s) and HCALC (ft). Reuse d2: VHORIZ 25 m/s, HDOT 0.
 LOCAL n60 IS noun_registers(60, d2).
 assert_true("noun 60 has 3 registers", n60:LENGTH = 3).
-assert_true("noun 60 R1 = VHORIZ ft/s", n60[0] = fmt_reg(ms_to_fps(d2["VHORIZ"]), 0)).
-assert_true("noun 60 R2 = HDOT ft/s",   n60[1] = fmt_reg(ms_to_fps(d2["HDOT"]), 0)).
+assert_true("noun 60 R1 = VHORIZ ft/s", n60[0] = fmt_reg(ms_to_fps(d2["VHORIZ"]), 1)).
+assert_true("noun 60 R2 = HDOT ft/s",   n60[1] = fmt_reg(ms_to_fps(d2["HDOT"]), 1)).
 assert_true("noun 60 R3 = HCALC ft",    n60[2] = fmt_reg(m_to_ft(d2["HCALC"]), 0)).
 LOCAL n61 IS noun_registers(61, d2).
-assert_true("noun 61 all unavailable", n61:LENGTH = 3 AND n61[0] = "-----" AND n61[1] = "-----" AND n61[2] = "-----").
+assert_true("noun 61 before P63: zeros (the stored values)", n61:LENGTH = 3 AND n61[0] = "+00 00" AND n61[1] = "+00 00" AND n61[2] = "+00000").
 assert_true("noun 99 is empty", noun_registers(99, d2):LENGTH = 0).
+LOCAL d_pre IS d2:COPY.
+SET d_pre["TTOGO"] TO 75.
+SET d_pre["DVTOTAL"] TO 0.
+SET d_pre["OUTOFPLN"] TO 0.
+LOCAL n61_pre IS noun_registers(61, d_pre).
+assert_true("noun 61 before ignition: R1 is +00 00 (TTFDISP not written yet)", n61_pre[0] = "+00 00" AND n61_pre[1] = "+01 15").
+SET d_pre["RANGEDSP"] TO 1852.
+SET d_pre["DELTAH"] TO 0.
+SET d_pre["TTFDISP"] TO 125.
+assert_true("noun 68 R2 is TTFDISP (M/S)", noun_registers(68, d_pre)[1] = "+02 05").
 
 // Key entry: V16 N60 ENTR commits; V99 ENTR lights OPR ERR; RSET clears it.
 FUNCTION type_keys {
@@ -245,5 +256,22 @@ type_keys(ks_u, "RV37E64E").
 assert_true("V37 ENTR 64 ENTR (not selectable) lights OPRERR and requests nothing", ks_u["OPRERR"] AND ks_u["PROG_REQ"] = -1).
 type_keys(ks_u, "RV37E63E").
 assert_true("V37 ENTR 63 ENTR requests P63", NOT ks_u["OPRERR"] AND ks_u["PROG_REQ"] = 63).
+
+// A blank start (DSKY_START = BLANK): no verb or noun shown, ENTR needs both, V37 and V34 need no noun.
+LOCAL ks_b IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS, LIST(-1, -1)).
+assert_true("blank start: no verb, no noun", ks_b["VERB"] = -1 AND ks_b["NOUN"] = -1 AND ks_b["VERB_BEFORE"] = -1).
+assert_true("a negative number is two blank cells", vn_digits(-1) = "  " AND vn_digits(5) = "05").
+assert_true("no noun displayed gives no registers", noun_registers(-1, d2):LENGTH = 0).
+type_keys(ks_b, "E").
+assert_true("ENTR with nothing keyed on a blank DSKY lights OPR ERR", ks_b["OPRERR"]).
+type_keys(ks_b, "RN61E").
+assert_true("a noun without a verb lights OPR ERR and keeps the blank", ks_b["OPRERR"] AND ks_b["VERB"] = -1 AND ks_b["NOUN"] = -1).
+type_keys(ks_b, "RV16E").
+assert_true("a verb that needs a noun, with no noun, lights OPR ERR", ks_b["OPRERR"] AND ks_b["VERB"] = -1).
+type_keys(ks_b, "RV16N61E").
+assert_true("V16 N61 ENTR from a blank start works", NOT ks_b["OPRERR"] AND ks_b["VERB"] = 16 AND ks_b["NOUN"] = 61).
+LOCAL ks_b2 IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS, LIST(-1, -1)).
+type_keys(ks_b2, "V37E63E").
+assert_true("V37 ENTR 63 ENTR from a blank start needs no noun", NOT ks_b2["OPRERR"] AND ks_b2["PROG_REQ"] = 63).
 
 report("TESTS: " + TESTS_PASSED + " passed, " + TESTS_FAILED + " failed").

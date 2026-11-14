@@ -10,7 +10,7 @@
 
 GLOBAL CFG_PATH IS "0:/lm/lm_config.txt".
 GLOBAL CFG_WARNINGS IS LIST().
-GLOBAL CFG_NAMES IS LIST("LM_LOG", "P63_WINDOW_MODE", "P63_WARP_LEAD_S", "P64_PITCH_SIGN", "P64_YAW_SIGN", "P66_ROD_SIGN", "BODY_NAME").
+GLOBAL CFG_NAMES IS LIST("LM_LOG", "DSKY_START", "P63_WINDOW_MODE", "P63_WARP_LEAD_S", "P64_PITCH_SIGN", "P64_YAW_SIGN", "P66_ROD_SIGN", "BODY_NAME").
 
 // cfg_apply_line: apply one line of the file. Returns "" when the line was empty, a comment or applied, else the reason it
 // was skipped (also added to CFG_WARNINGS).
@@ -30,6 +30,10 @@ FUNCTION cfg_apply_line {
     IF value:TOUPPER = "TRUE" { SET LM_LOG TO TRUE. RETURN "". }
     IF value:TOUPPER = "FALSE" { SET LM_LOG TO FALSE. RETURN "". }
     RETURN cfg_skip(raw_line, "LM_LOG must be TRUE or FALSE").
+  }
+  IF key = "DSKY_START" {
+    IF value:TOUPPER = "BLANK" OR value:TOUPPER = "N60" { SET DSKY_START TO value:TOUPPER. RETURN "". }
+    RETURN cfg_skip(raw_line, "DSKY_START must be BLANK or N60").
   }
   IF key = "P63_WINDOW_MODE" {
     IF value:TOUPPER = "UP" OR value:TOUPPER = "KEEP" { SET P63_WINDOW_MODE TO value:TOUPPER. RETURN "". }

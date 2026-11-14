@@ -15,8 +15,10 @@
 //  - No lamp widget: a lamp is a label whose STYLE:BG is a solid-colour image (scripts/lm/images/lamp_*.png,
 //    display_tag.png) and whose TEXTCOLOR is dark when lit, dim when off.
 //  - The default skin has a grey window background; I found no documented way to make it black.
-//  - Fonts: "digital-7 (mono)" is a seven-segment typeface that appeared in the KSP font list on this
-//    install. It is set with STYLE:FONT; if a font is missing it simply will not look like segments.
+//  - Fonts: kOS can only use fonts the operating system has, so the digits are not text: each digit cell is a label
+//    whose STYLE:BG is a picture of the digit (scripts/lm/images/digit_<cell width>_<char>.png), rendered from the
+//    Zerlina font (SIL OFL, see images/Zerlina-OFL.txt) by tools/make_digit_images.py. GUI_DIGIT_IMAGES = FALSE
+//    goes back to text in GUI_DIGIT_FONT (the old "digital-7 (mono)", only if it is installed).
 //  - The window needs the main loop to keep running (gui_poll). Call gui_close when the script ends.
 //  - The window object must be created at the top level of the main script, see gui_fill below.
 // Simplifications: only PROG, OPR ERR and COMP ACTY ever light (COMP ACTY: while a job runs or a displayed value
@@ -38,12 +40,20 @@
 // Published sources give the original electroluminescent glow as roughly 530 nm ("green", one calls it
 // "blueish-green") and no RGB value. Keep it in step with scripts/lm/images/display_tag.png.
 GLOBAL GUI_DISPLAY_HEX IS "#3adf9a".
-GLOBAL GUI_DIGIT_FONT IS "digital-7 (mono)".   // "" = default font
+GLOBAL GUI_DISPLAY_RGB IS RGB(0.227, 0.875, 0.604).   // GUI_DISPLAY_HEX as a colour
+GLOBAL GUI_DIGIT_FONT IS "digital-7 (mono)".   // "" = default font; used only for a character that has no digit image
+GLOBAL GUI_DIGIT_IMAGES IS TRUE.               // TRUE = digits are pictures (lm/images/digit_<cell width>_<char>.png, made from the Zerlina font by
+                                               // tools/make_digit_images.py); FALSE = text in GUI_DIGIT_FONT
+GLOBAL GUI_DIGIT_NAMES IS LEXICON("0", "0", "1", "1", "2", "2", "3", "3", "4", "4", "5", "5", "6", "6", "7", "7",
+                                  "8", "8", "9", "9", "+", "plus", "-", "minus", ".", "dot", " ", "").   // character -> image name part ("" = blank)
+GLOBAL GUI_DIGIT_HEIGHTS IS LEXICON(40, 44, 35, 40).    // cell width -> cell height in pixels; the images exist for these widths only
 GLOBAL GUI_PARTS IS LIST().                     // every widget gui_fill creates (see gui_keep)
 GLOBAL GUI_RICH IS TRUE.                       // FALSE = plain text, no colour tags
 GLOBAL GUI_LAMP_OFF_BG IS "lm/images/lamp_off".        // lamp cell backgrounds: solid-colour images in scripts/lm/images/
 GLOBAL GUI_LAMP_WHITE_BG IS "lm/images/lamp_white".    // lit, left column
 GLOBAL GUI_LAMP_AMBER_BG IS "lm/images/lamp_amber".    // lit, right column
+GLOBAL GUI_TAG_TL_BG IS "lm/images/display_tag_tl".    // the same colour with the top left corner rounded (COMP ACTY), 16 px, radius 8
+GLOBAL GUI_TAG_TR_BG IS "lm/images/display_tag_tr".    // top right corner rounded (PROG tag); both follow the display panel's rounded corners
 GLOBAL GUI_TAG_BG IS "lm/images/display_tag".           // solid display-colour image, found relative to the archive (Ships/Script) through the lm junction
 GLOBAL GUI_DISPLAY_W IS 250.                   // display panel width (the registers); the lamp panel is the same width, gap about 7
 GLOBAL GUI_LAMP_W IS 250.                      // lamp panel width: equal to the display panel
@@ -51,8 +61,8 @@ GLOBAL GUI_LAMP_COL_W IS 110.                  // width of one lamp cell (two ce
 GLOBAL GUI_LAMP_INSET IS 8.                    // space between the lamp panel's edge and the lamps, all four sides (the lamps used to overlap the frame)
 GLOBAL GUI_LAMP_H IS 40.                       // height of one lamp cell
 GLOBAL GUI_LEFT_COL_W IS 116.                  // widths of the two columns of the display panel
-GLOBAL GUI_RIGHT_COL_W IS 116.
-GLOBAL GUI_RIGHT_SHIFT IS 32.                  // spacer that pushes PROG and NOUN to the right edge
+GLOBAL GUI_RIGHT_COL_W IS 122.
+GLOBAL GUI_RIGHT_SHIFT IS 38.                  // spacer that pushes PROG and NOUN to the right edge
 GLOBAL GUI_OFF_TEXT IS RGB(0.04, 0.04, 0.05).  // text of a lamp that is off: black on the light-grey off cell
 GLOBAL GUI_REG_PERIOD IS 1.0.                  // seconds between refreshes of R1 to R3: a monitor verb shows its numbers once a second (Luminary PINBALL MONDEL, OCT 144 = 100 centiseconds)
 GLOBAL GUI_COMP_HOLD IS 0.1.                   // seconds COMP ACTY stays lit at least, after a job or a display change
@@ -145,10 +155,35 @@ FUNCTION gui_label {
 FUNCTION gui_cells {
   PARAMETER holder, n, cell_w.
   LOCAL cells IS LIST().
+  LOCAL use_images IS GUI_DIGIT_IMAGES AND GUI_DIGIT_HEIGHTS:HASKEY(cell_w).
   FROM { LOCAL i IS 0. } UNTIL i >= n STEP { SET i TO i + 1. } DO {
-    cells:ADD(gui_label(holder, lit_text("-"), cell_w, GUI_DIGIT_SIZE, GUI_DIGIT_FONT, "CENTER")).
+    IF use_images {
+      // A picture cell: the label's text holds the character (so gui_set can tell when it changed) but is
+      // drawn fully transparent and tiny (font size 8) so the text never makes the cell taller than its height; the picture is the background, stretched to the cell.
+      LOCAL cell_w_lbl IS gui_label(holder, "-", cell_w, 8, "", "CENTER").
+      SET cell_w_lbl:STYLE:HEIGHT TO GUI_DIGIT_HEIGHTS[cell_w].
+      gui_digit_show(cell_w_lbl, "-").
+      cells:ADD(cell_w_lbl).
+    } ELSE {
+      cells:ADD(gui_label(holder, lit_text("-"), cell_w, GUI_DIGIT_SIZE, GUI_DIGIT_FONT, "CENTER")).
+    }
   }
   RETURN cells.
+}
+
+// gui_digit_show: show one character in a picture cell. A character with no picture (an unexpected one)
+// is drawn as lit text instead. The label's text is always the bare character.
+FUNCTION gui_digit_show {
+  PARAMETER cell_lbl, ch.
+  SET cell_lbl:TEXT TO ch.
+  IF GUI_DIGIT_NAMES:HASKEY(ch) {
+    LOCAL name IS GUI_DIGIT_NAMES[ch].
+    SET cell_lbl:STYLE:BG TO (CHOOSE "" IF name = "" ELSE "lm/images/digit_" + ROUND(cell_lbl:STYLE:WIDTH) + "_" + name).
+    SET cell_lbl:STYLE:TEXTCOLOR TO RGBA(0, 0, 0, 0).
+  } ELSE {
+    SET cell_lbl:STYLE:BG TO "".
+    SET cell_lbl:STYLE:TEXTCOLOR TO GUI_DISPLAY_RGB.
+  }
 }
 
 // gui_set_cells: show text in a row of cells, right-aligned: shorter text is padded with blanks on the
@@ -161,7 +196,10 @@ FUNCTION gui_set_cells {
   IF padded:LENGTH > n { SET padded TO padded:SUBSTRING(padded:LENGTH - n, n). }
   LOCAL changed IS FALSE.
   FROM { LOCAL i IS 0. } UNTIL i >= n STEP { SET i TO i + 1. } DO {
-    IF gui_set(cells[i], lit_text(padded:SUBSTRING(i, 1))) { SET changed TO TRUE. }
+    LOCAL ch IS padded:SUBSTRING(i, 1).
+    IF GUI_DIGIT_IMAGES AND GUI_DIGIT_HEIGHTS:HASKEY(ROUND(cells[i]:STYLE:WIDTH)) {
+      IF cells[i]:TEXT <> ch { gui_digit_show(cells[i], ch). SET changed TO TRUE. }
+    } ELSE IF gui_set(cells[i], lit_text(ch)) { SET changed TO TRUE. }
   }
   RETURN changed.
 }
@@ -178,12 +216,21 @@ FUNCTION gui_tag {
   RETURN tag_w.
 }
 
+// gui_border: set all four 9-slice borders of a widget to px pixels (the corner size of its background image).
+FUNCTION gui_border {
+  PARAMETER widget_w, px.
+  SET widget_w:STYLE:BORDER:LEFT TO px.
+  SET widget_w:STYLE:BORDER:RIGHT TO px.
+  SET widget_w:STYLE:BORDER:TOP TO px.
+  SET widget_w:STYLE:BORDER:BOTTOM TO px.
+}
+
 // gui_comp_style: COMP ACTY is the display colour when lit. Off it has no background at all (transparent, so it shows the
 // panel behind it), unlike the other lamps whose off state is a grey cell. The text is black either way.
 FUNCTION gui_comp_style {
   PARAMETER label_w, lit.
   IF lit {
-    gui_lamp_style(label_w, TRUE, GUI_TAG_BG).
+    gui_lamp_style(label_w, TRUE, GUI_TAG_TL_BG).
   } ELSE {
     SET label_w:STYLE:BG TO "".     // transparent: "" falls back to no background (kOS docs, StyleState:BG)
     SET label_w:STYLE:TEXTCOLOR TO GUI_OFF_TEXT.
@@ -209,7 +256,7 @@ FUNCTION gui_rule {
   SET rule_w:STYLE:HEIGHT TO 12.   // kept at 12 so the register rows do not move
   // A big underscore sits at the bottom of a tall text line, so it drew below the label. Pull the text up
   // (negative top padding; the docs do not say negative values work, so this is a test).
-  SET rule_w:STYLE:PADDING:TOP TO -20.
+  SET rule_w:STYLE:PADDING:TOP TO -24.   // was -20: -24 lifts the line 4 px so the gaps above and below it are about equal (digit cells have little ink padding)
 }
 
 // gui_skin: give a window or box a background image in every state (they switch between states, a window with
@@ -351,7 +398,7 @@ FUNCTION gui_fill {
   gui_skin(disp_panel, GUI_SCREEN_BG).    // same frame round the display
   SET disp_panel:STYLE:WIDTH TO GUI_DISPLAY_W.
   SET disp_panel:STYLE:HEIGHT TO GUI_PANEL_H.
-  SET disp_panel:STYLE:PADDING:LEFT TO 3.       // less left padding: VERB starts nearer the left edge
+  SET disp_panel:STYLE:PADDING:LEFT TO 0.       // was 3: COMP ACTY and VERB 3 px nearer the left edge (the right column got 3 px more spacer to stay put)
   SET disp_panel:STYLE:PADDING:RIGHT TO 3.
   // Arrangement from a photograph of a real DSKY display (2026-11-12). Two columns, the right one shared
   // by PROG (top) and NOUN (below), so their digits line up:
@@ -372,6 +419,7 @@ FUNCTION gui_fill {
   SET ui["COMP"]:STYLE:HEIGHT TO 72.
   SET ui["COMP"]:STYLE:PADDING:TOP TO 14.     // a label draws its text from the top: padding moves it to the middle
   SET ui["COMP_LIT"] TO FALSE.
+  gui_border(ui["COMP"], 8).             // 9-slice corners of display_tag_tl.png
   gui_comp_style(ui["COMP"], FALSE).
   // The right column (PROG over NOUN) is pushed against the right edge with a spacer ahead of its tag and
   // its digits; the left column (VERB) starts at the left edge.
@@ -379,12 +427,14 @@ FUNCTION gui_fill {
   SET prog_col:STYLE:WIDTH TO GUI_RIGHT_COL_W.
   LOCAL prog_tag_row IS gui_keep(prog_col:ADDHLAYOUT()).
   gui_label(prog_tag_row, "", GUI_RIGHT_SHIFT, 12, "", "LEFT").
-  gui_tag(prog_tag_row, "PROG", 84).
+  LOCAL prog_tag IS gui_tag(prog_tag_row, "PROG", 84).
+  SET prog_tag:STYLE:BG TO GUI_TAG_TR_BG.      // top right corner rounded to follow the panel
+  gui_border(prog_tag, 8).
   LOCAL prog_dig_row IS gui_keep(prog_col:ADDHLAYOUT()).
   gui_label(prog_dig_row, "", GUI_RIGHT_SHIFT, 12, "", "LEFT").
   SET ui["PROG"] TO gui_cells(prog_dig_row, 2, 40).
 
-  gui_keep(disp_panel:ADDSPACING(10)).        // a gap so the PROG digits do not touch the NOUN tag
+  gui_keep(disp_panel:ADDSPACING(4)).         // a gap so the PROG digits do not touch the NOUN tag
   LOCAL vn_row IS gui_keep(disp_panel:ADDHLAYOUT()).
   LOCAL verb_col IS gui_keep(vn_row:ADDVLAYOUT()).
   SET verb_col:STYLE:WIDTH TO GUI_LEFT_COL_W.
@@ -408,6 +458,7 @@ FUNCTION gui_fill {
   FROM { LOCAL i IS 0. } UNTIL i >= 3 STEP { SET i TO i + 1. } DO {
     gui_rule(disp_panel).
     LOCAL reg_row IS gui_keep(disp_panel:ADDHLAYOUT()).
+    SET reg_row:STYLE:PADDING:LEFT TO 6.   // centres the register digits between the rims (the panel itself has no left padding now)
     ui["REGS"]:ADD(gui_cells(reg_row, 6, 35)).
   }
 
@@ -504,10 +555,14 @@ FUNCTION gui_update {
   LOCAL flash_on IS MOD(FLOOR(TIME:SECONDS * 2), 2) = 0.      // 1 Hz: half a second on, half off
   LOCAL keying_v IS gui_entry_active(flags, "V").
   LOCAL keying_n IS gui_entry_active(flags, "N").
-  LOCAL verb_text IS zero_pad(verb, 2).
-  LOCAL noun_text IS zero_pad(noun, 2).
-  IF keying_v { SET verb_text TO gui_entry_text(flags["VBUF"]). }
-  IF keying_n { SET noun_text TO gui_entry_text(flags["NBUF"]). }
+  LOCAL verb_text IS vn_digits(verb).      // blank before the first verb and noun are keyed (DSKY_START)
+  LOCAL noun_text IS vn_digits(noun).
+  // A typed verb stays shown while the noun is being keyed (and the other way round): the digits typed stay on the display
+  // until ENTR, as on the real DSKY. Only the field being keyed right now can be blank (just after its key).
+  LOCAL vbuf_held IS flags:HASKEY("VBUF") AND flags["VBUF"]:LENGTH > 0.
+  LOCAL nbuf_held IS flags:HASKEY("NBUF") AND flags["NBUF"]:LENGTH > 0.
+  IF keying_v OR vbuf_held { SET verb_text TO gui_entry_text(flags["VBUF"]). }
+  IF keying_n OR nbuf_held { SET noun_text TO gui_entry_text(flags["NBUF"]). }
   // After V37 ENTR the programme number is keyed in the NOUN cells (blank until typed), the verb stays 37, and the line
   // flashes like any other entry until ENTR (Luminary MMCHANG: "uses noun display until enter").
   LOCAL keying_prog IS flags:HASKEY("PROGKEY") AND flags["PROGKEY"].

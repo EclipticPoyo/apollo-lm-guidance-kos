@@ -15,6 +15,8 @@ Target: the Sol planet pack with Mirage and TiltEm, Realism Overhaul (RO) and kO
 1. Copy the `core`, `lm` and `shared` folders from `scripts` into `<KSP>/Ships/Script/`, so kOS sees them as `0:/core/`, `0:/lm/` and `0:/shared/`.
 2. Create two one-line stubs in `<KSP>/Ships/Script/`: `dsky.ks` containing `RUNPATH("0:/core/dsky.ks").` and `plan.ks` containing `RUNPATH("0:/lm/planner/lm_plan_ui.ks").`
 
+**Test craft:** the `craft/` folder in the repository has the two Realism Overhaul landers the program was flown on, `H Class.craft` and `J Class.craft` (KSP 1.12.5). Copy them to `<KSP>/saves/<your save>/Ships/VAB/`. They need the same mods as above and may need part changes with other mod versions.
+
 ## Run
 
 On a lander in lunar orbit, in the kOS terminal, first plan the descent:
@@ -39,6 +41,7 @@ I wrote this with Claude (Anthropic's AI) in Claude Code. I decided what to buil
 
 ## More
 
+- The DSKY digits are drawn from the Zerlina font by Eugene Dorr (from his "dsky-fonts" collection, SIL Open Font License 1.1; licence in `lm/images/Zerlina-OFL.txt`)
 - [Roadmap](https://github.com/EclipticPoyo/apollo-lm-guidance-kos/blob/main/ROADMAP.md): what is planned next
 - [Development notes and pad tests](docs/DEVELOPMENT.md)
 - Based on the [Apollo Lunar Surface Journal](https://www.ibiblio.org/apollo/) and the Luminary 099 source in [chrislgarry/apollo-11](https://github.com/chrislgarry/apollo-11); [kOS documentation](https://ksp-kos.github.io/KOS_DOC/)
