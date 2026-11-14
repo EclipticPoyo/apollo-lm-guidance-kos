@@ -35,7 +35,7 @@ Saturn launch, then the command module, the lunar module, the command module aga
 
 ```mermaid
 flowchart LR
-    v10["1.0 Descent ✅"] --> v11["1.1 DSKY core"]
+    v10["1.0 Descent ✅"] --> v11["1.1 DSKY core ✅"]
     v11 --> v12["1.2 J-class pads ✅"]
     v12 --> v13["1.3 Uplink and loads"]
     v13 --> v14["1.4 Ascent"]
