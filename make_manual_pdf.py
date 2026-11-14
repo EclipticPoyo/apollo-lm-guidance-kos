@@ -38,6 +38,12 @@ h2 { font-size: 15pt; margin: 18pt 0 6pt; color: #1d4e6b; border-bottom: 1px sol
 h3 { font-size: 12pt; margin: 12pt 0 4pt; color: #1d4e6b; break-after: avoid; }
 h4 { font-size: 10.5pt; margin: 10pt 0 3pt; break-after: avoid; }
 p, li { orphans: 3; widows: 3; }
+/* keep a heading with the text after it, and an introducing paragraph with the screenshot that follows (and the screenshot with its caption) */
+h2 + p, h3 + p, h4 + p { break-after: avoid; }
+p:has(+ p > img), p:has(img) { break-after: avoid; }
+p:has(img) { break-inside: avoid; }
+table, pre { break-before: auto; }
+h2 + table, h3 + table, p:has(+ table) { break-after: avoid; }
 code { font: 9.5pt Consolas, "Courier New", monospace; background: #eef2f5; padding: 0 3px; border-radius: 3px; white-space: nowrap; }
 table { border-collapse: collapse; width: 100%; margin: 6pt 0 10pt; break-inside: auto; font-size: 9.5pt; }
 tr { break-inside: avoid; }
