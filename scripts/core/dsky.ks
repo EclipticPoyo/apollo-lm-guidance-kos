@@ -3,10 +3,11 @@
 //   RUN dsky.                    (from 0:/, through the one-line stub dsky.ks in Ships/Script)
 //   RUNPATH("0:/core/dsky.ks").
 //
-// The landing site comes from the saved plan (0:/lm/plan.json), so run the planner first and fly its burns:
-//   RUN plan.     (the stub plan.ks runs 0:/lm/planner/lm_plan_ui.ks; press CLOSE when done)
-// then RUN dsky. and V37 ENTR 63 ENTR starts P63; P64, P65 and P66 follow by themselves. With no saved plan the DSKY
-// runs, its registers show -----, and P63 refuses (OPR ERR and a message). V34 ENTR ends the DSKY and gives the controls
+// The landing site and time are in the DSKY's erasable store (RLS and TLAND). With the planner's Skip simulated uplink box ticked, its saved plan fills them at start:
+//   RUN plan.     (the stub plan.ks runs 0:/lm/planner/lm_plan_ui.ks; close it with the cross when done)
+// then RUN dsky. and V37 ENTR 63 ENTR starts P63; P64, P65 and P66 follow by themselves. With the box cleared (the default) the pilot loads them from the
+// PAD (the planner's SEND, then RUN dsky., or V71 keyed by hand). With no site loaded the DSKY
+// runs, its registers show blanks, and P63 refuses (OPR ERR and a message). The window's X (then YES) ends the DSKY and gives the controls
 // back. Start it before the descent and do not restart it mid-descent.
 //
 // This is the one file that names the LM: it loads the DSKY core and the LM vehicle, makes the window and hands both to the
@@ -38,13 +39,15 @@ IF SHIP:BODY:NAME <> BODY_NAME {
   CLEARSCREEN.
   core_reserve_status().                                 // the top rows are the live status readout; messages print below
   FOR cfg_note IN CFG_WARNINGS { PRINT cfg_note. }      // lines of lm_config.txt that were skipped
+  IF LM_VEH["FILLED"]["WHY"] <> "" { PRINT "Plan not fully loaded: " + LM_VEH["FILLED"]["WHY"] + ".". }
   IF LM_VEH["SITE"]["OK"] {
     PRINT "DSKY running (" + lm["NAME"] + ", " + lm["VERSION"] + "). Site " + ROUND(LM_VEH["SITE"]["LAT"], 3) + " N, "
         + ROUND(LM_VEH["SITE"]["LNG"], 3) + " E, " + ROUND(LM_VEH["SITE"]["ALT"]) + " m.".
   } ELSE {
-    PRINT "DSKY running (" + lm["NAME"] + ", " + lm["VERSION"] + "). No saved plan: P63 will refuse until you run the planner.".
+    PRINT "DSKY running (" + lm["NAME"] + ", " + lm["VERSION"] + "). No landing site loaded: uplink or key the PAD (planner: PLAN, SEND), or tick Skip simulated uplink. P63 refuses until then.".
   }
-  PRINT "Use the keypad or type here. V37 ENTR 63 ENTR starts P63. V34 ENTR ends the program.".
+  PRINT "AGC clock zero UT " + ROUND(lm_clock_zero_ut(), 1) + " (this vessel's own: " + ROUND(lm_clock_zero_now(), 1) + ").".   // equal unless the planner's saved zero is used
+  PRINT "Use the keypad or type here. V37 ENTR 63 ENTR starts P63. The X in the window ends it (V34 is only Terminate).".
   core_run(ui, lm).
   LOCAL pin IS LM_VEH["PIN"].
   SET pin:SHOW TO FALSE.

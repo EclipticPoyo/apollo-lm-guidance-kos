@@ -102,7 +102,7 @@ FUNCTION j_p66_step {
   SET prog["T_LAST"] TO now_ut.
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
-  LOCAL terminating IS ks["VERB"] = 34.
+  LOCAL terminating IS FALSE.          // P66 raises no flashing request, so V34 (Luminary VBTERM) does nothing here
 
   // ---- the commanded descent rate: the rate now at the start, then the pilot's ROD clicks (in any attitude mode) ----
   IF NOT prog["VDG_SET"] AND derived["VALID"] {

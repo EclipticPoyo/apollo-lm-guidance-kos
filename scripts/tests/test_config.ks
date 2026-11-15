@@ -16,6 +16,7 @@ LOCAL keep_pitch IS P64_PITCH_SIGN.
 LOCAL keep_yaw IS P64_YAW_SIGN.
 LOCAL keep_rod IS P66_ROD_SIGN.
 LOCAL keep_body IS BODY_NAME.
+LOCAL keep_profile IS PAD_PROFILE.
 SET CFG_WARNINGS TO LIST().
 
 // Empty lines and comments change nothing and give no warning.
@@ -44,6 +45,11 @@ cfg_apply_line("BODY_NAME = Mun").
 assert_true("BODY_NAME text", BODY_NAME = "Mun").
 assert_true("good lines gave no warnings", CFG_WARNINGS:LENGTH = 0).
 
+cfg_apply_line("pad_profile = j").
+assert_true("PAD_PROFILE j becomes J", PAD_PROFILE = "J").
+cfg_apply_line("PAD_PROFILE = A11").
+assert_true("PAD_PROFILE A11", PAD_PROFILE = "A11").
+
 // Bad lines are skipped with a reason, and the constant keeps its value.
 LOCAL warn_before IS CFG_WARNINGS:LENGTH.
 assert_true("unknown name is skipped", cfg_apply_line("NOT_A_SETTING = 1") <> "" AND CFG_WARNINGS:LENGTH = warn_before + 1).
@@ -54,6 +60,7 @@ SET LM_LOG TO FALSE.
 assert_true("bad boolean is skipped", cfg_apply_line("LM_LOG = maybe") <> "" AND NOT LM_LOG).
 assert_true("bad window mode is skipped", cfg_apply_line("P63_WINDOW_MODE = SIDEWAYS") <> "" AND P63_WINDOW_MODE = "KEEP").
 assert_true("text for a number is skipped", cfg_apply_line("P63_WARP_LEAD_S = soon") <> "" AND P63_WARP_LEAD_S = 45.5).
+assert_true("a PAD_PROFILE other than A11 or J is skipped", cfg_apply_line("PAD_PROFILE = X") <> "" AND PAD_PROFILE = "A11").
 assert_true("negative warp lead is skipped", cfg_apply_line("P63_WARP_LEAD_S = -5") <> "" AND P63_WARP_LEAD_S = 45.5).
 assert_true("sign other than 1 or -1 is skipped", cfg_apply_line("P64_PITCH_SIGN = 2") <> "" AND P64_PITCH_SIGN = 1).
 assert_true("warnings name the line", CFG_WARNINGS[CFG_WARNINGS:LENGTH - 1]:CONTAINS("P64_PITCH_SIGN")).
@@ -78,4 +85,5 @@ SET DSKY_START TO keep_start.
 SET P64_YAW_SIGN TO keep_yaw.
 SET P66_ROD_SIGN TO keep_rod.
 SET BODY_NAME TO keep_body.
+SET PAD_PROFILE TO keep_profile.
 test_end().

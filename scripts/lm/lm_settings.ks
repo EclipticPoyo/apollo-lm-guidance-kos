@@ -10,7 +10,7 @@
 
 GLOBAL CFG_PATH IS "0:/lm/lm_config.txt".
 GLOBAL CFG_WARNINGS IS LIST().
-GLOBAL CFG_NAMES IS LIST("LM_LOG", "DSKY_START", "P63_WINDOW_MODE", "P63_WARP_LEAD_S", "P64_PITCH_SIGN", "P64_YAW_SIGN", "P66_ROD_SIGN", "BODY_NAME").
+GLOBAL CFG_NAMES IS LIST("LM_LOG", "DSKY_START", "P63_WINDOW_MODE", "P63_WARP_LEAD_S", "P64_PITCH_SIGN", "P64_YAW_SIGN", "P66_ROD_SIGN", "BODY_NAME", "PAD_PROFILE").
 
 // cfg_apply_line: apply one line of the file. Returns "" when the line was empty, a comment or applied, else the reason it
 // was skipped (also added to CFG_WARNINGS).
@@ -38,6 +38,10 @@ FUNCTION cfg_apply_line {
   IF key = "P63_WINDOW_MODE" {
     IF value:TOUPPER = "UP" OR value:TOUPPER = "KEEP" { SET P63_WINDOW_MODE TO value:TOUPPER. RETURN "". }
     RETURN cfg_skip(raw_line, "P63_WINDOW_MODE must be UP or KEEP").
+  }
+  IF key = "PAD_PROFILE" {
+    IF value:TOUPPER = "A11" OR value:TOUPPER = "J" { SET PAD_PROFILE TO value:TOUPPER. RETURN "". }
+    RETURN cfg_skip(raw_line, "PAD_PROFILE must be A11 or J").
   }
   IF key = "BODY_NAME" { SET BODY_NAME TO value. RETURN "". }
   // The rest are numbers. TONUMBER gives the sentinel when the text is not a number.

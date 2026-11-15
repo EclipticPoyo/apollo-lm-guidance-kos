@@ -3,6 +3,31 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
+## 1.3 (2026-11-15, uplink and loads)
+
+The DSKY gets an erasable store of the cells the descent needs, loaded the way the real crew loaded them, and the planner can print a PAD of the data to load. The planner now makes a PAD and an uplink by default: press **SEND** after PLAN, or tick **Skip simulated uplink** to keep the 1.2 steps.
+
+### Added
+- **Erasable store** of named cells with Luminary's addresses and scaling: the landing site `RLS`, the landing time `TLAND`, a burn's ignition time `TIG` and delta-v `DELVLVC`, for both software versions (099 and 210).
+- **Keyed loads V21 to V25** with sign, digits, ENTR, PRO, CLR and the flashing verb and noun (a decimal register needs a sign and all five digits: ENTR with fewer digits is OPR ERR and the load waits, without a sign it is OPR ERR and the load starts again, as in PINBALL; during a P27 update PROG shows 27, R1 fills from the left and R3 shows the update buffer address as Luminary does), and the new nouns **N33** (time of ignition) and **N81** (delta-v, local vertical axes).
+- **The update programme P27:** V71 (block) and V72 (scatter) with V33 (verify and store) and V34 (terminate), in octal, only in P00; UPLINK ACTY lights while keys arrive from the uplink.
+- **Planner uplink:** by default the planner prints a PAD (UPLINK keys for RLS, TLAND and the DOI burn's delta-v and TIG as one eight-word block, as the real ground's external delta-v update) and **SEND** writes the uplink file, which the DSKY presses in when it starts. A plane-change burn is the CSM's, so the PAD only notes it. A **Skip simulated uplink** box gives the 1.2 behaviour: the DSKY loads the saved plan itself.
+- `PAD_PROFILE` setting in `lm_config.txt` (the software version when there is no plan).
+- **The PAD** is laid out as labelled blocks (landing site, landing time, DOI burn), each with a line of what it holds in plain numbers and its keys on one line, spaced so they can be read. The burn block shows the TIG and delta-v as N33 and N81 will read them, so the PAD can be checked against the display.
+- **The loads are kept:** the erasable store is saved to `0:/lm/store.txt` when the DSKY ends and read back at the next start, as the computer's erasable memory stayed; a new plan deletes it. The planner also saves the AGC clock zero (`0:/lm/clock.txt`), because KSP restarts a vessel's mission time when it undocks.
+- **The DSKY window has a close cross (X)** in its top right corner; it asks *End DSKY?* with YES and NO.
+
+### Changed
+- P63 reads the landing site and time from the store. With Skip simulated uplink ticked the saved plan fills the store when the DSKY starts, as if already uplinked, so the steps are as in 1.2. With nothing loaded P63 says which of RLS and TLAND is missing.
+- The plan file now also carries each burn's delta-v in local vertical axes (`LV_DOI`, `LV_PC`) for the PAD.
+- V34 is Terminate as in Luminary: it answers a request only (it abandons a keyed load or an update, and ends P63 at its enable prompt) and does nothing elsewhere. The DSKY ends from the X in its window, then YES.
+- A keyed load keeps showing each value you entered while you key the next register; keyed digits show at once, and only a monitored noun refreshes once a second.
+- **The planner window** is reorganised: pad loads and windows, then the largest plane change and replace nodes, then the Skip simulated uplink box; PLAN and SEND sit side by side (SEND is hidden when the uplink is skipped), and the close cross is in the top corner. The window is wider so the PAD fits.
+- A stale V34 is no longer put back on the display after `V37 E 00 E`.
+
+### Not yet
+- Nothing flies a loaded burn (the burn programmes P30 and P40 come in a later release; see the roadmap); V70, V73 and state-vector loads are not implemented.
+
 ## 1.2 (2026-11-14, J-class pads)
 
 The planner chooses between the Apollo 11 pad loads (as before) and the J-class loads of Luminary 210 (Apollo 15 to 17, the Apollo 17 values). The J-class descent has its own files in `lm/descent_j/`; the Apollo 11 files are unchanged.

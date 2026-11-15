@@ -140,6 +140,12 @@ GLOBAL P63_SETTLE_HOLD_S IS 5.                   // config: for this long, s
 //   "KEEP" Luminary 099 (Apollo 11): the ship keeps the roll it had; no programmed roll; in AUTO the stick can roll it.
 GLOBAL DSKY_START IS "BLANK".                  // what the DSKY shows when it starts: BLANK (PROG 00, nothing else, as a real DSKY after a fresh start) or N60 (V16 N60, a descent monitor); config file setting
 GLOBAL P63_WINDOW_MODE IS "UP".
+// The software version the descent runs: "A11" = Luminary 099 (Apollo 11), "J" = Luminary 210 (Apollo 15 to 17). A pilot setting (lm_config.txt),
+// not AGC data: on the real LM the version was fixed in the rope. It picks the cell addresses of the erasable store and the pad loads and
+// descent programmes. The planner window sets it too; a saved plan carries it as PROFILE and wins over this setting when they differ.
+GLOBAL PAD_PROFILE IS "A11".
+// The uplink key file: the planner's SEND writes it (the simulated uplink) and the DSKY feeds it into its keys when it starts (core/dsky_uplink.ks).
+GLOBAL LM_UPLINK_FILE IS "0:/lm/uplink.txt".
 // Window roll (Luminary: none in P63; the pilot may roll with the stick in AUTO, see lm_control.ks win_hold).
 GLOBAL P63_ROLL_DETENT IS 0.1.                   // config: roll stick (-1 to 1) beyond this overrides the roll, like the LM hand controller out of detent
 GLOBAL P63_ROLL_STICK_LEAD_DEG IS 30.          // config, CHOSEN: with the roll stick at full deflection the window command is this many degrees ahead of the ship's roll; the ship rolls toward it, so the rate depends on how fast kOS steering follows (tune: more = faster)

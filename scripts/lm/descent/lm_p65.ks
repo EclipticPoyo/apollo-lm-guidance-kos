@@ -87,7 +87,7 @@ FUNCTION p65_step {
   SET prog["T_LAST"] TO now_ut.
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
-  LOCAL terminating IS ks["VERB"] = 34.
+  LOCAL terminating IS FALSE.          // P65 raises no flashing request, so V34 (Luminary VBTERM) does nothing here
 
   // ---- mode: the first ROD click made with SAS on starts P66 ----
   LOCAL clicks IS rod_take(prog["ROD"]).

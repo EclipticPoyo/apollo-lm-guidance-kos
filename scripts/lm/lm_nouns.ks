@@ -2,9 +2,33 @@
 // shows. The register contents follow the noun table in PINBALL_NOUN_TABLES.agc (spec section 7).
 // Needs the DSKY core's formatting (dsky_display.ks: fmt_reg, fmt_minsec, NA) and the unit helpers in lm_constants.ks.
 
-GLOBAL LM_NOUNS IS LIST(60, 61, 62, 63, 64, 68).
-GLOBAL LM_VERBS IS LIST(6, 16, 34, 37).   // 06 display, 16 monitor (both just show the noun here), 34 terminate (the DSKY loop ends), 37 change programme
+RUNONCEPATH("0:/lm/lm_cells.ks").          // the store's cells and conversions (N33 and N81 read it)
+
+GLOBAL LM_NOUNS IS LIST(60, 61, 62, 63, 64, 68, 33, 81).   // N60 first: it is the noun shown at start (keys_new uses the first)
+GLOBAL LM_VERBS IS LIST(6, 16, 21, 22, 23, 24, 25, 33, 34, 37, 71, 72).   // 06 display, 16 monitor (both just show the noun here), 21 to 25 keyed loads (dsky_load.ks), 33 proceed (verifies a P27 update), 71 and 72 the update programme P27 (dsky_p27.ks; V70 and V73 are not implemented), 34 terminate (as Luminary VBTERM, it answers a request only: it abandons an active load or update, and ends P63 at its V99 enable prompt; anywhere else it does nothing; the DSKY itself ends from the window's X), 37 change programme
+// The nouns the keyed loaders can load (V21 to V25): N33 time of ignition (hours, minutes, seconds in hundredths) and N81 delta-v
+// in local vertical axes (tenths of ft/s). Both are five digits per register. The DSKY core reads this through the vehicle's "LOADS".
+GLOBAL LM_LOADS IS LEXICON("33", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5)), "81", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5))).
 GLOBAL LM_PROGS IS LIST(0, 63).           // programmes V37 can select: P00 (none) and P63. P64 is reached only by the handover from P63, P65 by the handover from P64 and P66 from P65 (V37 ENTR 64, 65 or 66 lights OPR ERR)
+
+// noun_registers_store: N33 (time of ignition: hours, minutes, seconds in hundredths) and N81 (delta-v in local vertical
+// axes, tenths of ft/s) from the erasable store (LM_VEH["STORE"]); zeros when the store does not exist or the cell is not loaded.
+FUNCTION noun_registers_store {
+  PARAMETER noun_no.
+  LOCAL vault IS FALSE.
+  IF DEFINED LM_VEH { IF LM_VEH:HASKEY("STORE") { SET vault TO LM_VEH["STORE"]. } }
+  IF noun_no = 33 {
+    LOCAL parts IS LIST(0, 0, 0).
+    IF vault:ISTYPE("Lexicon") {
+      LOCAL tig_s IS lm_store_get_tig(vault).
+      IF tig_s >= 0 { SET parts TO lm_hms_cs(tig_s). }
+    }
+    RETURN LIST(fmt_reg(parts[0], 0), fmt_reg(parts[1], 0), fmt_reg(parts[2], 0)).
+  }
+  LOCAL dv IS V(0, 0, 0).
+  IF vault:ISTYPE("Lexicon") { SET dv TO lm_store_get_dv(vault). }
+  RETURN LIST(fmt_reg(ms_to_fps(dv:X), 1), fmt_reg(ms_to_fps(dv:Y), 1), fmt_reg(ms_to_fps(dv:Z), 1)).
+}
 
 // noun_registers: the three register texts for a noun, from the derived lexicon (nav_derived).
 // An empty list means "no such noun" and the caller lights OPR ERR.
@@ -22,6 +46,8 @@ GLOBAL LM_PROGS IS LIST(0, 63).           // programmes V37 can select: P00 (non
 FUNCTION noun_registers {
   PARAMETER noun_no, derived.
   IF NOT LM_NOUNS:CONTAINS(noun_no) { RETURN LIST(). }
+  // N33 and N81 show what the store holds (zeros when nothing is loaded), whatever the navigation state.
+  IF noun_no = 33 OR noun_no = 81 { RETURN noun_registers_store(noun_no). }
   IF NOT derived["VALID"] { RETURN LIST(NA, NA, NA). }
   LOCAL vhoriz IS fmt_reg(ms_to_fps(derived["VHORIZ"]), 1).
   LOCAL abvel IS fmt_reg(ms_to_fps(derived["ABVEL"]), 1).

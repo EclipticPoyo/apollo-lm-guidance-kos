@@ -25,7 +25,7 @@ On a lander in lunar orbit, in the kOS terminal, first plan the descent:
 RUN plan.
 ```
 
-Pick a site, press PLAN, press CLOSE and fly the burns. Then start the DSKY and type `V37 E 63 E`:
+Pick a site, press PLAN, then SEND (this writes the data Mission Control would uplink; tick *Skip simulated uplink* to let the DSKY load the plan itself), close the planner with the cross in its corner and fly the burns. Then start the DSKY, which presses the uplink in, and type `V37 E 63 E`:
 
 ```
 RUN dsky.

@@ -16,7 +16,7 @@ RUNONCEPATH("0:/lm/descent_j/lm_j_constants.ks").   // J_RIGNX, J_RIGNZ, J_VIGN 
 // "A11" = Luminary 099 (Apollo 11), "J" = Luminary 210 (Apollo 15 to 17, the Apollo 17 values). The planner window sets
 // PAD_PROFILE (the same way it sets P63_WINDOW_MODE) and deorbit_run saves it in the plan as PROFILE. A plan without the
 // key, or with an unknown one, is an Apollo 11 plan (every plan made before 1.2).
-GLOBAL PAD_PROFILE IS "A11".
+// (PAD_PROFILE itself, the default "A11", lives in lm_constants.ks so the settings file can set it.)
 
 // plan_profile_of: the profile name in a plan lexicon ("A11" or "J"); FALSE (no plan) and anything else give "A11".
 FUNCTION plan_profile_of {
@@ -173,6 +173,20 @@ FUNCTION plan_node_components {
   RETURN LEXICON("RADIAL", VDOT(dv_vec, axes[0]), "NORMAL", VDOT(dv_vec, axes[1]), "PROGRADE", VDOT(dv_vec, axes[2])).
 }
 
+// plan_lv_components: a delta-v vector as the three numbers N81 shows: LIST(x, y, z) in Luminary's local vertical axes, m/s, at the
+// burn point (position r_vec from the Moon's centre, velocity v_vec there). Z is down (towards the Moon: -r), Y is opposite the orbit
+// normal, and X (= Y x Z) is along the track: the horizontal part of the velocity, perpendicular to Z. In an orbit that is not
+// circular the velocity is tilted from the horizontal by the flight-path angle, so X is not the prograde direction. Y keeps the sign
+// of the measured kOS node normal (plan_node_axes, NODE_NORMAL_SIGN); X and Z are plain directions with no handedness in them.
+FUNCTION plan_lv_components {
+  PARAMETER dv_vec, r_vec, v_vec.
+  LOCAL up_unit IS r_vec:NORMALIZED.
+  LOCAL track_unit IS (v_vec - VDOT(v_vec, up_unit) * up_unit):NORMALIZED.
+  LOCAL node_axes IS plan_node_axes(r_vec, v_vec).
+  LOCAL normal_axis IS node_axes[1].
+  RETURN LIST(VDOT(dv_vec, track_unit), -VDOT(dv_vec, normal_axis), -VDOT(dv_vec, up_unit)).
+}
+
 FUNCTION plan_components_to_dv {
   PARAMETER rad_comp, nrm_comp, pro_comp, r_vec, v_vec.
   LOCAL axes IS plan_node_axes(r_vec, v_vec).
@@ -220,7 +234,8 @@ FUNCTION plan_find_pass {
 
 // ---- The plan file -------------------------------------------------------------------
 // lm_deorbit.ks writes the plan so later programmes (P63) can read it. Keys: SITE_LAT, SITE_LNG,
-// SITE_ALT, T_MADE (UT the plan was made), T_DOI, T_PDI, T_LAND, T_PC (-1 when no plane change),
+// SITE_ALT, T_MADE (UT the plan was made), T_DOI, T_PDI, T_LAND, T_PC (-1 when no plane change), LV_DOI and LV_PC
+// (LIST of three numbers: each burn's delta-v in local vertical axes, m/s, see plan_lv_components; used by the PAD),
 // DV_DOI, DV_PC (m/s), V_PDI (m/s), ALT_PDI (m), WINDOW_MODE ("UP" or "KEEP": the crew window in P63, chosen in the planner window),
 // PROFILE ("A11" or "J": which pad loads and which descent programmes, chosen in the planner window; absent in plans made before 1.2).
 // WRITEJSON/READJSON store a LEXICON as JSON text. The old file is deleted first so a failed write

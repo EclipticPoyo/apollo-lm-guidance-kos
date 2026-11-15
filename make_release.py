@@ -22,11 +22,13 @@ out = out_dir / f"apollo-lm-guidance-kos-{version}.zip"
 
 STUB = '// dsky.ks -- runs the DSKY (Ships/Script/core/dsky.ks, seen here as 0:/core/dsky.ks).\nRUNPATH("0:/core/dsky.ks").\n'
 PLAN_STUB = '// plan.ks -- opens the deorbit planner (Ships/Script/lm/planner/lm_plan_ui.ks, seen here as 0:/lm/planner/lm_plan_ui.ks).\nRUNPATH("0:/lm/planner/lm_plan_ui.ks").\n'
+# Files the DSKY and planner write while running (the dev machine's own clock zero, loads and uplink): never shipped.
+RUNTIME_FILES = ("clock.txt", "store.txt", "uplink.txt")
 # scripts/ mirrors the archive volume 0:, so scripts/<folder>/<file> ships as Ships/Script/<folder>/<file>. tests/ stays out.
 files = []
 for folder in ("core", "lm", "shared", "boot"):
     for p in sorted((root / "scripts" / folder).rglob("*")):
-        if p.is_file() and p.suffix in (".ks", ".png", ".txt"):
+        if p.is_file() and p.suffix in (".ks", ".png", ".txt") and p.name not in RUNTIME_FILES:
             files.append((p, f"Ships/Script/{p.relative_to(root / 'scripts').as_posix()}"))
 files += [(root / "VERSION", "VERSION"), (root / "README.md", "README.md"), (root / "CHANGELOG.md", "CHANGELOG.md"), (root / "docs" / "MANUAL.md", "docs/MANUAL.md")]
 if (root / "docs" / "MANUAL.pdf").exists():

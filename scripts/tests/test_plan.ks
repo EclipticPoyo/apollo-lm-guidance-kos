@@ -253,4 +253,29 @@ assert_true("plan fresh at 100 s", NOT plan_is_stale(plan_a, 1100, PLAN_MAX_AGE_
 assert_true("plan stale at 7300 s", plan_is_stale(plan_a, 8300, PLAN_MAX_AGE_S)).
 assert_true("plan without T_MADE is stale", plan_is_stale(LEXICON("T_DOI", 1), 1100, PLAN_MAX_AGE_S)).
 
+// ---- 1.3: delta-v in local vertical axes for the PAD (plan_lv_components) ---------------------------------------------------------
+LOCAL lv_r IS V(1737400 + 15000, 0, 0).
+LOCAL lv_v IS V(0, 1600, 0).
+LOCAL lv_pro IS plan_lv_components(V(0, 10, 0), lv_r, lv_v).
+assert_near("LV: a prograde burn is +x", lv_pro[0], 10, 1e-6).
+assert_near("LV: a prograde burn has no y", lv_pro[1], 0, 1e-6).
+assert_near("LV: a prograde burn has no z", lv_pro[2], 0, 1e-6).
+LOCAL lv_up IS plan_lv_components(V(3, 0, 0), lv_r, lv_v).
+assert_near("LV: a burn away from the Moon is -z (Z is down)", lv_up[2], -3, 1e-6).
+// An elliptical orbit: the velocity is tilted 3.58 degrees from the local horizontal (flight-path angle: sin 0.062378, cos 0.998053).
+// Luminary's local vertical has Z along the radius and X along the horizontal part of the velocity, so a burn along the velocity
+// splits into x = 10 cos(g) and z = -10 sin(g) (z is down, the burn points a little away from the Moon), and a burn along the
+// horizontal is exactly x. The velocity-tied axes of a node would give x = 10 and z = 0 for the first.
+LOCAL lv_ev IS V(100, 1600, 0).
+LOCAL lv_along_v IS plan_lv_components(lv_ev:NORMALIZED * 10, lv_r, lv_ev).
+assert_near("LV elliptical: a burn along the velocity, x is 10 cos(g)", lv_along_v[0], 9.98053, 1e-4).
+assert_near("LV elliptical: a burn along the velocity, z is -10 sin(g)", lv_along_v[2], -0.62378, 1e-4).
+assert_near("LV elliptical: a burn along the velocity has no y", lv_along_v[1], 0, 1e-6).
+LOCAL lv_horiz IS plan_lv_components(V(0, 10, 0), lv_r, lv_ev).
+assert_near("LV elliptical: a burn along the local horizontal is exactly +x", lv_horiz[0], 10, 1e-6).
+assert_near("LV elliptical: a burn along the local horizontal has no z", lv_horiz[2], 0, 1e-6).
+LOCAL lv_axes IS plan_node_axes(lv_r, lv_v).
+LOCAL lv_nrm IS plan_lv_components(lv_axes[1] * 4, lv_r, lv_v).
+assert_near("LV: a burn along the node normal is -y (Y is opposite the normal)", lv_nrm[1], -4, 1e-6).
+
 test_end().

@@ -4,6 +4,10 @@
 // key_enter_prog check what the pilot typed against them, and light OPR ERR for anything else.
 // Keyboard: V, N, two digits, E = ENTR, P = PRO, C = CLR, R = RSET (Enter/Return also work as ENTR).
 
+RUNONCEPATH("0:/core/dsky_store.ks").      // octal_parse, octal_text, store_locate (P27)
+RUNONCEPATH("0:/core/dsky_load.ks").       // the keyed loaders V21 to V25 (load_new, load_key, load_begin)
+RUNONCEPATH("0:/core/dsky_p27.ks").        // the update programme V71, V72, V33, V34 (p27_new, p27_key, p27_begin, p27_verify)
+
 // ---- Key entry -------------------------------------------------------------
 // The key state is a lexicon: VERB, NOUN (committed numbers), MODE ("" / "V" / "N": which buffer is
 // being typed), VBUF, NBUF (digits typed so far), OPRERR, PRO (PRO pressed, caller clears it).
@@ -12,6 +16,9 @@
 // between V37 ENTR and the programme number's ENTR, PBUF the digits typed so far, VERB_BEFORE the verb to go back to,
 // PROG_REQ the programme asked for (-1 none; the main loop reads it and sets it back to -1).
 // nouns, verbs, progs: LISTs of the numbers the vehicle accepts (stored as "NOUNS", "VERBS", "PROGS").
+// "LOAD" is the keyed-loader state (dsky_load.ks) and "P27" the update-programme state (dsky_p27.ks); "VEHICLE" is the vehicle
+// LEXICON and "PROGRAM" the running programme's LEXICON or FALSE, both set by core_run, which the loaders and P27 read (FALSE
+// until then: a load or update verb is then OPR ERR).
 // start_vn (optional): LIST(verb, noun) shown at start. -1 for both is a blank display (no verb or noun, the registers dark),
 // as a real DSKY powers up. Without it the start is V16 and the vehicle's first noun.
 FUNCTION keys_new {
@@ -23,7 +30,23 @@ FUNCTION keys_new {
   IF start_vn:LENGTH = 2 { SET start_verb TO start_vn[0]. SET start_noun TO start_vn[1]. }
   RETURN LEXICON("VERB", start_verb, "NOUN", start_noun, "MODE", "", "VBUF", "", "NBUF", "", "OPRERR", FALSE, "PRO", FALSE,
                  "AWAIT_PROG", FALSE, "PBUF", "", "PROG_REQ", -1, "VERB_BEFORE", start_verb,
-                 "NOUNS", nouns, "VERBS", verbs, "PROGS", progs).
+                 "NOUNS", nouns, "VERBS", verbs, "PROGS", progs,
+                 "LOAD", load_new(), "P27", p27_new(), "VEHICLE", FALSE, "PROGRAM", FALSE, "QUIT", FALSE).
+}
+
+// quit_step: the DSKY window's close cross. state is "IDLE" (cross showing), "ASK" (the End DSKY? question showing) or "QUIT"
+// (confirmed, final). The arguments say which of the cross, YES and NO were pressed since the last call. NO beats YES pressed
+// in the same cycle, so a double click cannot end the DSKY by accident; YES and NO do nothing while no question is showing.
+FUNCTION quit_step {
+  PARAMETER state, close_pressed, yes_pressed, no_pressed.
+  IF state = "QUIT" { RETURN "QUIT". }
+  IF state = "ASK" {
+    IF no_pressed { RETURN "IDLE". }
+    IF yes_pressed { RETURN "QUIT". }
+    RETURN "ASK".
+  }
+  IF close_pressed { RETURN "ASK". }
+  RETURN "IDLE".
 }
 
 // key_prog_cancel: stop waiting for a programme number and put the verb back.
@@ -33,6 +56,9 @@ FUNCTION key_prog_cancel {
     SET ks["AWAIT_PROG"] TO FALSE.
     SET ks["PBUF"] TO "".
     SET ks["VERB"] TO ks["VERB_BEFORE"].
+    // A V34 left on the display (it ran nothing) is not worth putting back: show a blank display, as at a fresh start.
+    IF ks["VERB"] = 34 { SET ks["VERB"] TO -1. }
+    IF ks["VERB"] < 0 { SET ks["NOUN"] TO -1. }
   }
 }
 
@@ -64,9 +90,34 @@ FUNCTION key_enter {
   // A blank verb (-1) means nothing is displayed yet: ENTR needs a verb, and a noun unless it is V37 (programme change) or
   // V34 (terminate), which take none.
   IF verb_new < 0 { SET bad TO TRUE. }
-  IF noun_new < 0 AND verb_new <> 37 AND verb_new <> 34 { SET bad TO TRUE. }
+  IF noun_new < 0 AND verb_new <> 37 AND verb_new <> 34 AND verb_new <> 33 AND verb_new <> 71 AND verb_new <> 72 { SET bad TO TRUE. }
   IF bad { SET ks["OPRERR"] TO TRUE. }
   ELSE {
+    // During P27 only V33 (verify and store) and V34 (throw the block away) are taken; any other verb is OPR ERR.
+    IF p27_active(ks) {
+      IF verb_new = 33 { p27_verify(ks, ks["VEHICLE"]). }
+      ELSE IF verb_new = 34 { p27_cancel(ks). }
+      ELSE { SET ks["OPRERR"] TO TRUE. }
+      SET ks["VBUF"] TO "".
+      SET ks["NBUF"] TO "".
+      SET ks["MODE"] TO "".
+      RETURN.
+    }
+    // V33 means "proceed" and has nothing to proceed with here.
+    IF verb_new = 33 {
+      SET ks["OPRERR"] TO TRUE.
+      SET ks["VBUF"] TO "".
+      SET ks["NBUF"] TO "".
+      SET ks["MODE"] TO "".
+      RETURN.
+    }
+    // A verb keyed and entered during a keyed load ends that load first (nothing is committed). V34 then ends only the load
+    // (the display goes to the monitor verb). With no load active V34 just shows verb 34 (a running programme reads it as Terminate); the DSKY
+    // itself is ended from the window's close cross (quit_step), never by a verb.
+    IF load_active(ks) {
+      load_cancel(ks).
+      IF verb_new = 34 { SET verb_new TO 16. }
+    }
     // V37 ENTR: the DSKY now waits for the programme number. VERB shows 37 meanwhile.
     IF verb_new = 37 AND ks["VERB"] <> 37 {
       SET ks["VERB_BEFORE"] TO ks["VERB"].
@@ -75,6 +126,12 @@ FUNCTION key_enter {
     }
     SET ks["VERB"] TO verb_new.
     SET ks["NOUN"] TO noun_new.
+    IF verb_new >= 21 AND verb_new <= 25 {
+      IF NOT load_begin(ks, ks["VEHICLE"], verb_new, noun_new) { SET ks["OPRERR"] TO TRUE. }
+    }
+    IF verb_new = 71 OR verb_new = 72 {
+      IF NOT p27_begin(ks, ks["VEHICLE"], verb_new) { SET ks["OPRERR"] TO TRUE. }
+    }
   }
   SET ks["VBUF"] TO "".
   SET ks["NBUF"] TO "".
@@ -85,6 +142,11 @@ FUNCTION key_enter {
 FUNCTION key_press {
   PARAMETER ks, ch.
   LOCAL key IS ch:TOUPPER.
+  // A keyed load (V21 to V25) takes digits, signs, CLR, RSET and ENTR/PRO while it is active; V and N are not its keys.
+  LOCAL load_name IS key.
+  IF ch = CHAR(13) OR ch = CHAR(10) { SET load_name TO "E". }
+  IF load_key(ks, ks["VEHICLE"], load_name) { RETURN. }
+  IF p27_key(ks, ks["VEHICLE"], load_name) { RETURN. }
   // Waiting for a programme number (after V37 ENTR): digits go to PBUF, CLR empties it; V or N cancels the wait.
   IF ks["AWAIT_PROG"] AND "0123456789":CONTAINS(key) AND key:LENGTH = 1 {
     IF ks["PBUF"]:LENGTH < 2 { SET ks["PBUF"] TO ks["PBUF"] + key. } ELSE { SET ks["OPRERR"] TO TRUE. }

@@ -173,8 +173,8 @@ LOCAL lines_a IS display_lines(d_disp, "63", 16, 60, flags_none).
 assert_true("display_lines count",     lines_a:LENGTH = 17).
 assert_true("display_lines PVN",       lines_a[2] = "PROG 63    VERB 16    NOUN 60").
 assert_true("display_lines no alarms", lines_a[3] = "ALARMS:").
-assert_true("display_lines R1",        lines_a[5] = "R1  +00082").
-assert_true("display_lines R2",        lines_a[6] = "R2  -00010").
+assert_true("display_lines R1",        lines_a[5] = "R1  +00820").
+assert_true("display_lines R2",        lines_a[6] = "R2  -00098").
 assert_true("display_lines R3",        lines_a[7] = "R3  +00394").
 assert_true("display_lines ALT",       lines_a[11] = "ALT      +00394 ft").
 assert_true("display_lines ALT RATE",  lines_a[12] = "ALT RATE -00010 ft/s").
@@ -186,10 +186,10 @@ assert_true("display_lines alarms",    lines_b[3] = "ALARMS: [PROG] [OPR ERR]").
 assert_true("display_lines entry",     lines_b[9] = "ENTRY: V99").
 LOCAL flags_inv IS LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "", "REGS", noun_registers(60, LEXICON("VALID", FALSE))).
 LOCAL lines_c IS display_lines(LEXICON("VALID", FALSE), "63", 16, 60, flags_inv).
-assert_true("display_lines invalid R1", lines_c[5] = "R1  -----").
-assert_true("display_lines invalid ALT", lines_c[11] = "ALT      ----- ft").
-assert_true("display_lines noun 99 blank regs", display_lines(d_disp, "63", 16, 99, LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "", "REGS", noun_registers(99, d_disp)))[5] = "R1  -----").
-assert_true("display_lines without REGS shows no data", display_lines(d_disp, "63", 16, 60, LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", ""))[6] = "R2  -----").
+assert_true("display_lines invalid R1", lines_c[5] = "R1  ").
+assert_true("display_lines invalid ALT", lines_c[11] = "ALT       ft").
+assert_true("display_lines noun 99 blank regs", display_lines(d_disp, "63", 16, 99, LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", "", "REGS", noun_registers(99, d_disp)))[5] = "R1  ").
+assert_true("display_lines without REGS shows no data", display_lines(d_disp, "63", 16, 60, LEXICON("PROG", FALSE, "OPRERR", FALSE, "ENTRY", ""))[6] = "R2  ").
 
 // entry_text: V16 then N pressed must read "V16 N", not "N16" (the old demo bug).
 LOCAL ks_e IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).

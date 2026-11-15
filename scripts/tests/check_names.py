@@ -56,11 +56,17 @@ def main() -> int:
     functions = {}   # lower-case function name -> where it is defined
     variables = {}   # lower-case GLOBAL/LOCAL variable name -> where it is created
     for path in sorted(SCRIPTS.rglob("*.ks")):
+        in_file = {}     # lower-case function name -> line, to catch a function defined twice in one file
         for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             text = strip_noise(raw)
             where = f"{path.relative_to(SCRIPTS.parent)}:{number}"
             for match in re.finditer(rf"\bFUNCTION\s+({IDENT})", text, re.I):
-                functions.setdefault(match.group(1).lower(), where)
+                name = match.group(1).lower()
+                if name in in_file:
+                    clashes += 1
+                    print(f"{where}: function '{name}' is defined twice in this file (first at line {in_file[name]})")
+                in_file.setdefault(name, number)
+                functions.setdefault(name, where)
             for match in re.finditer(rf"\b(?:LOCAL|GLOBAL)\s+({IDENT})\s+IS\b", text, re.I):
                 variables.setdefault(match.group(1).lower(), where)
     for name in sorted(functions.keys() & variables.keys()):

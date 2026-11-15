@@ -151,7 +151,13 @@ assert_true("core_end twice calls END once", CALLS["E1"] = e1_b11).
 
 // 12: the LM vehicle (lm_vehicle.ks): its table has the shape the core reads, and with no saved plan the registers have no
 // data and P63 refuses with the reason. Needs no flight; the no-plan checks are skipped when a plan.json exists.
+// The vehicle restores the loads a DSKY run saved in LM_STORE_FILE, which would make "nothing loaded" false; the test points it at a file
+// that does not exist while the vehicle is made, then puts the real path back.
+LOCAL real_store_file IS LM_STORE_FILE.
+SET LM_STORE_FILE TO "0:/lm/logs/test_core_no_store.txt".
+IF EXISTS(LM_STORE_FILE) { DELETEPATH(LM_STORE_FILE). }
 LOCAL lmv IS lm_vehicle_new().
+SET LM_STORE_FILE TO real_store_file.
 // Release 1.2: the saved plan's PROFILE ("A11" or "J"; none = A11) picks the programme set and the version.
 LOCAL veh_j IS plan_profile_of(plan_read(PLAN_PLAN_FILE)) = "J".
 assert_true("LM vehicle: version follows the plan profile",
@@ -172,7 +178,24 @@ IF EXISTS(PLAN_PLAN_FILE) {
   LOCAL lm_nav_res IS lmv["NAV"]:CALL(FALSE).
   assert_true("LM vehicle: no plan gives no data (VALID FALSE)", NOT lm_nav_res["DERIVED"]["VALID"]).
   LOCAL lm_refusal IS lmv["PROGRAMMES"]["63"]["START"]:CALL(FALSE).
-  assert_true("LM vehicle: P63 START with no plan refuses and says to run the planner first", lm_refusal["REFUSED"]:CONTAINS("run the planner first")).
+  assert_true("LM vehicle: P63 START with nothing loaded refuses and says the site is not loaded", lm_refusal["REFUSED"]:CONTAINS("is not loaded")).
 }
+
+// ---- the close cross: quit_step (IDLE, ASK, QUIT) and V34 no longer ending the DSKY ----
+assert_true("quit: the cross asks", quit_step("IDLE", TRUE, FALSE, FALSE) = "ASK").
+assert_true("quit: YES with no question is ignored", quit_step("IDLE", FALSE, TRUE, FALSE) = "IDLE").
+assert_true("quit: NO with no question is ignored", quit_step("IDLE", FALSE, FALSE, TRUE) = "IDLE").
+assert_true("quit: YES ends", quit_step("ASK", FALSE, TRUE, FALSE) = "QUIT").
+assert_true("quit: NO goes back", quit_step("ASK", FALSE, FALSE, TRUE) = "IDLE").
+assert_true("quit: NO beats YES in the same cycle", quit_step("ASK", FALSE, TRUE, TRUE) = "IDLE").
+assert_true("quit: the cross again changes nothing", quit_step("ASK", TRUE, FALSE, FALSE) = "ASK").
+assert_true("quit: nothing pressed keeps asking", quit_step("ASK", FALSE, FALSE, FALSE) = "ASK").
+assert_true("quit: QUIT is final", quit_step("QUIT", FALSE, FALSE, TRUE) = "QUIT").
+LOCAL quit_keys IS keys_new(LIST(60), LIST(6, 16, 34, 37), LIST(0)).
+assert_true("a fresh key state is not quitting", NOT quit_keys["QUIT"]).
+FOR quit_char IN LIST("V", "3", "4", "E") { key_press(quit_keys, quit_char). }
+assert_true("V34 E with nothing pending shows verb 34, no OPR ERR, and does not quit", quit_keys["VERB"] = 34 AND NOT quit_keys["OPRERR"] AND NOT quit_keys["QUIT"]).
+FOR quit_char IN LIST("V", "3", "7", "E", "0", "0", "E") { key_press(quit_keys, quit_char). }
+assert_true("V37 E 00 E after a V34 leaves a blank display, not V34 again", quit_keys["VERB"] = -1 AND quit_keys["NOUN"] = -1).
 
 test_end().

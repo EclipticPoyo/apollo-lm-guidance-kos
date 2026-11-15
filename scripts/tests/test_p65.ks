@@ -385,12 +385,12 @@ assert_near("contact: and P68 is reported", out5["PROG_NO"], 68, 0).
 assert_true("contact: without cutting the engine off again", out5["MSG"]:CONTAINS("ALREADY STOPPED")).
 SET CTL_DRY_STATUS TO "FLYING".
 
-// V34 ends P65 at once.
+// V34 does nothing in P65 (no flashing request, as Luminary's V34 only answers a request).
 LOCAL k34 IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 SET k34["VERB"] TO 34.
 LOCAL p5v IS p65_start(p5_prog("AUTO")).
 SET st5 TO p5_state(2020, p5_r, p5_v, 13.15).
-assert_true("V34 ends P65", p65_step(p5v, st5, nav_derived(st5, p5_land, p5_wm), k34)["ENDED"]).
+assert_true("V34 does not end P65", NOT p65_step(p5v, st5, nav_derived(st5, p5_land, p5_wm), k34)["ENDED"]).
 SET CTL_DRY TO FALSE.
 
 test_end().

@@ -75,7 +75,11 @@ GLOBAL GUI_KEY_BG IS "lm/images/key_black".         // keypad key faces: solid-c
 GLOBAL GUI_KEY_HOVER_BG IS "lm/images/key_hover".   // mouse over a key
 GLOBAL GUI_KEY_PRESS_BG IS "lm/images/key_press".   // key held down
 GLOBAL GUI_KEY_TEXT IS RGB(1, 1, 1).                // key caption colour (white)
-GLOBAL GUI_KEY_SIZE IS 64.                    // keypad keys are squares of this size, pixels (7 columns across the 510 window)
+GLOBAL GUI_CLOSE_SIZE IS 30.                  // the close cross and the YES / NO buttons: this high
+GLOBAL GUI_CLOSE_GAP IS 460.                 // blank width that pushes the cross to the right end of the window (adjust to look)
+GLOBAL GUI_ASK_W IS 230.                      // width of the "End DSKY?" question (right-aligned, next to YES and NO)
+GLOBAL GUI_ASK_GAP IS 130.                    // blank width before it: GAP + question + YES + NO (60 each) is about GUI_CLOSE_GAP + the X, so NO ends where the X was
+GLOBAL GUI_KEY_SIZE IS 64.                   // keypad keys are squares of this size, pixels (7 columns across the 510 window)
 GLOBAL GUI_PANEL_H IS 370.                    // height of the lamp panel and the display panel, pixels
 GLOBAL GUI_DIGIT_SIZE IS 54.                   // font size of PROG, VERB, NOUN and the registers: sized so a
                                                // six-character register fills the display panel width
@@ -298,6 +302,13 @@ FUNCTION gui_add_key {
   } ELSE {
     SET key_w:STYLE:FONTSIZE TO 13.   // word keys (VERB, ENTR, ...)
   }
+  gui_style_key(key_w).
+  ui["KEYS"]:ADD(LIST(key_w, key_char)).
+}
+
+// gui_style_key: the black key look (face, hover and held faces, white text) for a button; the size is the caller's.
+FUNCTION gui_style_key {
+  PARAMETER key_w.
   // Black keys with white text. STYLE:BG and STYLE:TEXTCOLOR set only the NORMAL state (kOS docs, Style), so
   // the states a click goes through are set one by one: HOVER (mouse over), ACTIVE (held down), FOCUSED.
   // The "on" states matter too: a click sets the button "on" until TAKEPRESS pops it out, and in that
@@ -318,7 +329,6 @@ FUNCTION gui_add_key {
   SET key_w:STYLE:ACTIVE_ON:TEXTCOLOR TO GUI_KEY_TEXT.
   SET key_w:STYLE:FOCUSED:TEXTCOLOR TO GUI_KEY_TEXT.
   SET key_w:STYLE:FOCUSED_ON:TEXTCOLOR TO GUI_KEY_TEXT.
-  ui["KEYS"]:ADD(LIST(key_w, key_char)).
 }
 
 // gui_fill: add every DSKY widget to an existing window win_w and return the lexicon of the widgets that
@@ -339,6 +349,32 @@ FUNCTION gui_fill {
   LOCAL ui IS LEXICON().
   SET ui["WIN"] TO win_w.
   gui_skin(win_w, GUI_HOUSING_BG).     // grey DSKY housing behind everything
+
+  // ---- Close bar: a small X at the right end. Pressing it swaps the bar for "End DSKY? YES NO" (quit_step in dsky_keys.ks
+  // decides; gui_poll swaps the two layouts). Each state is its own layout so a hidden widget leaves no gap behind. ----
+  LOCAL bar_idle IS gui_keep(win_w:ADDHLAYOUT()).
+  gui_label(bar_idle, "", GUI_CLOSE_GAP, 12, "", "LEFT").
+  SET ui["CLOSE_BTN"] TO gui_keep(bar_idle:ADDBUTTON("X")).
+  SET ui["CLOSE_BTN"]:STYLE:WIDTH TO GUI_CLOSE_SIZE.
+  SET ui["CLOSE_BTN"]:STYLE:HEIGHT TO GUI_CLOSE_SIZE.
+  SET ui["CLOSE_BTN"]:STYLE:FONTSIZE TO 13.
+  gui_style_key(ui["CLOSE_BTN"]).
+  LOCAL bar_ask IS gui_keep(win_w:ADDHLAYOUT()).
+  gui_label(bar_ask, "", GUI_ASK_GAP, 12, "", "LEFT").       // pushes the question, YES and NO to the right end, under the X's place
+  SET ui["ASK_LABEL"] TO gui_label(bar_ask, "End DSKY?", GUI_ASK_W, 13, "", "RIGHT").
+  SET ui["ASK_LABEL"]:STYLE:TEXTCOLOR TO GUI_KEY_TEXT.
+  SET ui["YES_BTN"] TO gui_keep(bar_ask:ADDBUTTON("YES")).
+  SET ui["NO_BTN"] TO gui_keep(bar_ask:ADDBUTTON("NO")).
+  FOR ask_btn IN LIST(ui["YES_BTN"], ui["NO_BTN"]) {
+    SET ask_btn:STYLE:WIDTH TO 60.
+    SET ask_btn:STYLE:HEIGHT TO GUI_CLOSE_SIZE.
+    SET ask_btn:STYLE:FONTSIZE TO 13.
+    gui_style_key(ask_btn).
+  }
+  bar_ask:HIDE().
+  SET ui["BAR_IDLE"] TO bar_idle.
+  SET ui["BAR_ASK"] TO bar_ask.
+  SET ui["QUIT_STATE"] TO "IDLE".
 
   LOCAL top_row IS gui_keep(win_w:ADDHLAYOUT()).
 
@@ -500,6 +536,26 @@ FUNCTION gui_poll {
   FOR key_entry IN ui["KEYS"] {
     IF key_entry[0]:TAKEPRESS { key_press(ks, key_entry[1]). }
   }
+  // The close cross: read its three buttons, let quit_step decide, then swap the bar when the state changes.
+  LOCAL close_hit IS ui["CLOSE_BTN"]:TAKEPRESS.
+  LOCAL yes_hit IS ui["YES_BTN"]:TAKEPRESS.
+  LOCAL no_hit IS ui["NO_BTN"]:TAKEPRESS.
+  LOCAL quit_next IS quit_step(ui["QUIT_STATE"], close_hit, yes_hit, no_hit).
+  IF quit_next <> ui["QUIT_STATE"] {
+    SET ui["QUIT_STATE"] TO quit_next.
+    IF quit_next = "ASK" {
+      LOCAL ask_text IS "End DSKY?".
+      IF ks["PROGRAM"]:ISTYPE("Lexicon") { SET ask_text TO "End DSKY? (the programme ends)". }
+      SET ui["ASK_LABEL"]:TEXT TO ask_text.
+      ui["BAR_IDLE"]:HIDE().
+      ui["BAR_ASK"]:SHOW().
+    } ELSE IF quit_next = "IDLE" {
+      ui["BAR_ASK"]:HIDE().
+      ui["BAR_IDLE"]:SHOW().
+    } ELSE {
+      SET ks["QUIT"] TO TRUE.
+    }
+  }
   RETURN ks.
 }
 
@@ -527,6 +583,7 @@ FUNCTION gui_update {
   gui_lamp_set(ui, "PROG", flags["PROG"]).
   gui_lamp_set(ui, "OPR ERR", flags["OPRERR"]).
   IF flags:HASKEY("KEYREL") { gui_lamp_set(ui, "KEY REL", flags["KEYREL"]). }
+  IF flags:HASKEY("UPLINK") { gui_lamp_set(ui, "UPLINK ACTY", flags["UPLINK"]). }
   IF flags:HASKEY("ALT") { gui_lamp_set(ui, "ALT", flags["ALT"]). }
   IF flags:HASKEY("VEL") { gui_lamp_set(ui, "VEL", flags["VEL"]). }
   IF flags:HASKEY("CONTACT") { gui_lamp_set(ui, "CONTACT", flags["CONTACT"]). }
@@ -579,7 +636,9 @@ FUNCTION gui_update {
   // R1 to R3 are a monitored noun: the real computer redisplays them once a second (Luminary monitor verbs,
   // "PERIODIC (1 PER SEC) DISPLAY", MONDEL = 1 s), not at our faster cycle. A new noun, or a blanked display, shows at
   // once; otherwise the digits only change when GUI_REG_PERIOD has passed since the last refresh.
-  IF noun <> ui["REG_NOUN"] OR TIME:SECONDS >= ui["REG_NEXT"] {
+  // Digits the pilot is keying (a load, P27; flags REGS_NOW) are not a monitor: they show at once, or a fast uplink looks like random numbers.
+  LOCAL regs_now IS flags:HASKEY("REGS_NOW") AND flags["REGS_NOW"].
+  IF regs_now OR noun <> ui["REG_NOUN"] OR TIME:SECONDS >= ui["REG_NEXT"] {
     SET ui["REG_NOUN"] TO noun.
     SET ui["REG_NEXT"] TO TIME:SECONDS + GUI_REG_PERIOD.
     FROM { LOCAL i IS 0. } UNTIL i >= 3 STEP { SET i TO i + 1. } DO {

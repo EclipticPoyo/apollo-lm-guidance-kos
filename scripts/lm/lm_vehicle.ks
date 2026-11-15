@@ -22,20 +22,73 @@ RUNONCEPATH("0:/lm/descent_j/lm_j_p63.ks").         // the J-class (Luminary 210
 RUNONCEPATH("0:/lm/descent_j/lm_j_p64.ks").
 RUNONCEPATH("0:/lm/descent_j/lm_j_p66.ks").
 
-GLOBAL LM_CHECK_LOG IS "0:/lm/logs/lm_check.log".        // the cross-check log (LM_LOG only)
-GLOBAL LM_VEH IS LEXICON().                         // "SITE" (lm_site_from_plan), "LAND" (site vector), "WM" (the Moon's spin), "PIN" (map pin), "FPIN" (flight-view site vector, P64)
+RUNONCEPATH("0:/lm/lm_cells.ks").                  // lm_cells_for, the store conversions, lm_hms_cs
 
-// lm_site_from_plan: the landing site out of a saved plan (or FALSE) as LEXICON("OK", bool, "LAT", .., "LNG", .., "ALT", ..).
-// It needs SITE_LAT, SITE_LNG and T_PDI; the height is SITE_ALT when the plan has it, else the terrain height at the site.
-FUNCTION lm_site_from_plan {
+GLOBAL LM_CHECK_LOG IS "0:/lm/logs/lm_check.log".        // the cross-check log (LM_LOG only)
+GLOBAL LM_VEH IS LEXICON().                         // "SITE" (lm_site_from_store), "STORE" (the erasable store), "SITE_SIG" (signature of the RLS words last seen), "LAND" (site vector), "WM" (the Moon's spin), "PIN" (map pin), "FPIN" (flight-view site vector, P64)
+
+// lm_profile_for: the software version ("A11" or "J") for a saved plan (or FALSE): the plan's own PROFILE when there is a plan (a plan wins),
+// else the PAD_PROFILE setting.
+FUNCTION lm_profile_for {
   PARAMETER plan.
-  LOCAL none IS LEXICON("OK", FALSE, "LAT", 0, "LNG", 0, "ALT", 0).
-  IF NOT plan:ISTYPE("Lexicon") { RETURN none. }
-  IF NOT (plan:HASKEY("SITE_LAT") AND plan:HASKEY("SITE_LNG") AND plan:HASKEY("T_PDI")) { RETURN none. }
-  LOCAL site_alt IS 0.
-  IF plan:HASKEY("SITE_ALT") { SET site_alt TO plan["SITE_ALT"]. }
-  ELSE { SET site_alt TO LATLNG(plan["SITE_LAT"], plan["SITE_LNG"]):TERRAINHEIGHT. }
-  RETURN LEXICON("OK", TRUE, "LAT", plan["SITE_LAT"], "LNG", plan["SITE_LNG"], "ALT", site_alt).
+  IF plan:ISTYPE("Lexicon") { RETURN plan_profile_of(plan). }
+  RETURN PAD_PROFILE.
+}
+
+// lm_site_from_store: the landing site out of the store's RLS as LEXICON("OK", bool, "LAT", .., "LNG", .., "ALT", ..). OK is FALSE until
+// RLS has been loaded (by uplink, by key, or from the plan with Skip simulated uplink ticked). radius is the body radius (m).
+FUNCTION lm_site_from_store {
+  PARAMETER vault, radius.
+  IF NOT store_loaded(vault, "RLS") { RETURN LEXICON("OK", FALSE, "LAT", 0, "LNG", 0, "ALT", 0). }
+  LOCAL geo IS lm_rls_to_site(lm_store_get_rls(vault), radius).
+  RETURN LEXICON("OK", TRUE, "LAT", geo["LAT"], "LNG", geo["LNG"], "ALT", geo["ALT"]).
+}
+
+// lm_plan_from_store: the plan LEXICON that p63_start and j_p63_start take (SITE_LAT, SITE_LNG, SITE_ALT, T_PDI, WINDOW_MODE, PROFILE),
+// rebuilt from the store: the site from RLS, the PDI time from TLAND (UT) minus PLAN_PDI_TO_LAND_S. FALSE when RLS or TLAND is not loaded.
+// clock_zero is the UT of the AGC clock's zero (lm_clock_zero_ut).
+FUNCTION lm_plan_from_store {
+  PARAMETER vault, profile, radius, clock_zero.
+  IF NOT (store_loaded(vault, "RLS") AND store_loaded(vault, "TLAND")) { RETURN FALSE. }
+  LOCAL site IS lm_site_from_store(vault, radius).
+  LOCAL tland_ut IS lm_store_get_tland_ut(vault, clock_zero).
+  RETURN LEXICON("SITE_LAT", site["LAT"], "SITE_LNG", site["LNG"], "SITE_ALT", site["ALT"], "T_PDI", tland_ut - PLAN_PDI_TO_LAND_S,
+                 "T_LAND", tland_ut, "WINDOW_MODE", P63_WINDOW_MODE, "PROFILE", profile).
+}
+
+// lm_store_from_plan: Skip simulated uplink. Load RLS and TLAND from a saved plan, as if the ground had uplinked them before the pilot started, but only
+// the ones not loaded already (an uplink or keyed load is never overwritten). Returns LEXICON("RLS", bool, "TLAND", bool, "WHY", text):
+// which were filled, and why TLAND was not when the plan's time does not fit the AGC clock.
+FUNCTION lm_store_from_plan {
+  PARAMETER vault, plan, radius, clock_zero.
+  LOCAL out IS LEXICON("RLS", FALSE, "TLAND", FALSE, "WHY", "").
+  IF NOT plan:ISTYPE("Lexicon") { RETURN out. }
+  IF NOT (plan:HASKEY("SITE_LAT") AND plan:HASKEY("SITE_LNG")) { RETURN out. }
+  IF NOT store_loaded(vault, "RLS") {
+    LOCAL site_alt IS 0.
+    IF plan:HASKEY("SITE_ALT") { SET site_alt TO plan["SITE_ALT"]. }
+    ELSE { SET site_alt TO LATLNG(plan["SITE_LAT"], plan["SITE_LNG"]):TERRAINHEIGHT. }
+    SET out["RLS"] TO lm_store_put_rls(vault, lm_site_to_rls(plan["SITE_LAT"], plan["SITE_LNG"], site_alt, radius)).
+  }
+  IF NOT store_loaded(vault, "TLAND") AND plan:HASKEY("T_LAND") {
+    SET out["TLAND"] TO lm_store_put_tland(vault, plan["T_LAND"], clock_zero).
+    IF NOT out["TLAND"] { SET out["WHY"] TO "the plan's landing time does not fit the AGC clock (before its zero or beyond 31 days)". }
+  }
+  RETURN out.
+}
+
+// lm_refresh_site: while no programme runs, follow the store: when RLS has been loaded or changed (an uplink, a keyed load), the site
+// (LM_VEH["SITE"]) and its vector (LM_VEH["LAND"]) are recomputed. A signature of the RLS words says whether it changed.
+FUNCTION lm_refresh_site {
+  LOCAL vault IS LM_VEH["STORE"].
+  LOCAL words IS store_words(vault, "RLS").
+  LOCAL sig IS 0.
+  FROM { LOCAL i IS 0. } UNTIL i >= words:LENGTH STEP { SET i TO i + 1. } DO { SET sig TO sig + words[i] * (i + 1). }
+  IF sig = LM_VEH["SITE_SIG"] { RETURN. }
+  SET LM_VEH["SITE_SIG"] TO sig.
+  LOCAL site IS lm_site_from_store(vault, SHIP:BODY:RADIUS).
+  SET LM_VEH["SITE"] TO site.
+  IF site["OK"] { SET LM_VEH["LAND"] TO land_vector(site["LAT"], site["LNG"], site["ALT"]). }
 }
 
 // ---- navigation ------------------------------------------------------------------------------------------------
@@ -45,6 +98,7 @@ FUNCTION lm_site_from_plan {
 // programme's own SITE_LAT, SITE_LNG and SITE_ALT are used from P64 on, and the vector goes into prog["LAND"].
 FUNCTION lm_veh_nav {
   PARAMETER prog.
+  IF NOT prog:ISTYPE("Lexicon") { lm_refresh_site(). }      // no programme: follow RLS in the store (an uplink may have just loaded it)
   LOCAL state IS nav_state().
   IF NOT state["BODY_OK"] {
     RETURN LEXICON("OK", FALSE, "STATE", state, "DERIVED", LEXICON("VALID", FALSE),
@@ -99,21 +153,20 @@ FUNCTION lm_idle_lamps {
 // adapter below calls the 099 or the J function by that. In the J set P64 hands over to P66 (table "64" NEXT is 66) and there is no
 // P65 (table "65" is not selectable and never reached).
 
-// P63 start: re-read the saved plan, refuse with a reason if there is no usable one, else start (it also refuses for its
-// own reasons: another site, PDI passed, no engine...). Any time warp is cancelled first, as before.
+// P63 start: the landing site and time come from the erasable store (RLS and TLAND, loaded by uplink, by key, or from the plan in auto
+// mode). Refuse with a reason if either is missing, else start (it also refuses for its own reasons: another site, PDI passed, no
+// engine...). Any time warp is cancelled first, as before.
 FUNCTION lm_p63_start {
   PARAMETER prev.
   IF KUNIVERSE:TIMEWARP:RATE > 1 { KUNIVERSE:TIMEWARP:CANCELWARP(). }
-  LOCAL plan IS plan_read(PLAN_PLAN_FILE).
-  LOCAL site IS lm_site_from_plan(plan).
-  IF NOT site["OK"] {
-    LOCAL why IS "no saved deorbit plan: run the planner first".
-    IF plan:ISTYPE("Lexicon") { SET why TO "the saved plan is incomplete: run the planner first". }
-    RETURN LEXICON("REFUSED", why + " (V34 ENTR, RUN plan., fly the burns, then RUN dsky.)").
-  }
+  LOCAL vault IS LM_VEH["STORE"].
+  LOCAL how_to IS " (load it from the PAD in P00, or plan with Skip simulated uplink ticked, fly the burns, then RUN dsky.)".
+  IF NOT store_loaded(vault, "RLS") { RETURN LEXICON("REFUSED", "RLS (the landing site) is not loaded" + how_to). }
+  IF NOT store_loaded(vault, "TLAND") { RETURN LEXICON("REFUSED", "TLAND (the landing time) is not loaded" + how_to). }
+  LOCAL plan IS lm_plan_from_store(vault, LM_VEH["PROFILE"], SHIP:BODY:RADIUS, lm_clock_zero_ut()).
+  LOCAL site IS lm_site_from_store(vault, SHIP:BODY:RADIUS).
   SET LM_VEH["SITE"] TO site.
   SET LM_VEH["LAND"] TO land_vector(site["LAT"], site["LNG"], site["ALT"]).
-  SET LM_VEH["PROFILE"] TO plan_profile_of(plan).
   LOCAL started IS LEXICON().
   IF LM_VEH["PROFILE"] = "J" {
     SET LM_VEH["TABLE"]["64"]["NEXT"] TO 66.
@@ -185,18 +238,64 @@ FUNCTION lm_p65_sample { PARAMETER prog. p65_sample(prog). }
 FUNCTION lm_p66_end { PARAMETER prog. j_p66_end(prog). }
 FUNCTION lm_p66_sample { PARAMETER prog. j_p66_sample(prog). }
 
+// ---- keyed loads -------------------------------------------------------------------------------------------------------
+
+// lm_load_commit: the DSKY core's LOAD_COMMIT: the registers a keyed load V21 to V25 gave data to (comps, 1 to 3) and the signed
+// integers keyed, as shown on the display. N33: hours, minutes, hundredths of seconds of the ignition time. N81: tenths of ft/s of
+// the delta-v in local vertical axes. A register not loaded keeps the stored value. Returns "" or the reason it refused.
+FUNCTION lm_load_commit {
+  PARAMETER noun_no, comps, values.
+  LOCAL vault IS LM_VEH["STORE"].
+  IF noun_no = 33 {
+    LOCAL parts IS LIST(0, 0, 0).
+    LOCAL tig_s IS lm_store_get_tig(vault).
+    IF tig_s >= 0 { SET parts TO lm_hms_cs(tig_s). }
+    FROM { LOCAL i IS 0. } UNTIL i >= comps:LENGTH STEP { SET i TO i + 1. } DO { SET parts[comps[i] - 1] TO values[i]. }
+    IF parts[0] < 0 OR parts[1] < 0 OR parts[1] > 59 OR parts[2] < 0 OR parts[2] > 5999 {
+      RETURN "N33 takes hours, minutes 0 to 59 and seconds 0 to 59.99, none negative".
+    }
+    LOCAL new_s IS lm_hms_to_seconds(parts[0], parts[1], parts[2]).
+    IF new_s * 100 >= LM_CLOCK_LIMIT_CS { RETURN "that time is beyond the AGC clock". }
+    lm_store_put_tig(vault, new_s).
+    RETURN "".
+  }
+  IF noun_no = 81 {
+    LOCAL dv IS lm_store_get_dv(vault).
+    LOCAL tenths IS LIST(ROUND(ms_to_fps(dv:X) * 10), ROUND(ms_to_fps(dv:Y) * 10), ROUND(ms_to_fps(dv:Z) * 10)).
+    FROM { LOCAL i IS 0. } UNTIL i >= comps:LENGTH STEP { SET i TO i + 1. } DO { SET tenths[comps[i] - 1] TO values[i]. }
+    lm_store_put_dv(vault, V(tenths[0] / 10 / FT_PER_M, tenths[1] / 10 / FT_PER_M, tenths[2] / 10 / FT_PER_M)).
+    RETURN "".
+  }
+  RETURN "noun " + noun_no + " has no load".
+}
+
+// lm_store_save: the DSKY core's STORE_SAVE: keep the store in its file when the DSKY ends.
+FUNCTION lm_store_save {
+  store_save(LM_VEH["STORE"], LM_STORE_FILE, LM_VEH["PROFILE"]).
+}
+
+// lm_p27_ok: an update (P27) is accepted only in P00, with no programme running (Luminary UPDATE_PROGRAM.agc).
+FUNCTION lm_p27_ok {
+  PARAMETER prog.
+  RETURN NOT prog:ISTYPE("Lexicon").
+}
+
 // ---- the vehicle ---------------------------------------------------------------------------------------------------
 
 // lm_vehicle_new: build the vehicle LEXICON for dsky_core.ks and set up the shared state in LM_VEH.
 FUNCTION lm_vehicle_new {
-  SET LM_VEH TO LEXICON("SITE", lm_site_from_plan(plan_read(PLAN_PLAN_FILE)), "LAND", V(0, 0, 0), "WM", moon_spin(), "PIN", FALSE, "FPIN", FALSE,
-      "PROFILE", plan_profile_of(plan_read(PLAN_PLAN_FILE)), "TABLE", FALSE).
-  // The site and the Moon's spin vector are constant in the raw axes (AXES_ROTATE = true), so they are computed once
-  // while no programme runs. If AXES_ROTATE were false, land_vector would have to be re-read every cycle.
-  IF LM_VEH["SITE"]["OK"] {
-    LOCAL site IS LM_VEH["SITE"].
-    SET LM_VEH["LAND"] TO land_vector(site["LAT"], site["LNG"], site["ALT"]).
-  }
+  LOCAL plan IS plan_read(PLAN_PLAN_FILE).
+  LOCAL profile IS lm_profile_for(plan).
+  SET LM_VEH TO LEXICON("SITE", LEXICON("OK", FALSE, "LAT", 0, "LNG", 0, "ALT", 0), "LAND", V(0, 0, 0), "WM", moon_spin(), "PIN", FALSE, "FPIN", FALSE,
+      "PROFILE", profile, "TABLE", FALSE, "STORE", store_new(lm_cells_for(profile)), "SITE_SIG", -1, "FILLED", LEXICON()).
+  // Loads kept from an earlier DSKY run (saved when it ended; the planner deletes the file on a new plan).
+  store_restore(LM_VEH["STORE"], LM_STORE_FILE, profile).
+  // Skip simulated uplink: a saved plan fills the store as if it had been uplinked already (never over data that is loaded). With no plan nothing is
+  // loaded and P63 refuses until the pilot loads RLS and TLAND (uplink or keys).
+  SET LM_VEH["FILLED"] TO lm_store_from_plan(LM_VEH["STORE"], plan, SHIP:BODY:RADIUS, lm_clock_zero_ut()).
+  // The site and the Moon's spin vector are constant in the raw axes (AXES_ROTATE = true), so the site vector is computed once
+  // here and again only when RLS changes (lm_refresh_site). If AXES_ROTATE were false, land_vector would have to be re-read every cycle.
+  lm_refresh_site().
   // The pin is made here and kept in LM_VEH. It stays hidden until lm_veh_hook shows it.
   LOCAL pin IS pins_one(SITE_MARK_LABEL, LATLNG(0, 0), TRUE).
   SET pin:COLOR TO PINS_COLOR_SELECTED.
@@ -225,5 +324,12 @@ FUNCTION lm_vehicle_new {
     "LAMPS", LEXICON("KEY_REL", "KEYREL", "ALT_LAMP", "ALT", "VEL_LAMP", "VEL", "CONTACT", "CONTACT"),
     "IDLE_LAMPS", lm_idle_lamps@,
     "STICKY_PROGS", LIST(68),
+    "STORE", LM_VEH["STORE"],
+    "STORE_SAVE", lm_store_save@,
+    "P27_OK", lm_p27_ok@,
+    "UPLINK_FILE", LM_UPLINK_FILE,
+    "P27_ADDR", lm_p27_addr(LM_VEH["PROFILE"]),
+    "LOADS", LM_LOADS,
+    "LOAD_COMMIT", lm_load_commit@,
     "PROGRAMMES", table).
 }

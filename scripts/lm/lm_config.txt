@@ -26,5 +26,9 @@
 // Flip (1 or -1) if Shift/Ctrl in P66 change the rate of descent the wrong way.
 // P66_ROD_SIGN = 1
 
+// The flight software version: A11 (Luminary 099, Apollo 11) or J (Luminary 210, Apollo 15 to 17). The planner window sets it too;
+// a saved plan carries it and wins over this setting.
+// PAD_PROFILE = A11
+
 // The body you land on.
 // BODY_NAME = Moon

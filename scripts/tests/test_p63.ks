@@ -557,6 +557,13 @@ SET dout TO p63_step(dp, dst, nav_derived(dst, d_land, d_wm), dk).
 assert_true("V34 in the prompt ends the programme", dout["ENDED"]).
 assert_near("V34 in the prompt does not set a new verb", dout["SET_VERB"], -1, 0).
 assert_true("V34 in the prompt stops the ullage", NOT dp["ULLAGE_ON"]).
+// Luminary's V34 only answers a request: in the coast, 40 s before TIG, with no request up, it does nothing.
+LOCAL dp_coast IS dry_prog(seq_new(1000), FALSE, 959.75).
+LOCAL dk_coast IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+SET dk_coast["VERB"] TO 34.
+LOCAL dst_coast IS dry_state(960, d_r, 0).
+LOCAL dout_coast IS p63_step(dp_coast, dst_coast, nav_derived(dst_coast, d_land, d_wm), dk_coast).
+assert_true("V34 in the coast (no request up) does not end P63", NOT dout_coast["ENDED"]).
 // Review critical 3: alarm 1406 reaches the display: the lander almost at the site and nearly stationary (V(1, 0, 1)) has no positive
 // time-to-go root (checked with reference.py's guid_pass_ref: ok False). The earlier state, 50 km on in z, does solve (tgo about 705 s).
 LOCAL burn_seq IS LEXICON("TIG", 1000, "ARMED", TRUE, "IGN_T", 1000, "ZOOMED", FALSE, "ENDED", FALSE).

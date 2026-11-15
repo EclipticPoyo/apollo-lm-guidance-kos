@@ -12,6 +12,13 @@
 //   "IDLE_LAMPS"   delegate (idle_text) -> LEXICON of lamp flags to set while no programme runs
 //   "STICKY_PROGS" LIST of programme numbers whose number stays shown after the programme ends
 //   "PROGRAMMES"   LEXICON keyed by the programme number as text ("12"): the programme table
+//   "STORE_SAVE"  (optional) a delegate () called once when the DSKY ends, to save the store (the vehicle knows the file)
+//   "STORE", "P27_OK"  (optional, for P27) the erasable store (dsky_store.ks) and a delegate (prog) -> bool: may an update start now
+//   "P27_ADDR"  (optional, for P27) LEXICON "BUFF" and "TEMP": the update program's buffer addresses (ECADRs) shown in R3
+//   "UPLINK_FILE"  (optional, needs "STORE" and "P27_OK") path of the uplink key file the DSKY feeds into its keys (dsky_uplink.ks)
+//   "LOADS"        (optional) LEXICON noun-as-text -> LEXICON("NCOMP", n, "DIGITS", LIST(digits of R1, R2, R3)): the nouns V21 to V25 can load
+//   "LOAD_COMMIT"  (with "LOADS") delegate (noun_no, comps, values) -> text: stores the values keyed (comps: the registers loaded,
+//                  1 to 3; values: signed integers as keyed); returns "" or the reason it refused (see dsky_load.ks)
 // Programme table entry: LEXICON(
 //   "START"      delegate (prev_prog) -> the new programme's LEXICON; "REFUSED" holds a reason text, "" when it started.
 //                prev_prog is FALSE for a V37 start, the old programme's LEXICON for a handover
@@ -31,6 +38,7 @@
 
 RUNONCEPATH("0:/core/dsky_keys.ks").
 RUNONCEPATH("0:/core/dsky_display.ks").
+RUNONCEPATH("0:/core/dsky_uplink.ks").
 
 // The terminal's top CORE_STATUS_ROWS rows are the status area: core_status_draw redraws them every cycle, so messages
 // (PRINT, which scroll) can never leave a stale copy there. core_reserve_status moves the print position below them; the
@@ -197,17 +205,23 @@ FUNCTION core_step {
   } ELSE {
     SET ks["PRO"] TO FALSE.            // PRO means nothing with no programme running
   }
+  IF load_active(ks) OR p27_active(ks) { SET flags["FLASH"] TO TRUE. }      // VERB and NOUN flash while a keyed load or an update waits for data
+  SET flags["UPLINK"] TO p27_active(ks) AND ks["P27"]["ACTY"].               // UPLINK ACTY: the ground is sending (see dsky_p27.ks)
   RETURN LEXICON("FLAGS", flags, "PROG_TEXT", prog_text, "MSG", msg, "STATUS", status_lines).
 }
 
 // core_run: the DSKY loop. ui is the window from gui_fill (made at the top level of the entry script). Each cycle:
 // read navigation, poll the keys, handle a V37 request, step the programme, update the display, then wait for the next
-// fixed-rate slot. Ends on V34 ENTR, or when the vehicle's navigation says stop; a running programme is always ended.
+// fixed-rate slot. Ends when the window's close cross is confirmed (ks["QUIT"]), or when the vehicle's navigation says stop; a running programme is always ended.
 FUNCTION core_run {
   PARAMETER ui, vehicle.
   LOCAL start_vn IS LIST().
   IF vehicle:HASKEY("START_VN") { SET start_vn TO vehicle["START_VN"]. }
   LOCAL ks IS keys_new(vehicle["NOUNS"], vehicle["VERBS"], vehicle["PROGS"], start_vn).
+  SET ks["VEHICLE"] TO vehicle.             // the keyed loaders and P27 read the vehicle's tables through the key state
+  LOCAL feed IS FALSE.                       // the uplink feed, when the vehicle names an uplink file
+  IF vehicle:HASKEY("UPLINK_FILE") AND vehicle:HASKEY("P27_OK") { SET feed TO uplink_new(vehicle["UPLINK_FILE"]). }
+  LOCAL feed_active IS FALSE.
   LOCAL crun IS core_new(vehicle).
   LOCAL next_t IS TIME:SECONDS.
   LOCAL running IS TRUE.
@@ -219,7 +233,13 @@ FUNCTION core_run {
       IF nav:HASKEY("MSG") { PRINT nav["MSG"]. } ELSE { PRINT "Navigation lost. Stopping.". }
       SET running TO FALSE.
     } ELSE {
+      SET ks["PROGRAM"] TO crun["PROG"].       // P27 asks the vehicle whether an update is allowed with this
       gui_poll(ui, ks).
+      IF feed:ISTYPE("Lexicon") {
+        LOCAL fed IS uplink_poll(feed, ks, vehicle, vehicle["P27_OK"]:CALL(crun["PROG"]), TIME:SECONDS).
+        SET feed_active TO fed["ACTIVE"].
+        IF fed["MSG"] <> "" { PRINT fed["MSG"]. }
+      }
       // V37 ENTR <programme> ENTR: start a programme, or end the running one (00).
       IF ks["PROG_REQ"] >= 0 {
         LOCAL req IS ks["PROG_REQ"].
@@ -233,16 +253,30 @@ FUNCTION core_run {
       IF step_res["MSG"] <> "" { PRINT step_res["MSG"]. }
       vehicle["HOOK"]:CALL(crun["PROG"], nav).
       LOCAL flags IS step_res["FLAGS"].
+      IF feed_active { SET flags["UPLINK"] TO TRUE. }          // UPLINK ACTY stays lit while the uplink file is being pressed in
       SET flags["REGS"] TO vehicle["NOUN_REGS"]:CALL(ks["NOUN"], nav["DERIVED"]).
+      // The register being loaded (V21 to V25) shows what the pilot has keyed, blank until something is keyed.
+      LOCAL load_view IS load_shown(ks, vehicle).
+      IF load_view["REG"] > 0 AND flags["REGS"]:LENGTH = 3 {
+        FOR entered IN load_view["DONE"] { SET flags["REGS"][entered[0] - 1] TO entered[1]. }          // registers already entered keep the value keyed
+        SET flags["REGS"][load_view["REG"] - 1] TO load_view["TEXT"].
+        SET flags["REGS_NOW"] TO TRUE.
+      }
+      IF ks["LOAD"]["MSG"] <> "" { PRINT ks["LOAD"]["MSG"]. SET ks["LOAD"]["MSG"] TO "". }
+      // P27 shows the octal word being keyed in R1 and the buffer address stream in R3 (R2 blank).
+      LOCAL p27_view IS p27_shown(ks, vehicle).
+      IF p27_view["ACTIVE"] { SET flags["REGS"] TO LIST(p27_view["R1"], NA, p27_view["R3"]). SET flags["REGS_NOW"] TO TRUE. }
+      // REGS_NOW: keyed digits (a load, P27) show at once; only a monitored noun's numbers refresh once a second (gui_update).
+      IF ks["P27"]["MSG"] <> "" { PRINT ks["P27"]["MSG"]. SET ks["P27"]["MSG"] TO "". }
       // COMP ACTY: lit while the Executive runs a job and dark when it idles (Luminary EXECUTIVE.agc: NUCHANG2 and
       // NUDIRECT turn the light on, DUMMYJOB turns it off). Here a job is a programme step or a programme request;
       // BUSY is how long this cycle's work took (the display adds its own minimum so a short job is still visible).
       IF crun["PROG"]:ISTYPE("Lexicon") { SET job_ran TO TRUE. }
       SET flags["JOB"] TO job_ran.
       SET flags["BUSY"] TO TIME:SECONDS - cycle_t0.
-      gui_update(ui, nav["DERIVED"], step_res["PROG_TEXT"], ks["VERB"], ks["NOUN"], flags).
-      // V34 ENTR: terminate.
-      IF ks["VERB"] = 34 { SET running TO FALSE. }
+      gui_update(ui, nav["DERIVED"], p27_prog_text(ks, step_res["PROG_TEXT"]), ks["VERB"], ks["NOUN"], flags).
+      // The window's close cross, confirmed with YES (gui_poll sets QUIT). V34 does not end the DSKY: it is Terminate, as in Luminary.
+      IF ks["QUIT"] { SET running TO FALSE. }
       // Fixed-rate loop: wait until the next CYCLE_S slot. If the clock ran ahead (time warp), start
       // from now instead of "catching up" with a burst of back-to-back cycles (seen in the first flight log).
       SET next_t TO MAX(next_t + CYCLE_S, TIME:SECONDS).
@@ -259,4 +293,6 @@ FUNCTION core_run {
   }
   // A programme still running (V34, or navigation stopped): give the controls back.
   core_end(crun, vehicle).
+  // Keep the erasable store for the next DSKY run, when the vehicle names a file for it.
+  IF vehicle:HASKEY("STORE") AND vehicle:HASKEY("STORE_SAVE") { vehicle["STORE_SAVE"]:CALL(). }
 }

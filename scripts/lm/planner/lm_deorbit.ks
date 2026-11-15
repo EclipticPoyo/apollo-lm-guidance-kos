@@ -203,6 +203,8 @@ FUNCTION deorbit_run {
   LOCAL pass_no IS 0.
   LOCAL t_pc IS -1.
   LOCAL dv_pc IS V(0, 0, 0).
+  LOCAL lv_pc IS LIST(0, 0, 0).         // the plane change and DOI delta-v in local vertical axes (for the PAD, plan_lv_components)
+  LOCAL lv_doi IS LIST(0, 0, 0).
   LOCAL t_doi IS 0.
   LOCAL doi IS LEXICON().
   LOCAL t_pdi IS 0.
@@ -225,6 +227,7 @@ FUNCTION deorbit_run {
     LOCAL s_use IS plan_in_plane(s_dir, n_cur).
     SET t_pc TO -1.
     SET dv_pc TO V(0, 0, 0).
+    SET lv_pc TO LIST(0, 0, 0).
     IF xrange >= PLAN_XRANGE_MAX {
       // The two planes cross along k. The ship passes either +k or -k first: take the earlier pass.
       LOCAL k_vec IS VCRS(n_cur, tgt["N_T"]):NORMALIZED.
@@ -239,6 +242,7 @@ FUNCTION deorbit_run {
         RETURN dp_fail("plane change needs " + ROUND(dv_pc:MAG, 1) + " m/s, above the accepted " + ROUND(max_pc, 1)
                        + " m/s. Increase Max plane change.").
       }
+      SET lv_pc TO plan_lv_components(dv_pc, r_pc, v_pc).
       dp_add_node(t_pc, dv_pc, r_pc, v_pc).
       SET n_use TO tgt["N_T"].
       SET s_use TO s_dir.
@@ -265,6 +269,7 @@ FUNCTION deorbit_run {
         "MAX_PC_DV", max_pc, "ALT_PDI", geo["ALT_PDI"], "ALT_PDI_NOM", geo["ALT_PDI"], "V_PDI", doi["V_PDI"],
         "WARP_RATE", KUNIVERSE:TIMEWARP:RATE, "NODES_OK", nodes_ok, "TERRAIN_CLEAR_MIN", -999999, "VIGN", pad["VIGN"])).
     IF pre["ERRORS"]:LENGTH > 0 { RETURN dp_fail(pre["ERRORS"][0]). }
+    SET lv_doi TO plan_lv_components(doi["DV"], r_doi, v_doi).
     dp_add_node(t_doi, doi["DV"], r_doi, v_doi).
 
     SET t_pdi TO t_doi + doi["T_HALF"].
@@ -332,7 +337,7 @@ FUNCTION deorbit_run {
 
   plan_write(PLAN_PLAN_FILE, LEXICON("SITE_LAT", site["LAT"], "SITE_LNG", site["LNG"], "SITE_ALT", site["ALT"],
       "T_MADE", t_start, "T_DOI", t_doi, "T_PDI", t_pdi, "T_LAND", t_land, "T_PC", t_pc, "WINDOW_MODE", P63_WINDOW_MODE,
-      "PROFILE", PAD_PROFILE, "DV_DOI", doi["DV"]:MAG, "DV_PC", dv_pc:MAG, "V_PDI", doi["V_PDI"], "ALT_PDI", geo["ALT_PDI"])).
+      "PROFILE", PAD_PROFILE, "DV_DOI", doi["DV"]:MAG, "DV_PC", dv_pc:MAG, "LV_DOI", lv_doi, "LV_PC", lv_pc, "V_PDI", doi["V_PDI"], "ALT_PDI", geo["ALT_PDI"])).
   dp_say("PLAN OK. " + dp_nodes:LENGTH + " maneuver node(s) added. Plan saved to " + PLAN_PLAN_FILE + "." + (CHOOSE " Report: " + DP_LOG IF LM_LOG ELSE "")).
   LOCAL pc_text IS "no plane change".
   IF t_pc > 0 { SET pc_text TO "plane change at " + dp_met(t_pc) + ", " + ROUND(dv_pc:MAG, 1) + " m/s". }

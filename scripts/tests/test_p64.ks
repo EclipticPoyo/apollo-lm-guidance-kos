@@ -255,11 +255,11 @@ assert_true("handover: the programme does not end itself", NOT out4e["ENDED"]).
 SET st4e TO d4_state(3000.25, d4_re, d4_ve).
 SET out4e TO p64_step(p4e, st4e, nav_derived(st4e, d4_land, d4_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_true("handover: asked for once only", NOT out4e["HANDOVER"]).
-// V34 ENTR ends P64 at once.
+// V34 ENTR does nothing in P64: it raises no flashing request, and Luminary's V34 only answers a request.
 LOCAL k34 IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 SET k34["VERB"] TO 34.
 SET st4 TO d4_state(2002, d4_r0, d4_v0).
-assert_true("V34 ends P64", p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), k34)["ENDED"]).
+assert_true("V34 does not end P64", NOT p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), k34)["ENDED"]).
 SET CTL_DRY TO FALSE.
 
 test_end().

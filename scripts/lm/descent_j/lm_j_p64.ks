@@ -204,7 +204,7 @@ FUNCTION j_p64_step {
   LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
-  LOCAL terminating IS ks["VERB"] = 34.
+  LOCAL terminating IS FALSE.          // P64 raises no flashing request, so V34 (Luminary VBTERM) does nothing here
 
   SET prog["TGO"] TO MAX(1, prog["TGO"] - dt).
   IF pro_pressed AND NOT prog["PERMIT"] {

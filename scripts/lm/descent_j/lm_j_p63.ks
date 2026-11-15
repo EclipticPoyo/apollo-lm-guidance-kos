@@ -112,7 +112,8 @@ FUNCTION j_p63_step {
   LOCAL msg IS "".
   // V34 ENTR ends the programme in every state, including the enable prompt (where the verb would otherwise be forced
   // back to 99 each cycle): the sequence is told to terminate, which switches the ullage off.
-  LOCAL terminating IS ks["VERB"] = 34.
+  // Luminary VBTERM only answers a flashing request: P63's only one is the V99 enable prompt. Outside it V34 does nothing.
+  LOCAL terminating IS ks["VERB"] = 34 AND prog["LAST_STATE"] = "PROMPT".
 
   // ---- the sequence: countdown, ullage, enable prompt, ignition, zoom ----
   LOCAL sq IS j_seq_step(prog["SEQ"], now_ut, pro_pressed, terminating).

@@ -4,6 +4,11 @@
 # Plan written by lm_deorbit.ks when scripts/ is linked as the archive
 scripts/lm/plan.json
 
+# Files the DSKY and planner write while running (clock zero, loads, uplink)
+scripts/lm/clock.txt
+scripts/lm/store.txt
+scripts/lm/uplink.txt
+
 # Python cache (test reference script)
 __pycache__/
 *.pyc
