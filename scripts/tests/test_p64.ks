@@ -151,7 +151,7 @@ RUNONCEPATH("0:/lm/lm_nouns.ks").
 SET CTL_DRY TO TRUE.
 FUNCTION d4_prog {
   RETURN LEXICON("REFUSED", "", "WINDOW_MODE", "UP", "TURNED", FALSE, "FORE0", V(1, 0, 0), "WIN0", V(0, 1, 0), "WCMD", V(0, 1, 0),
-                 "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "WARP", warp_new(), "ENGINE", 0,
+                 "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "ROD_START", FALSE, "HIGHGATE", TRUE, "WARP", warp_new(), "ENGINE", 0,
                  "LAND", V(1737400, 0, 0), "WM", V(0, 2.66e-6, 0), "TIG", 1000, "BURN_DIR", V(0, 0, 1), "OUTOFPLN", 0,
                  "TGO", 60, "THR", 1, "GP", LEXICON(), "ZOOMED", TRUE, "ENGINE_LIT", TRUE, "ULLAGE_ON", FALSE,
                  "DV", 0, "T_LAST", 1999.75, "HANDOFF_T", 1999, "LAST_STATE", "", "LAST_ALARM", 0, "ENDED", FALSE).
@@ -178,7 +178,7 @@ LOCAL st4 IS d4_state(2000, d4_r0, d4_v0).
 LOCAL out4 IS p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), d4_ks).
 assert_near("first step sets verb 6", out4["SET_VERB"], 6, 0).
 assert_near("first step sets noun 64", out4["SET_NOUN"], 64, 0).
-assert_true("first step flashes with KEY REL until PRO", out4["FLASH"] AND out4["KEY_REL"]).
+assert_true("first step is a V06 N64 request (no KEY_REL output)", out4["REQUEST"]:ISTYPE("Lexicon") AND out4["REQUEST"]["VERB"] = 6 AND out4["REQUEST"]["NOUN"] = 64 AND NOT out4["KEY_REL"]).
 assert_near("p64_step reports PROG_NO 64", out4["PROG_NO"], 64, 0).
 assert_true("p64_step never asks for a handover", NOT out4["HANDOVER"]).
 assert_near("approach guidance converges: no alarm", out4["ALARM"], 0, 0).
@@ -197,13 +197,32 @@ assert_vec("a click before PRO does not move the site", p4["LAND"], land_before,
 assert_near("and is not kept for later", p4["CLK"]["EL"], 0, 0).
 clk_sample(p4["CLK"], 0, 0).
 
-// PRO permits redesignation: the flashing stops.
+// V32 re-posts the display once; ENTER changes nothing (Task 6).
+SET d4_ks["ENTER"] TO TRUE.
+SET st4 TO d4_state(2000.6, d4_r0, d4_v0).
+SET out4 TO p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), d4_ks).
+assert_true("ENTER changes nothing: no new display, the request stays", out4["SET_VERB"] = -1 AND out4["REQUEST"]:ISTYPE("Lexicon")).
+SET d4_ks["ENTER"] TO FALSE.
+SET d4_ks["RECYCLE"] TO TRUE.
+SET st4 TO d4_state(2000.65, d4_r0, d4_v0).
+SET out4 TO p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), d4_ks).
+assert_true("V32 re-posts V06 N64", out4["SET_VERB"] = 6 AND out4["SET_NOUN"] = 64).
+SET d4_ks["RECYCLE"] TO FALSE.
+SET st4 TO d4_state(2000.7, d4_r0, d4_v0).
+SET out4 TO p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), d4_ks).
+assert_true("and only once", out4["SET_VERB"] = -1).
+// PRO permits redesignation: the flashing stops. Clicks queued just before PRO are discarded.
+clk_sample(p4["CLK"], 1, 0).
 SET d4_ks["PRO"] TO TRUE.
 SET st4 TO d4_state(2000.75, d4_r0, d4_v0).
 SET out4 TO p64_step(p4, st4, nav_derived(st4, d4_land, d4_wm), d4_ks).
 assert_true("PRO permits redesignation", p4["PERMIT"]).
-assert_true("PRO stops the flashing and releases KEY REL", NOT out4["FLASH"] AND NOT out4["KEY_REL"]).
+assert_true("PRO ends the request", NOT out4["REQUEST"]:ISTYPE("Lexicon") AND NOT out4["KEY_REL"]).
 assert_true("PRO is cleared by the step", NOT d4_ks["PRO"]).
+
+assert_near("PRO discarded the clicks queued before it", p4["CLK"]["EL"], 0, 0).
+assert_vec("and the site did not move", p4["LAND"], land_before, 0).
+clk_sample(p4["CLK"], 0, 0).
 
 // A click after PRO in AUTO moves the site.
 clk_sample(p4["CLK"], 1, 0).
@@ -214,6 +233,23 @@ assert_near("the moved site keeps its radius", p4["LAND"]:MAG, 1737400, 1e-3).
 assert_true("and the step prints no message per click", NOT out4["MSG"]:CONTAINS("REDESIGNATED")).
 assert_near("the applied clicks are counted", p4["EL_TOTAL"], P64_PITCH_SIGN, 0).
 clk_sample(p4["CLK"], 0, 0).
+
+// The window closing without a PRO drops the request; V34 ends the programme while the request is up.
+LOCAL p4w IS p64_start(d4_prog(), 0, 23.47, 0).
+SET p4w["TGO"] TO 30.
+LOCAL d4_ksw IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+// a state with no time-to-go root (as in test_p63): the guidance keeps the programme's own time-to-go, so TGO stays 30
+SET st4 TO d4_state(2000, V(1737500, 0, 10), V(1, 0, 1)).
+LOCAL out4w IS p64_step(p4w, st4, nav_derived(st4, d4_land, d4_wm), d4_ksw).
+assert_true("the window closed with no PRO: no request, a steady display", NOT out4w["REQUEST"]:ISTYPE("Lexicon") AND NOT out4w["FLASH"]).
+LOCAL p4t IS p64_start(d4_prog(), 0, 23.47, 0).
+LOCAL d4_kst IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+SET st4 TO d4_state(2000, d4_r0, d4_v0).
+p64_step(p4t, st4, nav_derived(st4, d4_land, d4_wm), d4_kst).
+SET d4_kst["TERMINATE"] TO TRUE.
+SET st4 TO d4_state(2000.25, d4_r0, d4_v0).
+LOCAL out4t IS p64_step(p4t, st4, nav_derived(st4, d4_land, d4_wm), d4_kst).
+assert_true("V34 while the request is up ends P64", out4t["ENDED"]).
 
 // In ATT HOLD the clicks are ignored (Review Focus 3), and are not kept for later.
 SET p4["ATT"]["MODE"] TO "HOLD".

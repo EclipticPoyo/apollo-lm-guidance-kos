@@ -8,9 +8,11 @@
 // Only the settings in CFG_NAMES below can be set from the file. The tuning constants stay in lm_constants.ks.
 // KerboScript cannot set a global by a name held in text, so cfg_apply_line has one branch per setting.
 
+RUNONCEPATH("0:/lm/lm_alarms.ks").          // alarm_script_parse, to check the ALARMS setting
+
 GLOBAL CFG_PATH IS "0:/lm/lm_config.txt".
 GLOBAL CFG_WARNINGS IS LIST().
-GLOBAL CFG_NAMES IS LIST("LM_LOG", "DSKY_START", "P63_WINDOW_MODE", "P63_WARP_LEAD_S", "P64_PITCH_SIGN", "P64_YAW_SIGN", "P66_ROD_SIGN", "BODY_NAME", "PAD_PROFILE").
+GLOBAL CFG_NAMES IS LIST("LM_LOG", "DSKY_START", "P63_WINDOW_MODE", "P63_WARP_LEAD_S", "P64_PITCH_SIGN", "P64_YAW_SIGN", "P66_ROD_SIGN", "BODY_NAME", "PAD_PROFILE", "ALARMS").
 
 // cfg_apply_line: apply one line of the file. Returns "" when the line was empty, a comment or applied, else the reason it
 // was skipped (also added to CFG_WARNINGS).
@@ -42,6 +44,10 @@ FUNCTION cfg_apply_line {
   IF key = "PAD_PROFILE" {
     IF value:TOUPPER = "A11" OR value:TOUPPER = "J" { SET PAD_PROFILE TO value:TOUPPER. RETURN "". }
     RETURN cfg_skip(raw_line, "PAD_PROFILE must be A11 or J").
+  }
+  IF key = "ALARMS" {
+    IF alarm_script_parse(value, "A11"):ISTYPE("Boolean") { RETURN cfg_skip(raw_line, "ALARMS must be OFF, A11 or a list like 1202@315,1201@548"). }
+    SET ALARMS TO value:TOUPPER. RETURN "".
   }
   IF key = "BODY_NAME" { SET BODY_NAME TO value. RETURN "". }
   // The rest are numbers. TONUMBER gives the sentinel when the text is not a number.

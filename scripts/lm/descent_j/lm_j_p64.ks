@@ -18,7 +18,7 @@
 // 1 degree (AZEACH): Luminary 210 made both one degree (099: 1/2 and 2 degrees). Here the keyboard's pitch and yaw give -1, 0 or 1; see clk_* below.
 //
 // Simplifications (spec section 10): the keyboard stands in for the hand controller's discrete bits; the look angle on the
-// DSKY stands in for the scribed window; the time-to-redesignation display (TREDES) is not shown and the display does not
+// DSKY stands in for the scribed window; the time-to-redesignation (TREDES) is shown in R1 of N64 and the display does not
 // flash again after each redesignation.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
@@ -139,6 +139,7 @@ FUNCTION j_p64_start {
   SET prog["PROG_NO"] TO 64.
   SET prog["TGO"] TO prog["TGO"] - J_DELTTFAP.
   SET prog["CLK"] TO j_clk_new().
+  SET prog["HIGHGATE"] TO TRUE.              // the high gate has passed: the radar altitude test runs from here on
   SET prog["PERMIT"] TO FALSE.               // set by PRO: Luminary's REDFLAG
   SET prog["SHOWN"] TO FALSE.                // the V06 N64 display has been requested
   SET prog["HANDOFF_T"] TO -1.
@@ -194,7 +195,7 @@ FUNCTION j_p64_apply_clicks {
 //   - PRO permits redesignation; clicks then move the landing site (j_p64_apply_clicks);
 //   - the attitude command is the guidance thrust direction; the window is held toward the site (UP, EXNORM) or the ship's
 //     own roll is kept with the stick roll (KEEP, as in P63);
-//   - the display shows V06 N64, flashing with KEY REL lit until PRO;
+//   - the display shows V06 N64 as a flashing request until PRO or the end of the redesignation window (the core lights KEY REL when the pilot keys over it);
 //   - below J_TENDAPPR the step returns HANDOVER once and the main loop starts P66 (lm_j_p66.ks), which takes this state over.
 FUNCTION j_p64_step {
   PARAMETER prog, state, derived, ks.
@@ -204,11 +205,13 @@ FUNCTION j_p64_step {
   LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
-  LOCAL terminating IS FALSE.          // P64 raises no flashing request, so V34 (Luminary VBTERM) does nothing here
+  // V34 (ks["TERMINATE"], set by the core only while a request is pending: the flashing N64) ends the programme (Luminary VBTERM).
+  LOCAL terminating IS ks["TERMINATE"].
 
   SET prog["TGO"] TO MAX(1, prog["TGO"] - dt).
   IF pro_pressed AND NOT prog["PERMIT"] {
     SET prog["PERMIT"] TO TRUE.
+    j_clk_discard(prog["CLK"]).          // clicks queued before PRO are not used
     SET msg TO "P64: REDESIGNATION PERMITTED. PITCH AND YAW KEYS MOVE THE AIM POINT 1 DEG A CLICK (AUTO ONLY).".
   }
   j_p64_apply_clicks(prog, state).               // no terminal message per click: the look angle (R1) and the site vector show it
@@ -258,15 +261,19 @@ FUNCTION j_p64_step {
   LOCAL shared_msg IS j_burn_shared_step(prog, state, derived, dt, TRUE, "P64").
   IF shared_msg <> "" { SET msg TO shared_msg. }
 
-  // ---- the display: V06 N64, flashing with KEY REL until PRO ----
+  // ---- the display: V06 N64, a flashing request until PRO or the end of the redesignation window ----
   LOCAL set_verb IS -1.
   LOCAL set_noun IS -1.
-  IF NOT prog["SHOWN"] AND NOT terminating {
+  IF (NOT prog["SHOWN"] OR ks["RECYCLE"]) AND NOT terminating {          // V32 (RECYCLE) shows V06 N64 again
     SET prog["SHOWN"] TO TRUE.
     SET set_verb TO 6.
     SET set_noun TO 64.
   }
-  LOCAL flashing IS NOT prog["PERMIT"].
+  // V06 N64 flashes from the start until PRO or until the redesignation window closes (Luminary P64DISPS: the request is answered by PRO, and is
+  // dropped when the window ends, at TREDES = 0); afterwards the display is steady.
+  LOCAL request IS FALSE.
+  IF NOT prog["PERMIT"] AND j_p64_redes_open(prog["TGO"]) { SET request TO LEXICON("VERB", 6, "NOUN", 64). }
+  IF terminating { SET request TO FALSE. }
   LOCAL alarm_no IS 0.
   IF gp:HASKEY("ALARM") { SET alarm_no TO gp["ALARM"]. }
   IF alarm_no <> prog["LAST_ALARM"] {
@@ -274,11 +281,11 @@ FUNCTION j_p64_step {
     SET prog["LAST_ALARM"] TO alarm_no.
   }
   IF terminating { SET prog["ENDED"] TO TRUE. }
-  LOCAL extra IS LEXICON("TTOGO", prog["TIG"] - now_ut, "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"], "TTFDISP", prog["TGO"], "TREDES", MAX(0, prog["TGO"] - J_TCGFAPPR - P64_REDES_CLOSE_S)).
+  LOCAL extra IS LEXICON("TTOGO", prog["TIG"] - now_ut, "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"], "TTFDISP", prog["TGO"], "TREDES", MAX(0, prog["TGO"] - J_TCGFAPPR - P64_REDES_CLOSE_S), "THR_PCT", j_thr_percent(prog["THR"], state)).
 
   j_p64_log(prog, gp, state, derived).
-  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", flashing, "BLANK", FALSE,
-                 "FLASH", flashing, "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
+  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE,
+                 "REQUEST", request, "FLASH", FALSE, "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
                  "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 64).
 }
 

@@ -149,7 +149,9 @@ p27_type_keys(ks, "V71E04E2400E03447E01600E").
 p27_type_keys(ks, "E").
 assert_true("ENTR at the verify step does not write (V33 or V34 only)", p27_active(ks) AND ks["OPRERR"] AND NOT store_loaded(v_after["STORE"], "TLAND")).
 p27_type_keys(ks, "R").
-assert_true("RSET leaves P27 and clears OPRERR", NOT p27_active(ks) AND NOT ks["OPRERR"]).
+assert_true("RSET clears OPRERR and leaves P27 running (Review Focus 4)", p27_active(ks) AND NOT ks["OPRERR"]).
+p27_type_keys(ks, "V34E").
+assert_true("V34 ENTR then ends it", NOT p27_active(ks)).
 
 // ---- not allowed outside P00; V70 and V73 are not implemented ----------------------------------------------------------------
 SET IN_P00 TO FALSE.
@@ -165,7 +167,7 @@ p27_type_keys(ks, "V73E").
 assert_true("V73 is not a verb: OPRERR", ks["OPRERR"] AND NOT p27_active(ks)).
 SET ks TO p27_fresh_keys(p27_make_vehicle("A11")).
 p27_type_keys(ks, "V33E").
-assert_true("V33 outside P27 lights OPRERR", ks["OPRERR"]).
+assert_true("V33 outside P27 is PRO for the programme: no OPR ERR (Luminary VBPROC)", NOT ks["OPRERR"] AND ks["PRO"]).
 
 // ---- a keyed load and P27 do not overlap -----------------------------------------------------------------------------------
 SET ks TO p27_fresh_keys(p27_make_vehicle("A11")).

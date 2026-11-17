@@ -92,7 +92,7 @@ FUNCTION p27_key {
     RETURN TRUE.
   }
   IF key = "C" { SET p27["BUF"] TO "". RETURN TRUE. }
-  IF key = "R" { p27_cancel(ks). SET ks["OPRERR"] TO FALSE. RETURN TRUE. }
+  IF key = "R" { SET ks["OPRERR"] TO FALSE. RETURN TRUE. }          // RSET leaves the update running; V34 ENTR throws it away
   IF key = "E" {
     IF p27["STEP"] = "VERIFY" { SET ks["OPRERR"] TO TRUE. RETURN TRUE. }     // waiting for V33 (store) or V34 (throw away)
     LOCAL value IS octal_parse(p27["BUF"]).

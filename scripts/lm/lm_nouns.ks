@@ -2,14 +2,15 @@
 // shows. The register contents follow the noun table in PINBALL_NOUN_TABLES.agc (spec section 7).
 // Needs the DSKY core's formatting (dsky_display.ks: fmt_reg, fmt_minsec, NA) and the unit helpers in lm_constants.ks.
 
+RUNONCEPATH("0:/core/dsky_alarm.ks").         // alarm_text (N09)
 RUNONCEPATH("0:/lm/lm_cells.ks").          // the store's cells and conversions (N33 and N81 read it)
 
-GLOBAL LM_NOUNS IS LIST(60, 61, 62, 63, 64, 68, 33, 81).   // N60 first: it is the noun shown at start (keys_new uses the first)
-GLOBAL LM_VERBS IS LIST(6, 16, 21, 22, 23, 24, 25, 33, 34, 37, 71, 72).   // 06 display, 16 monitor (both just show the noun here), 21 to 25 keyed loads (dsky_load.ks), 33 proceed (verifies a P27 update), 71 and 72 the update programme P27 (dsky_p27.ks; V70 and V73 are not implemented), 34 terminate (as Luminary VBTERM, it answers a request only: it abandons an active load or update, and ends P63 at its V99 enable prompt; anywhere else it does nothing; the DSKY itself ends from the window's X), 37 change programme
+GLOBAL LM_NOUNS IS LIST(60, 61, 62, 63, 64, 68, 33, 81, 9, 66, 67, 43, 92, 69).   // N60 first: it is the noun shown at start (keys_new uses the first)
+GLOBAL LM_VERBS IS LIST(5, 6, 16, 21, 22, 23, 24, 25, 32, 33, 34, 35, 57, 58, 77, 37, 71, 72).   // 06 display, 16 monitor (both just show the noun here), 21 to 25 keyed loads (dsky_load.ks), 33 proceed (verifies a P27 update), 71 and 72 the update programme P27 (dsky_p27.ks; V70 and V73 are not implemented), 34 terminate (as Luminary VBTERM, it answers a request only: it abandons an active load or update, and ends P63 at its V99 enable prompt; anywhere else it does nothing; the DSKY itself ends from the window's X), 37 change programme
 // The nouns the keyed loaders can load (V21 to V25): N33 time of ignition (hours, minutes, seconds in hundredths) and N81 delta-v
 // in local vertical axes (tenths of ft/s). Both are five digits per register. The DSKY core reads this through the vehicle's "LOADS".
-GLOBAL LM_LOADS IS LEXICON("33", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5)), "81", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5))).
-GLOBAL LM_PROGS IS LIST(0, 63).           // programmes V37 can select: P00 (none) and P63. P64 is reached only by the handover from P63, P65 by the handover from P64 and P66 from P65 (V37 ENTR 64, 65 or 66 lights OPR ERR)
+GLOBAL LM_LOADS IS LEXICON("33", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5)), "81", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5)), "69", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5))).
+GLOBAL LM_PROGS IS LIST(0, 63, 68).           // programmes V37 can select: P00 (none), P63 and P68 (only once down). P64 is reached only by the handover from P63, P65 by the handover from P64 and P66 from P65 (V37 ENTR 64, 65 or 66 lights OPR ERR)
 
 // noun_registers_store: N33 (time of ignition: hours, minutes, seconds in hundredths) and N81 (delta-v in local vertical
 // axes, tenths of ft/s) from the erasable store (LM_VEH["STORE"]); zeros when the store does not exist or the cell is not loaded.
@@ -24,6 +25,12 @@ FUNCTION noun_registers_store {
       IF tig_s >= 0 { SET parts TO lm_hms_cs(tig_s). }
     }
     RETURN LIST(fmt_reg(parts[0], 0), fmt_reg(parts[1], 0), fmt_reg(parts[2], 0)).
+  }
+  // N69 (Luminary 210): the landing site correction in whole feet: R1 downrange (DLANDZ), R2 crossrange (DLANDY), R3 up (DLANDX). Zeros in the 099 profile.
+  IF noun_no = 69 {
+    LOCAL corr IS V(0, 0, 0).
+    IF vault:ISTYPE("Lexicon") { SET corr TO lm_store_get_dland(vault). }
+    RETURN LIST(fmt_reg(m_to_ft(corr:Z), 0), fmt_reg(m_to_ft(corr:Y), 0), fmt_reg(m_to_ft(corr:X), 0)).
   }
   LOCAL dv IS V(0, 0, 0).
   IF vault:ISTYPE("Lexicon") { SET dv TO lm_store_get_dv(vault). }
@@ -47,8 +54,26 @@ FUNCTION noun_registers {
   PARAMETER noun_no, derived.
   IF NOT LM_NOUNS:CONTAINS(noun_no) { RETURN LIST(). }
   // N33 and N81 show what the store holds (zeros when nothing is loaded), whatever the navigation state.
-  IF noun_no = 33 OR noun_no = 81 { RETURN noun_registers_store(noun_no). }
+  IF noun_no = 33 OR noun_no = 81 OR noun_no = 69 { RETURN noun_registers_store(noun_no). }
+  // N09: the three alarm slots (FAILREG), octal digits, five each, the sign cell blank (as P27's R1). Shows zeros before any alarm.
+  IF noun_no = 99 { RETURN LIST(NA, NA, NA). }          // V37 N99: the flashing "select a programme" request after a programme ends, no data
+  IF noun_no = 9 {
+    LOCAL slots IS LIST(0, 0, 0).
+    IF derived:HASKEY("ALARM_CODES") { SET slots TO derived["ALARM_CODES"]. }
+    RETURN LIST(" " + alarm_text(slots[0]), " " + alarm_text(slots[1]), " " + alarm_text(slots[2])).
+  }
+  // N43: latitude and longitude in degrees (0.01) and altitude in nautical miles (0.1), the landing position P68 stores. Zeros outside P68.
+  IF noun_no = 43 {
+    IF derived:HASKEY("P68_LAT") { RETURN LIST(fmt_reg(derived["P68_LAT"], 2), fmt_reg(derived["P68_LNG"], 2), fmt_reg(m_to_nm(derived["P68_ALT"]), 1)). }
+    RETURN LIST(fmt_reg(0, 2), fmt_reg(0, 2), fmt_reg(0, 1)).
+  }
   IF NOT derived["VALID"] { RETURN LIST(NA, NA, NA). }
+  // N92 (Luminary 210): R1 the wanted thrust in whole percent of the rated 10,500 lbf (THR_PCT, from the J programmes), R2 HDOT ft/s, R3 HCALC ft.
+  IF noun_no = 92 {
+    LOCAL pct IS 0.
+    IF derived:HASKEY("THR_PCT") { SET pct TO derived["THR_PCT"]. }
+    RETURN LIST(fmt_reg(pct, 0), fmt_reg(ms_to_fps(derived["HDOT"]), 1), fmt_reg(m_to_ft(derived["HCALC"]), 0)).
+  }
   LOCAL vhoriz IS fmt_reg(ms_to_fps(derived["VHORIZ"]), 1).
   LOCAL abvel IS fmt_reg(ms_to_fps(derived["ABVEL"]), 1).
   LOCAL hdot IS fmt_reg(ms_to_fps(derived["HDOT"]), 1).
@@ -65,6 +90,19 @@ FUNCTION noun_registers {
   IF derived:HASKEY("TTOGO") { SET ttogo TO fmt_minsec(derived["TTOGO"]). }
   IF derived:HASKEY("OUTOFPLN") { SET outofpln TO fmt_reg(m_to_nm(derived["OUTOFPLN"]), 1). }
   IF derived:HASKEY("DVTOTAL") { SET dvtotal TO fmt_reg(ms_to_fps(derived["DVTOTAL"]), 1). }
+  // N66 (landing radar range: R1 altitude in whole feet, R2 the antenna position, no R3) and N67 (the radar's velocity along the LM axes, whole ft/s):
+  // zeros until the radar has data (below RADAR_ALT_MAX_M).
+  IF noun_no = 66 {
+    IF derived:HASKEY("RADAR_ALT_M") { RETURN LIST(fmt_reg(m_to_ft(derived["RADAR_ALT_M"]), 0), fmt_reg(derived["RADAR_ANT"], 0), NA). }
+    RETURN LIST(fmt_reg(0, 0), fmt_reg(0, 0), NA).
+  }
+  IF noun_no = 67 {
+    IF derived:HASKEY("RADAR_VEL") {
+      LOCAL rv IS derived["RADAR_VEL"].
+      RETURN LIST(fmt_reg(ms_to_fps(rv[0]), 0), fmt_reg(ms_to_fps(rv[1]), 0), fmt_reg(ms_to_fps(rv[2]), 0)).
+    }
+    RETURN LIST(fmt_reg(0, 0), fmt_reg(0, 0), fmt_reg(0, 0)).
+  }
   IF noun_no = 60 { RETURN LIST(vhoriz, hdot, hcalc). }
   IF noun_no = 61 { RETURN LIST(ttfdisp, ttogo, outofpln). }
   IF noun_no = 62 { RETURN LIST(abvel, ttogo, dvtotal). }

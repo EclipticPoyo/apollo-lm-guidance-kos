@@ -24,6 +24,7 @@ LM_CELLS_210:ADD("RLS", LEXICON("BANK", 4, "OFFSET", 784, "WORDS", 6, "SCALE", 2
 LM_CELLS_210:ADD("TLAND", LEXICON("BANK", 4, "OFFSET", 790, "WORDS", 2, "SCALE", 28, "LABEL", "nominal time of landing, centiseconds")).
 LM_CELLS_210:ADD("TIG", LEXICON("BANK", 7, "OFFSET", 801, "WORDS", 2, "SCALE", 28, "LABEL", "time of ignition N33, centiseconds")).
 LM_CELLS_210:ADD("DELVLVC", LEXICON("BANK", 7, "OFFSET", 795, "WORDS", 6, "SCALE", 7, "LABEL", "delta-v local vertical N81, metres per centisecond")).
+LM_CELLS_210:ADD("DLAND", LEXICON("BANK", 5, "OFFSET", 921, "WORDS", 6, "SCALE", 24, "LABEL", "landing site correction N69, guidance axes, metres (210 only)")).
 
 // The update program's buffer addresses, which P27 shows in R3 while it asks for data (UPDATE_PROGRAM.agc: UPBUFF + the number of items
 // received, UPTEMP at the verify step). ECADRs below 1400 octal are the address itself. From the yaYUL listings of
@@ -199,6 +200,26 @@ FUNCTION lm_store_get_tig {
   LOCAL values IS lm_store_get_dp_list(vault, "TIG").
   IF values:LENGTH < 1 { RETURN -1. }
   RETURN values[0] / 100.
+}
+
+// DLAND (Luminary 210 only, N69): the landing-site correction in guidance axes (X up, Y crossrange, Z downrange), metres, six words (ECADR 2631 octal,
+// E5 offset 921). Its scale is LAND's (2^24 m; it is added to LANDTEMP, LUNAR_LANDING_GUIDANCE_EQUATIONS 210 line 329): assumed from that, not read from a
+// scale table. lm_store_has_dland says whether this store's profile has the cell; lm_store_get_dland gives zero when it is absent or not loaded.
+FUNCTION lm_store_has_dland {
+  PARAMETER vault.
+  RETURN vault["CELLS"]:HASKEY("DLAND").
+}
+FUNCTION lm_store_put_dland {
+  PARAMETER vault, vec.
+  IF NOT lm_store_has_dland(vault) { RETURN FALSE. }
+  RETURN lm_store_put_dp_list(vault, "DLAND", LIST(vec:X, vec:Y, vec:Z)).
+}
+FUNCTION lm_store_get_dland {
+  PARAMETER vault.
+  IF NOT lm_store_has_dland(vault) { RETURN V(0, 0, 0). }
+  LOCAL values IS lm_store_get_dp_list(vault, "DLAND").
+  IF values:LENGTH < 3 { RETURN V(0, 0, 0). }
+  RETURN V(values[0], values[1], values[2]).
 }
 
 // lm_store_put_dv: the delta-v (N81, local vertical axes) from a vector in metres per second.

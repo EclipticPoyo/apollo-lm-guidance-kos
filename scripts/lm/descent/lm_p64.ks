@@ -18,7 +18,7 @@
 // 2 degrees (AZEACH). Here the keyboard's pitch and yaw give -1, 0 or 1; see clk_* below.
 //
 // Simplifications (spec section 10): the keyboard stands in for the hand controller's discrete bits; the look angle on the
-// DSKY stands in for the scribed window; the time-to-redesignation display (TREDES) is not shown and the display does not
+// DSKY stands in for the scribed window; the time-to-redesignation (TREDES) is shown in R1 of N64 and the display does not
 // flash again after each redesignation.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
@@ -138,6 +138,7 @@ FUNCTION p64_start {
   SET prog["PROG_NO"] TO 64.
   SET prog["TGO"] TO prog["TGO"] - DELTTFAP.
   SET prog["CLK"] TO clk_new().
+  SET prog["HIGHGATE"] TO TRUE.              // the high gate has passed: the radar altitude test runs from here on
   SET prog["PERMIT"] TO FALSE.               // set by PRO: Luminary's REDFLAG
   SET prog["SHOWN"] TO FALSE.                // the V06 N64 display has been requested
   SET prog["HANDOFF_T"] TO -1.
@@ -160,6 +161,7 @@ FUNCTION p64_start {
 FUNCTION p64_sample {
   PARAMETER prog.
   clk_sample(prog["CLK"], ctl_pilot_pitch(), ctl_pilot_yaw()).
+  IF prog:HASKEY("ROD") { ctl_rod_feed(prog["ROD"]). }          // the throttle lever too: a ROD click with SAS on starts P66 early
 }
 
 // p64_apply_clicks: use the clicks that have built up since the last cycle. They are used only when the pilot has pressed PRO,
@@ -193,7 +195,7 @@ FUNCTION p64_apply_clicks {
 //   - PRO permits redesignation; clicks then move the landing site (p64_apply_clicks);
 //   - the attitude command is the guidance thrust direction; the window is held toward the site (UP, EXNORM) or the ship's
 //     own roll is kept with the stick roll (KEEP, as in P63);
-//   - the display shows V06 N64, flashing with KEY REL lit until PRO;
+//   - the display shows V06 N64 as a flashing request until PRO or the end of the redesignation window (the core lights KEY REL when the pilot keys over it);
 //   - below TENDAPPR the step returns HANDOVER once and the main loop starts P65 (lm_p65.ks), which takes this state over.
 FUNCTION p64_step {
   PARAMETER prog, state, derived, ks.
@@ -203,13 +205,17 @@ FUNCTION p64_step {
   LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
-  LOCAL terminating IS FALSE.          // P64 raises no flashing request, so V34 (Luminary VBTERM) does nothing here
+  // V34 (ks["TERMINATE"], set by the core only while a request is pending: the flashing N64) ends the programme (Luminary VBTERM).
+  LOCAL terminating IS ks["TERMINATE"].
 
   SET prog["TGO"] TO MAX(1, prog["TGO"] - dt).
   IF pro_pressed AND NOT prog["PERMIT"] {
     SET prog["PERMIT"] TO TRUE.
+    clk_discard(prog["CLK"]).          // clicks queued before PRO are not used
     SET msg TO "P64: REDESIGNATION PERMITTED. PITCH KEYS MOVE THE AIM POINT 0.5 DEG, YAW KEYS 2 DEG (AUTO ONLY).".
   }
+  // A ROD click with SAS on asks for P66 at once (P65 then starts in P66); the handover below does not wait for the end of the approach.
+  IF burn_rod_start(prog, TRUE) { SET msg TO "P64: ROD CLICK WITH SAS ON. P66 RATE OF DESCENT IS ASKED FOR.". }
   p64_apply_clicks(prog, state).               // no terminal message per click: the look angle (R1) and the site vector show it
   // Once, when the redesignation window closes (about 34 s to go), say that the aim point is now fixed.
   IF NOT prog["REDES_ENDED"] AND NOT p64_redes_open(prog["TGO"]) {
@@ -247,7 +253,7 @@ FUNCTION p64_step {
 
   // ---- handoff to P65: the main loop starts P65 on the "HANDOVER" flag below (it takes this programme's state over) ----
   LOCAL handover IS FALSE.
-  IF gp:HASKEY("HANDOFF") AND gp["HANDOFF"] AND prog["HANDOFF_T"] < 0 {
+  IF ((gp:HASKEY("HANDOFF") AND gp["HANDOFF"]) OR prog["ROD_START"]) AND prog["HANDOFF_T"] < 0 {
     SET prog["HANDOFF_T"] TO now_ut.
     SET handover TO TRUE.
     SET msg TO "P64 COMPLETE (time to go below " + TENDAPPR + " s). P65 STARTS.".
@@ -257,15 +263,19 @@ FUNCTION p64_step {
   LOCAL shared_msg IS burn_shared_step(prog, state, derived, dt, TRUE, "P64").
   IF shared_msg <> "" { SET msg TO shared_msg. }
 
-  // ---- the display: V06 N64, flashing with KEY REL until PRO ----
+  // ---- the display: V06 N64, a flashing request until PRO or the end of the redesignation window ----
   LOCAL set_verb IS -1.
   LOCAL set_noun IS -1.
-  IF NOT prog["SHOWN"] AND NOT terminating {
+  IF (NOT prog["SHOWN"] OR ks["RECYCLE"]) AND NOT terminating {          // V32 (RECYCLE) shows V06 N64 again
     SET prog["SHOWN"] TO TRUE.
     SET set_verb TO 6.
     SET set_noun TO 64.
   }
-  LOCAL flashing IS NOT prog["PERMIT"].
+  // V06 N64 flashes from the start until PRO or until the redesignation window closes (Luminary P64DISPS: the request is answered by PRO, and is
+  // dropped when the window ends, at TREDES = 0); afterwards the display is steady.
+  LOCAL request IS FALSE.
+  IF NOT prog["PERMIT"] AND p64_redes_open(prog["TGO"]) { SET request TO LEXICON("VERB", 6, "NOUN", 64). }
+  IF terminating { SET request TO FALSE. }
   LOCAL alarm_no IS 0.
   IF gp:HASKEY("ALARM") { SET alarm_no TO gp["ALARM"]. }
   IF alarm_no <> prog["LAST_ALARM"] {
@@ -276,8 +286,8 @@ FUNCTION p64_step {
   LOCAL extra IS LEXICON("TTOGO", prog["TIG"] - now_ut, "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"], "TTFDISP", prog["TGO"], "TREDES", MAX(0, prog["TGO"] - TCGFAPPR - P64_REDES_CLOSE_S)).
 
   p64_log(prog, gp, state, derived).
-  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", flashing, "BLANK", FALSE,
-                 "FLASH", flashing, "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
+  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE,
+                 "REQUEST", request, "FLASH", FALSE, "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
                  "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 64).
 }
 

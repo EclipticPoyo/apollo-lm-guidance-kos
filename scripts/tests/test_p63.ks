@@ -523,7 +523,7 @@ RUNONCEPATH("0:/shared/lm_nav.ks").
 SET CTL_DRY TO TRUE.
 FUNCTION dry_prog {
   PARAMETER seq_lex, lit, t_last.
-  RETURN LEXICON("REFUSED", "", "SEQ", seq_lex, "WINDOW_MODE", "UP", "TURNED", FALSE, "FORE0", V(1, 0, 0), "WIN0", V(0, 1, 0), "WCMD", V(0, 1, 0), "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "WARP", warp_new(), "ENGINE", 0,
+  RETURN LEXICON("REFUSED", "", "SEQ", seq_lex, "WINDOW_MODE", "UP", "TURNED", FALSE, "FORE0", V(1, 0, 0), "WIN0", V(0, 1, 0), "WCMD", V(0, 1, 0), "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "ROD_START", FALSE, "HIGHGATE", FALSE, "GO", TRUE, "LAST_REQ", FALSE, "N61_SHOWN", TRUE, "WARP", warp_new(), "ENGINE", 0,
                  "LAND", V(1737400, 0, 0), "WM", V(0, 2.66e-6, 0), "TIG", 1000, "BURN_DIR", V(0, 0, 1), "OUTOFPLN", 0,
                  "TGO", IGN_TGO_SEED, "THR", 0, "GP", LEXICON(), "ZOOMED", FALSE, "ENGINE_LIT", lit, "ULLAGE_ON", FALSE,
                  "DV", 0, "T_LAST", t_last, "HANDOFF_T", -1, "LAST_STATE", "", "LAST_ALARM", 0, "ENDED", FALSE).
@@ -547,11 +547,11 @@ LOCAL dst IS dry_state(998, d_r, 0).
 LOCAL dout IS p63_step(dp, dst, nav_derived(dst, d_land, d_wm), dk).
 assert_near("prompt sets verb 99", dout["SET_VERB"], 99, 0).
 assert_near("prompt sets noun 62", dout["SET_NOUN"], 62, 0).
-assert_true("prompt flashes and lights KEY REL", dout["FLASH"] AND dout["KEY_REL"]).
+assert_true("the prompt is a V99 N62 request (not a KEY_REL or FLASH output)", dout["REQUEST"]:ISTYPE("Lexicon") AND dout["REQUEST"]["VERB"] = 99 AND dout["REQUEST"]["NOUN"] = 62 AND NOT dout["KEY_REL"]).
 assert_true("prompt: ullage on", dp["ULLAGE_ON"]).
 assert_true("prompt: not ended", NOT dout["ENDED"]).
 // Review critical 1: V34 ENTR in the prompt ends the programme, does not force V99 back on, and stops the ullage.
-SET dk["VERB"] TO 34.
+SET dk["TERMINATE"] TO TRUE.
 SET dst TO dry_state(998.25, d_r, 0).
 SET dout TO p63_step(dp, dst, nav_derived(dst, d_land, d_wm), dk).
 assert_true("V34 in the prompt ends the programme", dout["ENDED"]).
@@ -560,7 +560,7 @@ assert_true("V34 in the prompt stops the ullage", NOT dp["ULLAGE_ON"]).
 // Luminary's V34 only answers a request: in the coast, 40 s before TIG, with no request up, it does nothing.
 LOCAL dp_coast IS dry_prog(seq_new(1000), FALSE, 959.75).
 LOCAL dk_coast IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
-SET dk_coast["VERB"] TO 34.
+SET dk_coast["TERMINATE"] TO TRUE.
 LOCAL dst_coast IS dry_state(960, d_r, 0).
 LOCAL dout_coast IS p63_step(dp_coast, dst_coast, nav_derived(dst_coast, d_land, d_wm), dk_coast).
 assert_true("V34 in the coast (no request up) does not end P63", NOT dout_coast["ENDED"]).
@@ -600,6 +600,113 @@ LOCAL dk5 IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
 SET dk5["PRO"] TO TRUE.
 p63_step(dry_prog(seq_new(1000), FALSE, 949.75), dry_state(950, d_r, 0), nav_derived(dry_state(950, d_r, 0), d_land, d_wm), dk5).
 assert_true("p63_step clears PRO", NOT dk5["PRO"]).
+
+// ---- Task 5 (1.3.1): the start display is V06 N61 flashing until PRO; TIG-35 moves on by itself ----------------------------------
+LOCAL dp_n61 IS dry_prog(seq_new(1000), FALSE, 949.75).
+SET dp_n61["GO"] TO FALSE.
+SET dp_n61["N61_SHOWN"] TO FALSE.
+LOCAL dk_n61 IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+LOCAL dst_n61 IS dry_state(950, d_r, 0).
+LOCAL dout_n61 IS p63_step(dp_n61, dst_n61, nav_derived(dst_n61, d_land, d_wm), dk_n61).
+assert_true("the first cycle shows V06 N61 as a request", dout_n61["SET_VERB"] = 6 AND dout_n61["SET_NOUN"] = 61 AND dout_n61["REQUEST"]:ISTYPE("Lexicon") AND dout_n61["REQUEST"]["NOUN"] = 61).
+assert_true("no PRO yet: GO is false, the attitude is not commanded and the turn has not started", NOT dp_n61["GO"] AND NOT dp_n61["TURNED"]).
+SET dst_n61 TO dry_state(950.25, d_r, 0).
+SET dout_n61 TO p63_step(dp_n61, dst_n61, nav_derived(dst_n61, d_land, d_wm), dk_n61).
+assert_true("the second cycle does not re-send the display but keeps the request", dout_n61["SET_VERB"] = -1 AND dout_n61["REQUEST"]:ISTYPE("Lexicon")).
+SET dk_n61["RECYCLE"] TO TRUE.
+SET dout_n61 TO p63_step(dp_n61, dry_state(950.5, d_r, 0), nav_derived(dst_n61, d_land, d_wm), dk_n61).
+assert_true("V32 shows the N61 display again", dout_n61["SET_VERB"] = 6 AND dout_n61["SET_NOUN"] = 61).
+SET dk_n61["RECYCLE"] TO FALSE.
+SET dk_n61["PRO"] TO TRUE.
+SET dout_n61 TO p63_step(dp_n61, dry_state(950.75, d_r, 0), nav_derived(dst_n61, d_land, d_wm), dk_n61).
+assert_true("PRO sets GO and ends the request", dp_n61["GO"] AND NOT dout_n61["REQUEST"]:ISTYPE("Lexicon") AND NOT dk_n61["PRO"]).
+// Review Focus 1: no PRO at all. At TIG-34 the programme goes on by itself and the countdown and the prompt still come.
+LOCAL dp_late IS dry_prog(seq_new(1000), FALSE, 965.75).
+SET dp_late["GO"] TO FALSE.
+SET dp_late["N61_SHOWN"] TO TRUE.
+SET dp_late["LAST_REQ"] TO TRUE.
+LOCAL dk_late IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+LOCAL dout_late IS p63_step(dp_late, dry_state(966, d_r, 0), nav_derived(dry_state(966, d_r, 0), d_land, d_wm), dk_late).
+assert_true("TIG-34 with no PRO: GO by itself, no request", dp_late["GO"] AND NOT dout_late["REQUEST"]:ISTYPE("Lexicon")).
+SET dk_late["PRO"] TO TRUE.
+SET dout_late TO p63_step(dp_late, dry_state(970, d_r, 0), nav_derived(dry_state(970, d_r, 0), d_land, d_wm), dk_late).
+assert_true("a late PRO in the countdown is harmless: the count display shows and the engine is not armed", dout_late["SET_VERB"] = 6 AND dout_late["SET_NOUN"] = 62 AND NOT dp_late["SEQ"]["ARMED"]).
+SET dout_late TO p63_step(dp_late, dry_state(996, d_r, 0), nav_derived(dry_state(996, d_r, 0), d_land, d_wm), dk_late).
+assert_true("and the V99 prompt still comes at TIG-4", dout_late["REQUEST"]:ISTYPE("Lexicon") AND dout_late["REQUEST"]["VERB"] = 99).
+// V34 answers the N61 request.
+LOCAL dp_term IS dry_prog(seq_new(1000), FALSE, 949.75).
+SET dp_term["GO"] TO FALSE.
+LOCAL dk_term IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+p63_step(dp_term, dry_state(950, d_r, 0), nav_derived(dry_state(950, d_r, 0), d_land, d_wm), dk_term).
+SET dk_term["TERMINATE"] TO TRUE.
+LOCAL dout_term IS p63_step(dp_term, dry_state(950.25, d_r, 0), nav_derived(dry_state(950.25, d_r, 0), d_land, d_wm), dk_term).
+assert_true("V34 at the N61 request ends the programme", dout_term["ENDED"] AND NOT dout_term["REQUEST"]:ISTYPE("Lexicon")).
+
+// ---- 1.3.1: the thrust monitor and the V97 display (Luminary DVMON and COMFAIL) ----
+LOCAL dm IS dvmon_new().
+dvmon_step(dm, 0, 100).
+assert_true("dvmon: the first call only starts the window", NOT dm["FAILED"] AND dm["COUNT"] = 4).
+dvmon_step(dm, 0.5, 102).
+assert_true("dvmon: before the period nothing is checked", dm["COUNT"] = 4).
+dvmon_step(dm, 2, 104).
+assert_true("dvmon: 0.5 m/s2 is thrust: count 1", dm["COUNT"] = 1 AND NOT dm["FAILED"]).
+dvmon_step(dm, 2, 108).
+assert_true("dvmon: one low check after thrust: count 0, not failed", dm["COUNT"] = 0 AND NOT dm["FAILED"]).
+dvmon_step(dm, 2, 112).
+assert_true("dvmon: the second low check after thrust fails", dm["FAILED"]).
+dvmon_reset(dm).
+assert_true("dvmon_reset starts over", NOT dm["FAILED"] AND dm["COUNT"] = 4 AND dm["T0"] < 0).
+SET dm TO dvmon_new().
+dvmon_step(dm, 0, 0).
+FROM { LOCAL k IS 1. } UNTIL k > 4 STEP { SET k TO k + 1. } DO { dvmon_step(dm, 0, 4 * k). }
+assert_true("dvmon: four low checks before any thrust do not fail", NOT dm["FAILED"]).
+dvmon_step(dm, 0, 20).
+assert_true("dvmon: the fifth low check fails", dm["FAILED"]).
+
+FUNCTION dv_run {
+  PARAMETER prog, ks, t_from, t_to, thrust_kn.
+  LOCAL out IS FALSE.
+  LOCAL t IS t_from.
+  UNTIL t > t_to + 0.001 {
+    SET out TO p63_step(prog, dry_state(t, d_r, thrust_kn), LEXICON("VALID", FALSE), ks).
+    SET t TO t + 2.
+  }
+  RETURN out.
+}
+FUNCTION dv_prog {
+  LOCAL pr IS dry_prog(seq_new(1000), TRUE, 1000).
+  SET pr["SEQ"]["IGN_T"] TO 1000.
+  SET pr["DVMON"] TO dvmon_new().
+  SET pr["DVSHOWN"] TO FALSE.
+  RETURN pr.
+}
+LOCAL dv_ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+LOCAL dv_p1 IS dv_prog().
+LOCAL dv_o IS dv_run(dv_p1, dv_ks, 1002, 1060, 30).
+assert_true("V97: a working engine never raises it", NOT dv_o["REQUEST"]:ISTYPE("Lexicon") AND NOT dv_p1["DVMON"]["FAILED"]).
+LOCAL dv_p2 IS dv_prog().
+SET dv_o TO dv_run(dv_p2, dv_ks, 1002, 1018, 0).
+assert_true("V97: not yet after a few low checks", NOT dv_o["REQUEST"]:ISTYPE("Lexicon")).
+SET dv_o TO dv_run(dv_p2, dv_ks, 1020, 1030, 0).
+assert_true("V97: no thrust raises a flashing V97 N62 request", dv_p2["DVMON"]["FAILED"] AND dv_o["REQUEST"]:ISTYPE("Lexicon") AND dv_o["REQUEST"]["VERB"] = 97 AND dv_o["REQUEST"]["NOUN"] = 62).
+assert_true("V97: the display is set to V97 N62 once", dv_p2["DVSHOWN"]).
+SET dv_ks["PRO"] TO TRUE.
+SET dv_o TO dv_run(dv_p2, dv_ks, 1032, 1032, 0).
+assert_true("V97: PRO resets the monitor and the request ends", NOT dv_p2["DVMON"]["FAILED"] AND NOT dv_o["REQUEST"]:ISTYPE("Lexicon")).
+SET dv_ks["PRO"] TO FALSE.
+LOCAL dv_p3 IS dv_prog().
+dv_run(dv_p3, dv_ks, 1002, 1030, 0).
+SET dv_ks["ENTER"] TO TRUE.
+SET dv_o TO dv_run(dv_p3, dv_ks, 1032, 1032, 0).
+SET dv_ks["ENTER"] TO FALSE.
+assert_true("V97: ENTR switches the engine off and starts a new ignition 5 s later", NOT dv_p3["ENGINE_LIT"] AND NOT dv_p3["ZOOMED"] AND ABS(dv_p3["TIG"] - 1037) < 0.001 AND ABS(dv_p3["SEQ"]["TIG"] - 1037) < 0.001 AND dv_p3["SEQ"]["IGN_T"] < 0).
+assert_true("V97: the monitor starts over", NOT dv_p3["DVMON"]["FAILED"] AND dv_p3["DVMON"]["COUNT"] = 4).
+LOCAL dv_p4 IS dv_prog().
+dv_run(dv_p4, dv_ks, 1002, 1030, 0).
+SET dv_ks["TERMINATE"] TO TRUE.
+SET dv_o TO dv_run(dv_p4, dv_ks, 1032, 1032, 0).
+SET dv_ks["TERMINATE"] TO FALSE.
+assert_true("V97: V34 ends the programme", dv_o["ENDED"]).
 SET CTL_DRY TO FALSE.
 
 test_end().

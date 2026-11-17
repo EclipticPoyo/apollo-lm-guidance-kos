@@ -91,7 +91,7 @@ FUNCTION p63_start {
   LOG "# P63 start: TIG " + ROUND(ign["TIG"], 1) + " (in " + ROUND(ign["TIG"] - now_ut, 1) + " s), IGNALG passes " + ign["ITER"]
       + ", out of plane " + ROUND(ign["OUTOFPLN"]) + " m, full thrust " + ROUND(f_max_n / 1000, 2) + " kN, mass " + ROUND(SHIP:MASS, 3) + " t" TO P63_LOG_PATH.
   }
-  RETURN LEXICON("REFUSED", "", "PROG_NO", 63, "SEQ", seq_new(ign["TIG"]), "WINDOW_MODE", p63_pick_window(plan), "TURNED", FALSE, "FORE0", SHIP:FACING:FOREVECTOR, "WIN0", win0_vec, "WCMD", win0_vec, "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "WARP", warp_new(), "ENGINE", eng,
+  RETURN LEXICON("REFUSED", "", "PROG_NO", 63, "SEQ", seq_new(ign["TIG"]), "WINDOW_MODE", p63_pick_window(plan), "TURNED", FALSE, "FORE0", SHIP:FACING:FOREVECTOR, "WIN0", win0_vec, "WCMD", win0_vec, "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "ROD", rod_new(), "ROD_START", FALSE, "HIGHGATE", FALSE, "GO", FALSE, "DVMON", dvmon_new(), "DVSHOWN", FALSE, "LAST_REQ", FALSE, "N61_SHOWN", FALSE, "WARP", warp_new(), "ENGINE", eng,
                  "LAND", land_vec, "WM", wm_vec, "TIG", ign["TIG"], "BURN_DIR", ign["THRUST_DIR"], "OUTOFPLN", ign["OUTOFPLN"],
                  "TGO", IGN_TGO_SEED, "THR", 0, "GP", LEXICON(), "ZOOMED", FALSE, "ENGINE_LIT", FALSE, "ULLAGE_ON", FALSE,
                  "DV", 0, "T_LAST", now_ut, "HANDOFF_T", -1, "LAST_STATE", "", "LAST_ALARM", 0, "ENDED", FALSE).
@@ -113,10 +113,35 @@ FUNCTION p63_step {
   // back to 99 each cycle): the sequence is told to terminate, which switches the ullage off.
   // Luminary VBTERM only answers a flashing request: P63's only one is the V99 enable prompt (BURN_BABY_BURN: TERMINATE goes to
   // GOTOPOOH, which turns the ullage off). Outside the prompt V34 does nothing. LAST_STATE is the state of the previous cycle.
-  LOCAL terminating IS ks["VERB"] = 34 AND prog["LAST_STATE"] = "PROMPT".
+  // V34 (ks["TERMINATE"], set by the core only while a request is pending) ends the programme: it answers the flashing V06 N61 at the start and the V99
+  // enable prompt (LAST_REQ: a request was up last cycle). With no request pending it does nothing.
+  LOCAL terminating IS ks["TERMINATE"] AND prog["LAST_REQ"].        // the N61 request, the V99 prompt or the V97 display
+  // The first display is V06 N61 flashing (Luminary: ASTNCLOK, "to reset his event timer to agree with TIG"). PRO answers it (GO): the programme then
+  // turns and warps. Until then it holds the attitude it started in and does not warp (the sequence and TIG are fixed and run on). Unanswered, it
+  // moves on by itself at TIG-35, where the real clock task blanks the display (the sequence leaves COAST).
+  IF pro_pressed AND NOT prog["GO"] { SET prog["GO"] TO TRUE. }
+
+  // ---- V97 (engine failure, Luminary COMFAIL): ENTR at the display lights the engine again from TIG-5; PRO takes the failure back and monitors again ----
+  LOCAL dv_failed IS prog:HASKEY("DVMON") AND prog["ENGINE_LIT"] AND prog["DVMON"]["FAILED"].
+  IF dv_failed AND pro_pressed { dvmon_reset(prog["DVMON"]). SET prog["DVSHOWN"] TO FALSE. SET dv_failed TO FALSE. SET msg TO "P63: THRUST MONITOR RESET.". }
+  ELSE IF dv_failed AND ks["ENTER"] {
+    ctl_engine_off(prog["ENGINE"]).
+    SET prog["ENGINE_LIT"] TO FALSE.
+    SET prog["ZOOMED"] TO FALSE.
+    SET prog["THR"] TO 0.
+    SET prog["GP"] TO LEXICON().
+    SET prog["TGO"] TO IGN_TGO_SEED.
+    SET prog["TIG"] TO now_ut + DVMON_RETRY_S.
+    SET prog["SEQ"] TO seq_new(prog["TIG"]).
+    dvmon_reset(prog["DVMON"]).
+    SET prog["DVSHOWN"] TO FALSE.
+    SET dv_failed TO FALSE.
+    SET msg TO "P63: NEW IGNITION IN " + DVMON_RETRY_S + " S.".
+  }
 
   // ---- the sequence: countdown, ullage, enable prompt, ignition, zoom ----
   LOCAL sq IS seq_step(prog["SEQ"], now_ut, pro_pressed, terminating).
+  IF sq["STATE"] <> "COAST" { SET prog["GO"] TO TRUE. }
   IF sq["ULLAGE"] <> prog["ULLAGE_ON"] {
     ctl_ullage(sq["ULLAGE"]).
     SET prog["ULLAGE_ON"] TO sq["ULLAGE"].
@@ -166,11 +191,12 @@ FUNCTION p63_step {
       SET prog["WCMD"] TO win_min_rotation(prog["FORE0"], prog["WIN0"], dir_cmd).
     }
   }
-  ctl_set_command(dir_cmd, prog["WCMD"], prog["THR"]).
+  IF prog["GO"] { ctl_set_command(dir_cmd, prog["WCMD"], prog["THR"]). }
 
   // ---- turn, then warp: once the ship holds the burn attitude, warp to P63_WARP_LEAD_S before ignition (once only) ----
   // After the command above, so the attitude error is measured against this cycle's command, not the previous one.
-  LOCAL warp_ut IS warp_step(prog["WARP"], now_ut, prog["TIG"], ctl_att_error_deg(), ctl_rate_deg_s()).
+  LOCAL warp_ut IS 0.
+  IF prog["GO"] { SET warp_ut TO warp_step(prog["WARP"], now_ut, prog["TIG"], ctl_att_error_deg(), ctl_rate_deg_s()). }
   IF warp_ut > 0 {
     ctl_warp_to(warp_ut).
     SET msg TO "P63: ATTITUDE REACHED. WARPING TO " + P63_WARP_LEAD_S + " S BEFORE IGNITION (CANCEL WITH KSP'S WARP CANCEL KEY).".
@@ -178,10 +204,14 @@ FUNCTION p63_step {
 
   // ---- handoff to P64: the main loop starts P64 on the "HANDOVER" flag below (it takes this programme's state over) ----
   LOCAL handover IS FALSE.
-  IF prog["ZOOMED"] AND gp:HASKEY("HANDOFF") AND gp["HANDOFF"] AND prog["HANDOFF_T"] < 0 {
+  // A ROD click with SAS on, once the engine is lit and zoomed, asks for P66 at once: P63 hands over to P64, which hands over to P65, which starts in P66.
+  LOCAL rod_msg IS "".
+  IF burn_rod_start(prog, prog["ENGINE_LIT"] AND prog["ZOOMED"]) { SET rod_msg TO "P63: ROD CLICK WITH SAS ON. P66 RATE OF DESCENT IS ASKED FOR.". }
+  IF prog["ZOOMED"] AND ((gp:HASKEY("HANDOFF") AND gp["HANDOFF"]) OR prog["ROD_START"]) AND prog["HANDOFF_T"] < 0 {
     SET prog["HANDOFF_T"] TO now_ut.
     SET handover TO TRUE.
     SET msg TO "P63 COMPLETE (time to go below " + TENDBRAK + " s). P64 STARTS.".
+    IF rod_msg <> "" { SET msg TO rod_msg. }
   }
 
   // ---- attitude mode, coast deadband, radar lamps, delta-v (shared with P64) ----
@@ -191,7 +221,11 @@ FUNCTION p63_step {
   // ---- what the display should show ----
   LOCAL set_verb IS -1.
   LOCAL set_noun IS -1.
-  IF NOT terminating AND sq["VN"] <> "" AND (sq["STATE"] <> prog["LAST_STATE"] OR sq["STATE"] = "PROMPT") {
+  LOCAL request IS FALSE.
+  IF NOT prog["GO"] {
+    IF NOT prog["N61_SHOWN"] OR ks["RECYCLE"] { SET set_verb TO 6. SET set_noun TO 61. SET prog["N61_SHOWN"] TO TRUE. }     // V32 shows it again
+    SET request TO LEXICON("VERB", 6, "NOUN", 61).
+  } ELSE IF NOT terminating AND sq["VN"] <> "" AND (sq["STATE"] <> prog["LAST_STATE"] OR sq["STATE"] = "PROMPT") {
     SET set_verb TO sq["VN"]:SUBSTRING(1, 2):TONUMBER(0).
     SET set_noun TO sq["VN"]:SUBSTRING(4, 2):TONUMBER(0).
   }
@@ -206,13 +240,46 @@ FUNCTION p63_step {
     SET prog["LAST_ALARM"] TO alarm_no.
   }
   IF terminating { SET prog["ENDED"] TO TRUE. }
+  IF sq["PROMPT"] { SET request TO LEXICON("VERB", 99, "NOUN", 62). }          // the V99 N62 enable prompt flashes until PRO
+  IF terminating { SET request TO FALSE. }
+  // The thrust monitor runs once the engine is lit (after this cycle's delta-v); a failure makes V97 N62 flash until PRO, ENTR or V34 answers it.
+  IF prog:HASKEY("DVMON") AND prog["ENGINE_LIT"] AND NOT terminating {
+    dvmon_step(prog["DVMON"], prog["DV"], now_ut).
+    IF prog["DVMON"]["FAILED"] {
+      IF NOT request:ISTYPE("Lexicon") { SET request TO LEXICON("VERB", 97, "NOUN", 62). }
+      IF NOT prog["DVSHOWN"] { SET prog["DVSHOWN"] TO TRUE. SET msg TO "P63: ENGINE FAILURE (V97): NO THRUST. PRO RESETS, ENTR TRIES AGAIN, V34 ENDS.". SET set_verb TO 97. SET set_noun TO 62. }
+      ELSE IF set_verb >= 0 { SET set_verb TO 97. SET set_noun TO 62. }          // a state change must not take the display off V97
+    }
+  }
+  SET prog["LAST_REQ"] TO request:ISTYPE("Lexicon").
   LOCAL extra IS LEXICON("TTOGO", sq["TTOGO"], "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"]).
   IF prog["ENGINE_LIT"] { SET extra["TTFDISP"] TO prog["TGO"]. }
 
   p63_log(prog, sq, gp, state, derived).
-  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", sq["KEY_REL"], "BLANK", sq["BLANK"],
-                 "FLASH", sq["PROMPT"], "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
+  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", sq["BLANK"],
+                 "REQUEST", request, "FLASH", FALSE, "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
                  "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 63).
+}
+
+// burn_rod_start: the ROD clicks waiting from the throttle lever (prog["ROD"], P63 and P64 only) start P66 early: a click made with SAS on (ATT HOLD),
+// and with the engine lit and zoomed when engine_ok says so, sets prog["ROD_START"] (P65 then starts in P66). Any other click is thrown away with no
+// message (in AUTO the click count is zeroed every pass, as in P66). Returns TRUE the cycle the flag is set. A programme with no ROD (the J set) is ignored.
+FUNCTION burn_rod_start {
+  PARAMETER prog, engine_ok.
+  IF NOT prog:HASKEY("ROD") { RETURN FALSE. }
+  LOCAL clicks IS rod_take(prog["ROD"]).
+  IF clicks = 0 OR prog["ROD_START"] { RETURN FALSE. }
+  IF NOT engine_ok { RETURN FALSE. }
+  IF NOT ctl_sas_read(prog["ATT"]["MODE"] = "HOLD") { RETURN FALSE. }
+  SET prog["ROD_START"] TO TRUE.
+  RETURN TRUE.
+}
+
+// burn_steer_off: PRO or ENTER in P65 and P66 dropped the steering target (prog["STEER_OFF"]); the other programmes never set it.
+FUNCTION burn_steer_off {
+  PARAMETER prog.
+  IF prog:HASKEY("STEER_OFF") { RETURN prog["STEER_OFF"]. }
+  RETURN FALSE.
 }
 
 // burn_shared_step: the per-cycle work P63 and P64 both do, in the order P63 did it (it moved here from p63_step unchanged;
@@ -232,17 +299,18 @@ FUNCTION burn_shared_step {
   LOCAL mode_before IS prog["ATT"]["MODE"].
   att_step(prog["ATT"], ctl_sas_read(mode_before = "HOLD")).
   IF prog["ATT"]["MODE"] <> mode_before {
+    IF prog:HASKEY("STEER_OFF") { SET prog["STEER_OFF"] TO FALSE. }          // any attitude-mode change gives the steering target back
     IF prog["ATT"]["MODE"] = "HOLD" { ctl_hold(). SET msg TO tag + ": ATTITUDE HOLD (SAS on). SWITCH SAS OFF FOR AUTO.". }
     ELSE { ctl_auto(). SET prog["DB"]["LOCKED"] TO TRUE. SET prog["FORE0"] TO SHIP:FACING:FOREVECTOR. SET prog["WIN0"] TO ctl_window_face_vec(). SET prog["TURNED"] TO FALSE. SET msg TO tag + ": AUTO ATTITUDE RESUMED". }   // ctl_auto takes the steering lock
   }
-  IF prog["ATT"]["MODE"] = "AUTO" {
+  IF prog["ATT"]["MODE"] = "AUTO" AND NOT burn_steer_off(prog) {
     LOCAL locked_before IS prog["DB"]["LOCKED"].
     db_step(prog["DB"], ctl_att_error_deg(), ctl_rate_deg_s(), keep_lock).
     IF prog["DB"]["LOCKED"] <> locked_before {
       IF prog["DB"]["LOCKED"] { ctl_steer_lock(). } ELSE { ctl_steer_release(). }
     }
   }
-  IF derived["VALID"] { radar_step(prog["RAD"], derived["HCALC"], state["ALT_RADAR"], derived["ABVEL"], 0). }
+  IF derived["VALID"] { radar_step(prog["RAD"], derived["HCALC"], state["ALT_RADAR"], derived["ABVEL"], 0, prog["HIGHGATE"]). }
   IF prog["ENGINE_LIT"] AND state["MASS"] > 0 { SET prog["DV"] TO prog["DV"] + state["THRUST_NOW"] / state["MASS"] * dt. }
   RETURN msg.
 }
@@ -259,7 +327,7 @@ FUNCTION p63_log {
   LOCAL hdot IS 0.
   LOCAL hcalc IS 0.
   IF derived["VALID"] { SET abvel TO derived["ABVEL"]. SET hdot TO derived["HDOT"]. SET hcalc TO derived["HCALC"]. }
-  LOCAL att_err IS VANG(SHIP:FACING:FOREVECTOR, CTL_DIR).
+  LOCAL att_err IS VANG(SHIP:FACING:FOREVECTOR, CTL_GOAL_DIR).
   // The thrust the engine is really giving as a fraction of its full thrust, to compare with the throttle setting THR:
   // on a RealFuels engine the setting may not equal the thrust fraction (flight test 1 checks this).
   LOCAL thrust_frac IS 0.

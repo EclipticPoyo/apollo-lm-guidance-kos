@@ -112,7 +112,7 @@ FUNCTION jt_ramp {
 FUNCTION jt_prog {
   PARAMETER att_mode.
   LOCAL pr IS LEXICON("REFUSED", "", "PROG_NO", 64, "WINDOW_MODE", "UP", "TURNED", FALSE, "FORE0", V(1, 0, 0), "WIN0", V(0, 1, 0), "WCMD", V(0, 1, 0),
-                 "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "WARP", warp_new(), "ENGINE", 0,
+                 "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "HIGHGATE", TRUE, "WARP", warp_new(), "ENGINE", 0,
                  "LAND", V(1737400, 0, 0), "WM", V(0, 0, 0), "TIG", 1000, "BURN_DIR", V(1, 0, 0), "OUTOFPLN", 0,
                  "TGO", 11, "THR", 0.3, "GP", LEXICON(), "ZOOMED", TRUE, "ENGINE_LIT", TRUE, "ULLAGE_ON", FALSE,
                  "DV", 0, "T_LAST", 1999.75, "HANDOFF_T", 1999, "LAST_STATE", "", "LAST_ALARM", 0, "ENDED", FALSE).
@@ -176,6 +176,167 @@ LOCAL jt_veh IS lm_vehicle_new().
 LOCAL jt_is_j IS plan_profile_of(plan_read(PLAN_PLAN_FILE)) = "J".
 assert_true("vehicle: P64 hands over to P66 for J, P65 otherwise", jt_veh["PROGRAMMES"]["64"]["NEXT"] = (CHOOSE 66 IF jt_is_j ELSE 65)).
 assert_true("vehicle: P66 is in the table and not selectable by V37", jt_veh["PROGRAMMES"]["66"]["SELECTABLE"] = FALSE).
-assert_true("vehicle: P66 hands over to nothing", jt_veh["PROGRAMMES"]["66"]["NEXT"] = -1).
+assert_true("vehicle: P66 hands over to P68", jt_veh["PROGRAMMES"]["66"]["NEXT"] = 68).
+
+// ---- 1.3.1: the J P64 request follows the redesignation window ----
+LOCAL jq_prog IS j_p64_start(jt_prog("AUTO"), 0, 23.47, 0).
+SET jq_prog["TGO"] TO 100.
+LOCAL jq_ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+LOCAL jq_out IS j_p64_step(jq_prog, jt_state(2000, jt_r, jt_v, 13.15), nav_derived(jt_state(2000, jt_r, jt_v, 13.15), jt_land, jt_wm), jq_ks).
+assert_true("J P64: first step is a V06 N64 request, no KEY_REL", jq_out["REQUEST"]:ISTYPE("Lexicon") AND jq_out["REQUEST"]["NOUN"] = 64 AND NOT jq_out["KEY_REL"] AND jq_out["SET_NOUN"] = 64).
+SET jq_ks["RECYCLE"] TO TRUE.
+SET jq_out TO j_p64_step(jq_prog, jt_state(2000.25, jt_r, jt_v, 13.15), nav_derived(jt_state(2000.25, jt_r, jt_v, 13.15), jt_land, jt_wm), jq_ks).
+assert_true("J P64: V32 re-posts the display", jq_out["SET_VERB"] = 6 AND jq_out["SET_NOUN"] = 64).
+SET jq_ks["RECYCLE"] TO FALSE.
+SET jq_ks["TERMINATE"] TO TRUE.
+SET jq_out TO j_p64_step(jq_prog, jt_state(2000.5, jt_r, jt_v, 13.15), nav_derived(jt_state(2000.5, jt_r, jt_v, 13.15), jt_land, jt_wm), jq_ks).
+assert_true("J P64: V34 ends it", jq_out["ENDED"]).
+LOCAL jq_prog2 IS j_p64_start(jt_prog("AUTO"), 0, 23.47, 0).
+SET jq_prog2["TGO"] TO 1.
+LOCAL jq_st2 IS jt_state(2000, V(1737500, 0, 10), V(1, 0, 1), 13.15).      // no time-to-go root: the guidance keeps TGO as set
+SET jq_out TO j_p64_step(jq_prog2, jq_st2, nav_derived(jq_st2, jt_land, jt_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
+assert_true("J P64: the window is closed with no PRO: no request", NOT jq_out["REQUEST"]:ISTYPE("Lexicon")).
+
+// ---- 1.3.1: the J P63 starts with V06 N61 flashing until PRO (Luminary 210 also has it) ----
+LOCAL jn_prog IS jt_prog("AUTO").
+SET jn_prog["PROG_NO"] TO 63.
+SET jn_prog["SEQ"] TO j_seq_new(2050).
+SET jn_prog["ENGINE_LIT"] TO FALSE.
+SET jn_prog["ZOOMED"] TO FALSE.
+SET jn_prog["THR"] TO 0.
+SET jn_prog["HIGHGATE"] TO FALSE.
+SET jn_prog["GO"] TO FALSE.
+SET jn_prog["N61_SHOWN"] TO FALSE.
+SET jn_prog["LR_PERMIT"] TO FALSE.
+SET jn_prog["N63_SHOWN"] TO FALSE.
+SET jn_prog["LAST_REQ"] TO FALSE.
+SET jn_prog["T_LAST"] TO 1999.75.
+SET jn_prog["HANDOFF_T"] TO -1.
+LOCAL jn_ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+LOCAL jn_out IS j_p63_step(jn_prog, jt_state(2000, jt_r, jt_v, 0), nav_derived(jt_st, jt_land, jt_wm), jn_ks).
+assert_true("J P63: first cycle shows V06 N61 as a request", jn_out["SET_VERB"] = 6 AND jn_out["SET_NOUN"] = 61 AND jn_out["REQUEST"]:ISTYPE("Lexicon") AND NOT jn_prog["GO"]).
+SET jn_ks["PRO"] TO TRUE.
+SET jn_out TO j_p63_step(jn_prog, jt_state(2000.25, jt_r, jt_v, 0), nav_derived(jt_st, jt_land, jt_wm), jn_ks).
+assert_true("J P63: PRO sets GO and ends the request", jn_prog["GO"] AND NOT jn_out["REQUEST"]:ISTYPE("Lexicon")).
+
+// ---- 1.3.1: J P63 flashes V06 N63 from ignition until V57, again after V58; PRO, ENTER and V34 do nothing to it ----
+LOCAL jf_prog IS jt_prog("AUTO").
+SET jf_prog["PROG_NO"] TO 63.
+SET jf_prog["SEQ"] TO j_seq_new(2050).
+SET jf_prog["SEQ"]["IGN_T"] TO 2051.
+SET jf_prog["ZOOMED"] TO FALSE.
+SET jf_prog["THR"] TO 0.1.
+SET jf_prog["HIGHGATE"] TO FALSE.
+SET jf_prog["GO"] TO TRUE.
+SET jf_prog["N61_SHOWN"] TO TRUE.
+SET jf_prog["LAST_REQ"] TO FALSE.
+SET jf_prog["LR_PERMIT"] TO FALSE.
+SET jf_prog["N63_SHOWN"] TO FALSE.
+SET jf_prog["HANDOFF_T"] TO -1.
+SET jf_prog["T_LAST"] TO 2051.75.
+LOCAL jf_ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+LOCAL jf_none IS LEXICON("VALID", FALSE).
+LOCAL jf_out IS j_p63_step(jf_prog, jt_state(2052, jt_r, jt_v, 13.15), jf_none, jf_ks).
+assert_true("J P63: flashing V06 N63 request from ignition", jf_out["REQUEST"]:ISTYPE("Lexicon") AND jf_out["REQUEST"]["NOUN"] = 63 AND jf_out["SET_VERB"] = 6 AND jf_out["SET_NOUN"] = 63).
+SET jf_ks["PRO"] TO TRUE.
+SET jf_ks["ENTER"] TO TRUE.
+SET jf_ks["TERMINATE"] TO TRUE.
+SET jf_out TO j_p63_step(jf_prog, jt_state(2052.25, jt_r, jt_v, 13.15), jf_none, jf_ks).
+assert_true("J P63: PRO, ENTER and V34 do nothing while N63 flashes", jf_out["REQUEST"]:ISTYPE("Lexicon") AND NOT jf_out["ENDED"] AND jf_out["SET_VERB"] < 0).
+SET jf_ks["PRO"] TO FALSE.
+SET jf_ks["ENTER"] TO FALSE.
+SET jf_ks["TERMINATE"] TO FALSE.
+SET jf_prog["LR_PERMIT"] TO TRUE.
+SET jf_out TO j_p63_step(jf_prog, jt_state(2052.5, jt_r, jt_v, 13.15), jf_none, jf_ks).
+assert_true("J P63: V57 (permit) ends the flash: steady display", NOT jf_out["REQUEST"]:ISTYPE("Lexicon")).
+SET jf_prog["LR_PERMIT"] TO FALSE.
+SET jf_out TO j_p63_step(jf_prog, jt_state(2052.75, jt_r, jt_v, 13.15), jf_none, jf_ks).
+assert_true("J P63: V58 makes it flash again and re-posts the display", jf_out["REQUEST"]:ISTYPE("Lexicon") AND jf_out["SET_NOUN"] = 63).
+
+// ---- 1.3.1: J P66 flashes V06 N60; V34 ends it; PRO or V32 hold the last direction; N92 ----
+LOCAL jg_prog IS j_p66_start(jt_prog("AUTO")).
+LOCAL jg_ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+LOCAL jg_st IS jt_state(3000, jt_r, jt_v, 13.15).
+LOCAL jg_out IS j_p66_step(jg_prog, jg_st, nav_derived(jg_st, jt_land, jt_wm), jg_ks).
+assert_true("J P66: V06 N60 request on the first cycle", jg_out["REQUEST"]:ISTYPE("Lexicon") AND jg_out["REQUEST"]["NOUN"] = 60 AND jg_out["REQUEST"]["VERB"] = 6).
+SET jg_st TO jt_state(3000.25, jt_r, jt_v, 13.15).
+SET jg_out TO j_p66_step(jg_prog, jg_st, nav_derived(jg_st, jt_land, jt_wm), jg_ks).
+assert_true("J P66: the request stays every cycle", jg_out["REQUEST"]:ISTYPE("Lexicon") AND jg_out["SET_VERB"] < 0).
+assert_true("J P66: the horizontal law is on at first", NOT jg_prog["HZ_OFF"]).
+SET jg_ks["PRO"] TO TRUE.
+SET jg_st TO jt_state(3002.5, jt_r, jt_v, 13.15).
+SET jg_out TO j_p66_step(jg_prog, jg_st, nav_derived(jg_st, jt_land, jt_wm), jg_ks).
+assert_true("J P66: PRO switches the horizontal law off", jg_prog["HZ_OFF"]).
+LOCAL jg_held IS jg_prog["BURN_DIR"].
+SET jg_st TO jt_state(3006, jt_r, jt_v, 13.15).
+SET jg_out TO j_p66_step(jg_prog, jg_st, nav_derived(jg_st, jt_land, jt_wm), jg_ks).
+assert_vec("J P66: the commanded direction is held", jg_prog["BURN_DIR"], jg_held, 1e-9).
+LOCAL jg_prog2 IS j_p66_start(jt_prog("AUTO")).
+SET jg_ks["RECYCLE"] TO TRUE.
+SET jg_st TO jt_state(3000, jt_r, jt_v, 13.15).
+j_p66_step(jg_prog2, jg_st, nav_derived(jg_st, jt_land, jt_wm), jg_ks).
+assert_true("J P66: V32 switches it off too", jg_prog2["HZ_OFF"]).
+SET jg_ks["RECYCLE"] TO FALSE.
+SET jg_ks["TERMINATE"] TO TRUE.
+SET jg_out TO j_p66_step(jg_prog2, jg_st, nav_derived(jg_st, jt_land, jt_wm), jg_ks).
+assert_true("J P66: V34 ends it", jg_out["ENDED"]).
+assert_near("N92 thrust percent: 0.5 of 46.92 kN against 46.71 kN rated is 50.2", j_thr_percent(0.5, LEXICON("THRUST", 46.92)), 50.2246, 0.01).
+LOCAL jg_regs IS noun_registers(92, LEXICON("VALID", TRUE, "THR_PCT", 50.2246, "HDOT", -1.0, "HCALC", 100)).
+assert_true("N92 R1 is whole percent +00050", jg_regs[0] = "+00050").
+assert_true("N92 is in the table", LM_NOUNS:CONTAINS(92)).
+
+// ---- 1.3.1: the noun contents Luminary 210 changed (N60 R1 FORVEL, N63 R1 DELTAH, N68 R1 downrange and R3 ABVEL) ----
+assert_near("lm_forvel: 3 m/s along the forward axis", lm_forvel(V(0, 2, 3), V(1737447, 0, 0), V(0, 0, 1)), 3, 1e-9).
+assert_near("lm_forvel: crossrange speed is not forward", lm_forvel(V(0, 2, 0), V(1737447, 0, 0), V(0, 0, 1)), 0, 1e-9).
+assert_near("lm_forvel: the vertical part of the speed does not count", lm_forvel(V(-5, 0, 3), V(1737447, 0, 0), V(0.5, 0, 1)), 3, 1e-9).
+assert_near("lm_forvel: forward axis vertical gives 0", lm_forvel(V(0, 2, 3), V(1737447, 0, 0), V(1, 0, 0)), 0, 1e-9).
+LOCAL jr_st IS jt_state(2000, jt_r, jt_v, 13.15).
+LOCAL jr_d IS nav_derived(jr_st, jt_land, jt_wm).
+SET jr_d["FORVEL"] TO 3.
+LOCAL jr_099 IS noun_registers(60, jr_d).
+LOCAL jr_j IS j_noun_registers(60, jr_d).
+assert_true("J N60 R1 is FORVEL, 3 m/s = 9.8 ft/s", jr_j[0] = "+00098").
+assert_true("J N60 R2 and R3 are as 099", jr_j[1] = jr_099[1] AND jr_j[2] = jr_099[2]).
+assert_true("099 N60 R1 is still VHORIZ", jr_099[0] = fmt_reg(ms_to_fps(jr_d["VHORIZ"]), 1)).
+LOCAL jr_j63 IS j_noun_registers(63, jr_d).
+assert_true("J N63 R1 is DELTAH in whole feet", jr_j63[0] = fmt_reg(m_to_ft(jr_d["DELTAH"]), 0)).
+assert_true("J N63 R2 and R3 as 099", jr_j63[1] = noun_registers(63, jr_d)[1] AND jr_j63[2] = noun_registers(63, jr_d)[2]).
+LOCAL jr_j68 IS j_noun_registers(68, jr_d).
+assert_true("J N68 R1 is the downrange component in nm", jr_j68[0] = fmt_reg(m_to_nm(jr_d["RGU"]:Z), 1)).
+assert_true("J N68 R3 is ABVEL in ft/s", jr_j68[2] = fmt_reg(ms_to_fps(jr_d["ABVEL"]), 1)).
+assert_true("J N68 R2 as 099", jr_j68[1] = noun_registers(68, jr_d)[1]).
+assert_true("a noun J did not change is the same", j_noun_registers(62, jr_d)[0] = noun_registers(62, jr_d)[0]).
+assert_true("no derived data: the same NA registers", j_noun_registers(60, LEXICON("VALID", FALSE))[0] = NA).
+
+// ---- 1.3.1: J P63 V97 (the same monitor): a failed monitor flashes V97 N62; PRO resets; ENTR re-ignites 5 s later ----
+LOCAL jv_prog IS jt_prog("AUTO").
+SET jv_prog["PROG_NO"] TO 63.
+SET jv_prog["SEQ"] TO j_seq_new(2050).
+SET jv_prog["SEQ"]["IGN_T"] TO 2051.
+SET jv_prog["ZOOMED"] TO FALSE.
+SET jv_prog["THR"] TO 0.1.
+SET jv_prog["HIGHGATE"] TO FALSE.
+SET jv_prog["GO"] TO TRUE.
+SET jv_prog["N61_SHOWN"] TO TRUE.
+SET jv_prog["LAST_REQ"] TO FALSE.
+SET jv_prog["LR_PERMIT"] TO TRUE.
+SET jv_prog["N63_SHOWN"] TO TRUE.
+SET jv_prog["HANDOFF_T"] TO -1.
+SET jv_prog["T_LAST"] TO 2051.75.
+SET jv_prog["DVMON"] TO dvmon_new().
+SET jv_prog["DVSHOWN"] TO FALSE.
+SET jv_prog["DVMON"]["FAILED"] TO TRUE.
+LOCAL jv_ks IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+LOCAL jv_out IS j_p63_step(jv_prog, jt_state(2052, jt_r, jt_v, 0), jf_none, jv_ks).
+assert_true("J P63: a failed thrust monitor shows a flashing V97 N62", jv_out["REQUEST"]:ISTYPE("Lexicon") AND jv_out["REQUEST"]["VERB"] = 97 AND jv_out["REQUEST"]["NOUN"] = 62 AND jv_out["SET_VERB"] = 97 AND jv_out["SET_NOUN"] = 62).
+SET jv_ks["ENTER"] TO TRUE.
+SET jv_out TO j_p63_step(jv_prog, jt_state(2052.25, jt_r, jt_v, 0), jf_none, jv_ks).
+SET jv_ks["ENTER"] TO FALSE.
+assert_true("J P63: ENTR at V97 puts the engine out and sets a new ignition 5 s later", NOT jv_prog["ENGINE_LIT"] AND ABS(jv_prog["TIG"] - 2057.25) < 0.001 AND NOT jv_prog["DVMON"]["FAILED"]).
+SET jv_prog["ENGINE_LIT"] TO TRUE.
+SET jv_prog["DVMON"]["FAILED"] TO TRUE.
+SET jv_ks["PRO"] TO TRUE.
+SET jv_out TO j_p63_step(jv_prog, jt_state(2052.5, jt_r, jt_v, 0), jf_none, jv_ks).
+assert_true("J P63: PRO resets the monitor", NOT jv_prog["DVMON"]["FAILED"]).
 
 test_end().

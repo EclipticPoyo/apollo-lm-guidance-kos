@@ -130,6 +130,9 @@ GLOBAL WINDOW_AXIS IS "BOTTOM".                  // config: RO LM crew window fa
 // P63 warps to P63_WARP_LEAD_S before ignition (once only: cancel it with KSP's own warp-cancel key and it does not restart).
 GLOBAL P63_WARP_LEAD_S IS 60.                  // config: stop the warp this long before ignition (TIG), s. Tune after flight test 1
 GLOBAL P63_WARP_MIN_S IS 10.                     // no warp when the stop time is less than this far ahead, s
+GLOBAL DVMON_ACCEL_MS2 IS 0.18.                 // Luminary DPSTHRSH: 36 cm/s gained in a 2 s pass (about 600 lbf on a 15 t LM): less than this is "no thrust" (V97)
+GLOBAL DVMON_PERIOD_S IS 4.                      // s between two thrust checks (Luminary checks every other 2 s pass)
+GLOBAL DVMON_RETRY_S IS 5.                       // ENTR at the V97 display lights the engine again this many seconds later (Luminary: a new ignition from TIG-5)
 GLOBAL P63_SETTLE_ERR_DEG IS 2.                  // config: attitude counts as reached inside this error, degrees
 GLOBAL P63_SETTLE_RATE_DEG_S IS 0.3.             // config: and turning slower than this, degrees per second
 GLOBAL P63_SETTLE_HOLD_S IS 5.                   // config: for this long, s
@@ -144,6 +147,7 @@ GLOBAL P63_WINDOW_MODE IS "UP".
 // not AGC data: on the real LM the version was fixed in the rope. It picks the cell addresses of the erasable store and the pad loads and
 // descent programmes. The planner window sets it too; a saved plan carries it as PROFILE and wins over this setting when they differ.
 GLOBAL PAD_PROFILE IS "A11".
+GLOBAL ALARMS IS "OFF".                        // scripted program alarms in the descent: OFF, A11 (the Apollo 11 pattern of 1202 and 1201) or a list code@seconds after ignition (lm_alarms.ks); config file setting
 // The uplink key file: the planner's SEND writes it (the simulated uplink) and the DSKY feeds it into its keys when it starts (core/dsky_uplink.ks).
 GLOBAL LM_UPLINK_FILE IS "0:/lm/uplink.txt".
 // Window roll (Luminary: none in P63; the pilot may roll with the stick in AUTO, see lm_control.ks win_hold).
@@ -161,6 +165,7 @@ GLOBAL P63_ROLL_STICK_SIGN IS -1.                // config: -1 because milestone
 GLOBAL P63_STEER_TS_MULT IS 2.                   // config: kOS PITCHTS, YAWTS, ROLLTS (default 2 s) multiplied by this
 GLOBAL P63_STEER_STOP_MULT IS 0.5.               // config: kOS MAXSTOPPINGTIME (default 2 s) multiplied by this: it brakes the turn earlier, less overshoot. UNTESTED in combination: flight test 2a showed a 13 degree overshoot with TS x2 alone; probe_steer's STOP1_EPS10 (this x0.5) had rebounds of 1.8 to 2.7 degrees
 GLOBAL P63_STEER_EPS_MULT IS 10.                // config: kOS TORQUEEPSILONMIN and MAX (defaults 0.0002, 0.001) multiplied by this
+GLOBAL P63_TURN_RATE_DEG_S IS 10.                // chosen (edit here, not in lm_config.txt): the commanded attitude is moved toward the wanted one no faster than this, degrees per second (0 = jump), as one rotation about a single axis (ctl_slew_att). Smooth turn instead of a big RCS burst, a chatter along the way and a settle; 10 is the fastest AGC maneuver rate (0.5, 2, 5, 10). NOT FLOWN: to be tested and tuned with the guidance-rate work (docs/superpowers/note-guidance-rate.md)
 GLOBAL P63_DB_RELEASE_DEG IS 0.5.                // config: drift freely once the error is below this, degrees
 GLOBAL P63_DB_RATE_DEG_S IS 0.15.                // config: and the ship is turning slower than this, degrees per second
 GLOBAL P63_DB_RELOCK_DEG IS 1.0.                 // config: steer again when the error passes this, degrees (Luminary's powered-flight deadband)
@@ -186,7 +191,7 @@ GLOBAL P64_AZEACH_RAD IS 0.03491.                // source line 1211: one yaw cl
 // Pilot clicks (the keyboard gives -1, 0 or 1 on each axis, held for as long as the key is down). Not Apollo values.
 GLOBAL P64_CLICK_THRESH IS 0.5.                  // chosen: a stick value at or beyond this (either sign) is a click
 GLOBAL P64_CLICK_REARM IS 0.2.                   // chosen: the stick must come back inside this before the next click counts
-GLOBAL P64_PITCH_SIGN IS -1.                     // chosen: -1 because the user found W and S moving the aim point the wrong way in the J flight (2026-11-14): W should bring the aim point closer to the ship and S send it farther away (the user's wish; the real LM's direction is not confirmed, see the Luminary redesignator monitor); flip to 1 for the other way
+GLOBAL P64_PITCH_SIGN IS 1.                      // chosen: 1 since 2026-11-17 (the user, in the 1.3.1 Apollo 11 flight): W sends the aim point farther from the ship and S brings it closer, as the Luminary source comment and Eyles say (pitch-minus moves the site downrange). It was -1 from the J flight (2026-11-14), the opposite; flip to -1 for that. Shared by the A11 and J sets
 GLOBAL P64_YAW_SIGN IS -1.                       // chosen: -1 because flight 2 showed the A key (yaw -1) moved the aim point to the RIGHT; with -1 A moves it left, D right (user, 2026-11-12)
 GLOBAL P64_REDES_CLOSE_S IS 4.                   // chosen: redesignation stops this long above TCGFAPPR (Luminary: TREDES reaches zero two 2 s guidance passes before it, TDISPSET)
 
@@ -195,7 +200,7 @@ GLOBAL DELQFIX IS 60.96.                         // pad load, m (200 ft): the al
 GLOBAL RADAR_DV_FIXED IS 2.286.                  // m/s (7.5 ft/s): the velocity test allows this plus |V|/8 (SERVICER.agc:1089, 1280-1286)
 GLOBAL RADAR_DV_FRAC IS 0.125.                   // the 1/8 in "7.5 + |V|/8"
 GLOBAL RADAR_V_MAX IS 609.6.                     // m/s (2000 ft/s): velocity is read only below this (SERVICER.agc:1381-1384)
-GLOBAL RADAR_ALT_MAX_M IS 12000.                 // chosen, m: radar altitude counts as available below this (hardware range is not in the sources)
+GLOBAL RADAR_ALT_MAX_M IS 12000.                 // m: radar altitude counts as available below this. It matches the Mission Report's landing-radar data-good time (TIG+239 s); the software itself reads the radar below 50,000 ft (15,240 m)
 
 // ---- P65 final descent and P66 rate of descent (milestone 5) ---------------------------------------------------------
 // Apollo 11 pad loads (research note, "Vertical phase"); sources in LUNAR_LANDING_GUIDANCE_EQUATIONS.agc.

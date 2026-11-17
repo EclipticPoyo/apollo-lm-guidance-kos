@@ -17,8 +17,8 @@
 //     - a failing test lights the lamp only when another test failed within the previous three (two bad readings in
 //       four); a passing test clears it.
 //   Simplifications: the lamp is steady (Luminary flashes it through R10/R11); the altitude is the vertical height above
-//   the terrain from kOS, not the slant range along the antenna beam; the range limit RADAR_ALT_MAX_M is a chosen
-//   value (the radar's hardware range is not in the sources).
+//   the terrain from kOS, not the slant range along the antenna beam; the range limit RADAR_ALT_MAX_M follows the Mission
+//   Report's landing-radar data-good time (the software reads the radar below 50,000 ft).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/shared/lm_frame.ks").               // lm_cross, for the approach window vector (win_exnorm)
@@ -208,11 +208,13 @@ FUNCTION radar_test {
 // radar_step: one radar cycle. h_calc is the computed height above the landing site (HCALC, m), h_radar the radar's
 // height above the terrain (m), speed_surf the speed over the surface (m/s) and v_err the difference between the
 // velocity the radar measures and the computed one (m/s; the caller passes 0 when there is no independent
-// measurement). Updates the lexicon's ALT_LAMP and VEL_LAMP and returns it. Negative h_calc counts as zero.
+// measurement). test_alt: run the altitude test (TRUE, the default, from the high gate on). Updates the lexicon's ALT_LAMP and VEL_LAMP and returns it. Negative h_calc counts as zero.
 FUNCTION radar_step {
-  PARAMETER rad, h_calc, h_radar, speed_surf, v_err.
+  PARAMETER rad, h_calc, h_radar, speed_surf, v_err, test_alt IS TRUE.
   LOCAL no_alt_data IS h_radar > RADAR_ALT_MAX_M.
-  IF NOT no_alt_data {
+  // test_alt is FALSE before the high gate (P63): the altitude reasonableness test is not run, and so cannot count (Luminary tests it only from the
+  // approach phase on, audit K1); the no-data rule above still applies.
+  IF NOT no_alt_data AND test_alt {
     radar_test(rad, "ALT", ABS(h_radar - h_calc) > DELQFIX + MAX(h_calc, 0) / 8).
   }
   SET rad["ALT_LAMP"] TO no_alt_data OR rad["ALT_TEST"].
@@ -237,6 +239,37 @@ FUNCTION radar_step {
 //   than ROD_LEVER_JUMP in one sample is not a click (the X and Z keys cut and fully open the throttle).
 // rod_new: REF the lever value a click is measured from, LAST the lever at the last sample, HELD 0 (armed) or the direction
 // of the click being held, QUIET_SINCE the time the lever last became still (-1 = not still), CLICKS the waiting clicks.
+// ---- the thrust monitor (Luminary DVMON and COMFAIL, V97) -----------------------------------------------------------------------------------
+// Every DVMON_PERIOD_S the acceleration gained since the last check is compared with DVMON_ACCEL_MS2. Enough resets the count to 1; too little
+// counts it down, and a low check with the count already zero is the failure: 5 low checks before any thrust has been seen (count starts at 4), 2 after.
+// dvmon_step(mon, dv_total, now) takes the delta-v gained since ignition (m/s) and the UT; mon["FAILED"] says the V97 display is due.
+FUNCTION dvmon_new {
+  RETURN LEXICON("COUNT", 4, "FAILED", FALSE, "T0", -1, "DV0", 0).
+}
+FUNCTION dvmon_step {
+  PARAMETER mon, dv_total, now.
+  IF mon["FAILED"] { RETURN. }
+  IF mon["T0"] < 0 {
+    SET mon["T0"] TO now.
+    SET mon["DV0"] TO dv_total.
+    RETURN.
+  }
+  IF now - mon["T0"] < DVMON_PERIOD_S { RETURN. }
+  LOCAL accel IS (dv_total - mon["DV0"]) / (now - mon["T0"]).
+  SET mon["T0"] TO now.
+  SET mon["DV0"] TO dv_total.
+  IF accel >= DVMON_ACCEL_MS2 { SET mon["COUNT"] TO 1. }
+  ELSE IF mon["COUNT"] <= 0 { SET mon["FAILED"] TO TRUE. }
+  ELSE { SET mon["COUNT"] TO mon["COUNT"] - 1. }
+}
+// dvmon_reset: PRO at the V97 display (Luminary COMFAIL3) puts the monitor back to its start.
+FUNCTION dvmon_reset {
+  PARAMETER mon.
+  SET mon["COUNT"] TO 4.
+  SET mon["FAILED"] TO FALSE.
+  SET mon["T0"] TO -1.
+}
+
 FUNCTION rod_new {
   RETURN LEXICON("REF", 0.5, "LAST", 0.5, "HELD", 0, "QUIET_SINCE", -1, "CLICKS", 0, "RECENTRE", FALSE).
 }
@@ -277,6 +310,17 @@ FUNCTION rod_sample {
   IF rod["HELD"] <> 0 { SET rod["RECENTRE"] TO TRUE. }      // the caller writes the lever back to REF (0.5) while a click is held
   SET rod["LAST"] TO lever.
   RETURN click.
+}
+
+// ctl_rod_feed: read the throttle lever into the ROD click detector and re-centre it when the detector asks (call every 0.02 s; P63 and P64 use it
+// so a click can start P66 early, P65 has its own copy that also counts the samples).
+FUNCTION ctl_rod_feed {
+  PARAMETER rod.
+  rod_sample(rod, ctl_pilot_throttle(), TIME:SECONDS).
+  IF rod["RECENTRE"] {
+    SET rod["RECENTRE"] TO FALSE.
+    ctl_lever_centre().
+  }
 }
 
 // rod_take: the waiting clicks (signed sum), and the waiting count back to zero.
@@ -352,6 +396,9 @@ FUNCTION contact_step {
 
 GLOBAL CTL_DIR IS V(0, 0, 1).      // the direction the ship's nose (thrust axis) should point, raw axes
 GLOBAL CTL_UP IS V(0, 1, 0).       // a direction the "up" side of the ship should lean toward (sets the roll)
+GLOBAL CTL_GOAL_DIR IS V(0, 0, 1).  // what guidance wants (CTL_DIR and CTL_UP follow it no faster than P63_TURN_RATE_DEG_S, see ctl_set_command)
+GLOBAL CTL_GOAL_UP IS V(0, 1, 0).
+GLOBAL CTL_SLEW_T IS 0.            // UT of the last slew step
 GLOBAL CTL_ROLL IS 0.              // extra roll about the thrust axis, degrees, so the crew window faces CTL_UP
 GLOBAL CTL_THR IS 0.               // throttle setting, 0 to 1
 // CTL_DRY: when TRUE every function below that would write the ship's controls does nothing, so the programme's step
@@ -458,8 +505,13 @@ FUNCTION ctl_start {
   RCS ON.
   SAS OFF.
   SET CTL_DIR TO SHIP:FACING:FOREVECTOR.
-  SET CTL_UP TO SHIP:FACING:TOPVECTOR.
+  // The roll reference is the window face, not the top: the steering lock adds CTL_ROLL (180 for a bottom window) to it, so the two cancel and the
+  // ship holds the attitude it has. With the top vector here, a BOTTOM window made the ship roll 180 degrees before PRO (1.3.1 holds until PRO).
+  SET CTL_UP TO ctl_window_face_vec().
   SET CTL_ROLL TO ctl_roll_for_window().
+  SET CTL_GOAL_DIR TO CTL_DIR.
+  SET CTL_GOAL_UP TO CTL_UP.
+  SET CTL_SLEW_T TO TIME:SECONDS.
   SET CTL_THR TO 0.
   ctl_steer_lock().
   LOCK THROTTLE TO CTL_THR.
@@ -469,9 +521,55 @@ FUNCTION ctl_start {
 // ignored and the last good direction kept), up_vec the roll reference, thr_frac the throttle 0 to 1 (clamped).
 FUNCTION ctl_set_command {
   PARAMETER dir_vec, up_vec, thr_frac.
-  IF dir_vec:MAG > 0 { SET CTL_DIR TO dir_vec:NORMALIZED. }
-  IF up_vec:MAG > 0 { SET CTL_UP TO up_vec:NORMALIZED. }
+  IF dir_vec:MAG > 0 { SET CTL_GOAL_DIR TO dir_vec:NORMALIZED. }
+  IF up_vec:MAG > 0 { SET CTL_GOAL_UP TO up_vec:NORMALIZED. }
   SET CTL_THR TO MAX(0, MIN(1, thr_frac)).
+  // The command the steering lock follows is moved toward the goal at no more than P63_TURN_RATE_DEG_S. Handed the whole 180 degree jump, kOS fired a big burst,
+  // chattered all the way round and settled; a goal that moves smoothly gives a smooth turn. No limit on the pad (CTL_DRY) or when the rate is 0.
+  LOCAL now_t IS TIME:SECONDS.
+  LOCAL step_deg IS P63_TURN_RATE_DEG_S * MIN(1, MAX(0, now_t - CTL_SLEW_T)).
+  SET CTL_SLEW_T TO now_t.
+  IF CTL_DRY OR P63_TURN_RATE_DEG_S <= 0 {
+    SET CTL_DIR TO CTL_GOAL_DIR.
+    SET CTL_UP TO CTL_GOAL_UP.
+  } ELSE {
+    LOCAL stepped IS ctl_slew_att(CTL_DIR, CTL_UP, CTL_GOAL_DIR, CTL_GOAL_UP, step_deg).
+    SET CTL_DIR TO stepped[0].
+    SET CTL_UP TO stepped[1].
+  }
+}
+
+// ctl_slew_att: the attitude (nose cur_dir, roll reference cur_up) turned toward the goal attitude by at most max_deg degrees, as ONE rotation about a single fixed
+// axis (what Luminary's KALCMANU does), so the body rates stay constant along the turn. Slewing the nose and the roll reference separately made the roll rate
+// change all the way round and the roll chattered. Returns LIST(new_dir, new_up). Pure (the goal is returned when it is within the step).
+// The rotation between the two attitudes is found from their axis triads (nose, up, nose x up): the sum of cur x goal over the three is 2 sin(angle) times
+// the axis, and the sum of cur . goal is 1 + 2 cos(angle). kOS's rotation sign is not relied on: the sign that ends closer to the goal is used.
+FUNCTION ctl_slew_att {
+  PARAMETER cur_dir, cur_up, goal_dir, goal_up, max_deg.
+  LOCAL a1 IS cur_dir:NORMALIZED.
+  LOCAL b1 IS goal_dir:NORMALIZED.
+  IF VECTOREXCLUDE(cur_up, a1):MAG < 1e-6 OR VECTOREXCLUDE(goal_up, b1):MAG < 1e-6 { RETURN LIST(goal_dir, goal_up). }
+  LOCAL a2 IS VECTOREXCLUDE(cur_up, a1):NORMALIZED.
+  LOCAL b2 IS VECTOREXCLUDE(goal_up, b1):NORMALIZED.
+  LOCAL a3 IS VCRS(a1, a2).
+  LOCAL b3 IS VCRS(b1, b2).
+  LOCAL sum_cross IS VCRS(a1, b1) + VCRS(a2, b2) + VCRS(a3, b3).
+  LOCAL sum_dot IS VDOT(a1, b1) + VDOT(a2, b2) + VDOT(a3, b3).
+  LOCAL gap_deg IS ARCTAN2(sum_cross:MAG / 2, (sum_dot - 1) / 2).
+  IF gap_deg <= max_deg { RETURN LIST(goal_dir, goal_up). }
+  LOCAL axis_vec IS sum_cross.
+  IF axis_vec:MAG < 1e-3 {            // about 180 degrees: the axis is the way between each pair (any pair that is not exactly opposite)
+    SET axis_vec TO a1 + b1.
+    IF axis_vec:MAG < 1e-3 { SET axis_vec TO a2 + b2. }
+    IF axis_vec:MAG < 1e-3 { SET axis_vec TO a3 + b3. }
+  }
+  SET axis_vec TO axis_vec:NORMALIZED.
+  LOCAL dir_a IS ANGLEAXIS(max_deg, axis_vec) * a1.
+  LOCAL up_a IS ANGLEAXIS(max_deg, axis_vec) * a2.
+  LOCAL dir_b IS ANGLEAXIS(-max_deg, axis_vec) * a1.
+  LOCAL up_b IS ANGLEAXIS(-max_deg, axis_vec) * a2.
+  IF VANG(dir_a, b1) + VANG(up_a, b2) <= VANG(dir_b, b1) + VANG(up_b, b2) { RETURN LIST(dir_a, up_a). }
+  RETURN LIST(dir_b, up_b).
 }
 
 // ctl_ullage: RCS ullage on or off. Ullage pushes the whole ship forward along its thrust axis (SHIP:CONTROL:FORE) so the
@@ -560,7 +658,7 @@ FUNCTION ctl_engine_on {
 // counts too. On the pad (CTL_DRY) there is no ship: 999, which never counts as settled.
 FUNCTION ctl_att_error_deg {
   IF CTL_DRY { RETURN 999. }
-  LOCAL cmd_dir IS ANGLEAXIS(CTL_ROLL, CTL_DIR) * LOOKDIRUP(CTL_DIR, CTL_UP).
+  LOCAL cmd_dir IS ANGLEAXIS(CTL_ROLL, CTL_GOAL_DIR) * LOOKDIRUP(CTL_GOAL_DIR, CTL_GOAL_UP).          // against the goal, so the attitude is "reached" only when the whole turn is done
   RETURN MAX(VANG(SHIP:FACING:FOREVECTOR, cmd_dir:FOREVECTOR), VANG(SHIP:FACING:TOPVECTOR, cmd_dir:TOPVECTOR)).
 }
 

@@ -220,7 +220,7 @@ SET CTL_DRY TO TRUE.
 FUNCTION p5_prog {
   PARAMETER att_mode.
   LOCAL pr IS LEXICON("REFUSED", "", "PROG_NO", 64, "WINDOW_MODE", "UP", "TURNED", FALSE, "FORE0", V(1, 0, 0), "WIN0", V(0, 1, 0), "WCMD", V(0, 1, 0),
-                 "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "WARP", warp_new(), "ENGINE", 0,
+                 "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "HIGHGATE", TRUE, "WARP", warp_new(), "ENGINE", 0,
                  "LAND", V(1737400, 0, 0), "WM", V(0, 0, 0), "TIG", 1000, "BURN_DIR", V(1, 0, 0), "OUTOFPLN", 0,
                  "TGO", 11, "THR", 0.3, "GP", LEXICON(), "ZOOMED", TRUE, "ENGINE_LIT", TRUE, "ULLAGE_ON", FALSE,
                  "DV", 0, "T_LAST", 1999.75, "HANDOFF_T", 1999, "LAST_STATE", "", "LAST_ALARM", 0, "ENDED", FALSE).
@@ -315,7 +315,7 @@ LOCAL dir_p66 IS p5["BURN_DIR"].
 SET st5 TO p5_state(2001.25, p5_r, p5_v, 13.15).
 SET out5 TO p65_step(p5, st5, nav_derived(st5, p5_land, p5_wm), p5_ks).
 assert_vec("P66 keeps the last P65 thrust direction", p5["BURN_DIR"], dir_p66, 0).
-// In P66 a click in AUTO is also thrown away, and going back to AUTO does not end P66.
+// In P66 a click in AUTO is also thrown away; going back to AUTO (SAS off) returns to P65 (audit L1, Luminary 099: P66 only while SAS is on).
 SET p5["ATT"]["MODE"] TO "AUTO".
 SET p5_rt TO rod_ramp(p5["ROD"], 0.5, 0.01, 6, p5_rt).
 SET p5_rt TO rod_ramp(p5["ROD"], rod_lever, 0, 12, p5_rt).
@@ -323,7 +323,8 @@ SET vdg_before TO p5["VDG"].
 SET st5 TO p5_state(2001.5, p5_r, p5_v, 13.15).
 SET out5 TO p65_step(p5, st5, nav_derived(st5, p5_land, p5_wm), p5_ks).
 assert_near("a click in AUTO leaves VDG alone in P66", p5["VDG"], vdg_before, 0).
-assert_true("and P66 goes on in AUTO", p5["MODE"] = "P66").
+assert_true("SAS off returns the programme to P65 (VDG kept)", p5["MODE"] = "P65" AND p5["PROG_NO"] = 65 AND ABS(p5["VDG"] - vdg_before) < 1e-9).
+assert_true("and V06 N60 is shown again", out5["SET_VERB"] = 6 AND out5["SET_NOUN"] = 60 AND out5["PROG_NO"] = 65).
 
 // SAS already on at the start: nothing happens until a click.
 LOCAL p5t IS p65_start(p5_prog("HOLD")).
@@ -356,20 +357,20 @@ LOCAL st5z IS LEXICON("R", p5_r, "V", p5_v, "T", 2004, "MASS", 8.095, "THRUST", 
 SET out5 TO p65_step(p5z, st5z, nav_derived(st5z, p5_land, p5_wm), p5_ks).
 assert_near("zero thrust keeps the throttle (P65)", CTL_THR, 0.3, 1e-9).
 
-// Contact (the ship status turns LANDED): lamp at once, cut-off one cycle (0.25 s) later, P68, and the programme ends.
+// Contact (the ship status turns LANDED): lamp at once, cut-off one cycle (0.25 s) later, then the handover to P68.
 SET CTL_DRY_STATUS TO "LANDED".
 LOCAL p5c IS p65_start(p5_prog("AUTO")).
 LOCAL st5c IS p5_state(2005, V(1737400.5, 0, 0), V(-0.2, 0, 0), 13.15).
 SET out5 TO p65_step(p5c, st5c, nav_derived(st5c, p5_land, p5_wm), p5_ks).
 assert_true("contact: the lamp lights", out5["CONTACT"]).
-assert_true("contact: not ended yet", NOT out5["ENDED"]).
+assert_true("contact: not handed over yet", NOT out5["HANDOVER"]).
 assert_true("contact: the message says so", out5["MSG"]:CONTAINS("CONTACT")).
 SET st5c TO p5_state(2005.1, V(1737400.5, 0, 0), V(-0.2, 0, 0), 13.15).
 SET out5 TO p65_step(p5c, st5c, nav_derived(st5c, p5_land, p5_wm), p5_ks).
-assert_true("contact: still burning at 0.1 s", NOT out5["ENDED"]).
+assert_true("contact: still burning at 0.1 s", NOT out5["HANDOVER"]).
 SET st5c TO p5_state(2005.25, V(1737400.5, 0, 0), V(-0.2, 0, 0), 13.15).
 SET out5 TO p65_step(p5c, st5c, nav_derived(st5c, p5_land, p5_wm), p5_ks).
-assert_true("contact: the engine is cut off one cycle after contact and the programme ends", out5["ENDED"]).
+assert_true("contact: the engine is cut off one cycle after contact and P68 takes over", out5["HANDOVER"] AND NOT out5["ENDED"]).
 assert_near("contact: the cut-off cycle reports P68", out5["PROG_NO"], 68, 0).
 assert_near("contact: the throttle is zero", CTL_THR, 0, 0).
 assert_true("contact: the engine is no longer lit", NOT p5c["ENGINE_LIT"]).
@@ -380,7 +381,7 @@ SET st5c TO p5_state(2010.1, V(1737400.5, 0, 0), V(-0.2, 0, 0), 0).
 SET out5 TO p65_step(p5d, st5c, nav_derived(st5c, p5_land, p5_wm), p5_ks).
 SET st5c TO p5_state(2010.5, V(1737400.5, 0, 0), V(-0.2, 0, 0), 0).
 SET out5 TO p65_step(p5d, st5c, nav_derived(st5c, p5_land, p5_wm), p5_ks).
-assert_true("contact: a pilot engine stop does not stop the landing from ending", out5["ENDED"]).
+assert_true("contact: a pilot engine stop does not stop the landing from reaching P68", out5["HANDOVER"]).
 assert_near("contact: and P68 is reported", out5["PROG_NO"], 68, 0).
 assert_true("contact: without cutting the engine off again", out5["MSG"]:CONTAINS("ALREADY STOPPED")).
 SET CTL_DRY_STATUS TO "FLYING".

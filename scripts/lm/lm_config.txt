@@ -30,5 +30,9 @@
 // a saved plan carries it and wins over this setting.
 // PAD_PROFILE = A11
 
+// Program alarms 1202 and 1201 replayed in the descent, so you can meet the alarm display (PROG lamp, V05 N09, RSET). OFF, A11 (the
+// Apollo 11 pattern, A11 software only) or your own list: code@seconds after ignition, for example 1202@315,1201@548.
+// ALARMS = OFF
+
 // The body you land on.
 // BODY_NAME = Moon

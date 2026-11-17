@@ -92,7 +92,7 @@ FUNCTION j_p63_start {
   LOG "# P63 start: TIG " + ROUND(ign["TIG"], 1) + " (in " + ROUND(ign["TIG"] - now_ut, 1) + " s), IGNALG passes " + ign["ITER"]
       + ", out of plane " + ROUND(ign["OUTOFPLN"]) + " m, full thrust " + ROUND(f_max_n / 1000, 2) + " kN, mass " + ROUND(SHIP:MASS, 3) + " t" TO J_P63_LOG_PATH.
   }
-  RETURN LEXICON("REFUSED", "", "PROG_NO", 63, "SEQ", j_seq_new(ign["TIG"]), "WINDOW_MODE", j_p63_pick_window(plan), "TURNED", FALSE, "FORE0", SHIP:FACING:FOREVECTOR, "WIN0", win0_vec, "WCMD", win0_vec, "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "WARP", warp_new(), "ENGINE", eng,
+  RETURN LEXICON("REFUSED", "", "PROG_NO", 63, "SEQ", j_seq_new(ign["TIG"]), "WINDOW_MODE", j_p63_pick_window(plan), "TURNED", FALSE, "FORE0", SHIP:FACING:FOREVECTOR, "WIN0", win0_vec, "WCMD", win0_vec, "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "HIGHGATE", FALSE, "GO", FALSE, "DVMON", dvmon_new(), "DVSHOWN", FALSE, "LAST_REQ", FALSE, "N61_SHOWN", FALSE, "LR_PERMIT", FALSE, "N63_SHOWN", FALSE, "WARP", warp_new(), "ENGINE", eng,
                  "LAND", land_vec, "WM", wm_vec, "TIG", ign["TIG"], "BURN_DIR", ign["THRUST_DIR"], "OUTOFPLN", ign["OUTOFPLN"],
                  "TGO", J_IGN_TGO_SEED, "THR", 0, "GP", LEXICON(), "ZOOMED", FALSE, "ENGINE_LIT", FALSE, "ULLAGE_ON", FALSE,
                  "DV", 0, "T_LAST", now_ut, "HANDOFF_T", -1, "LAST_STATE", "", "LAST_ALARM", 0, "ENDED", FALSE).
@@ -113,10 +113,35 @@ FUNCTION j_p63_step {
   // V34 ENTR ends the programme in every state, including the enable prompt (where the verb would otherwise be forced
   // back to 99 each cycle): the sequence is told to terminate, which switches the ullage off.
   // Luminary VBTERM only answers a flashing request: P63's only one is the V99 enable prompt. Outside it V34 does nothing.
-  LOCAL terminating IS ks["VERB"] = 34 AND prog["LAST_STATE"] = "PROMPT".
+  // V34 (ks["TERMINATE"], set by the core only while a request is pending) ends the programme: it answers the flashing V06 N61 at the start and the V99
+  // enable prompt (LAST_REQ: a request was up last cycle). With no request pending it does nothing.
+  LOCAL terminating IS ks["TERMINATE"] AND prog["LAST_REQ"].
+  // The first display is V06 N61 flashing (Luminary: ASTNCLOK, "to reset his event timer to agree with TIG"). PRO answers it (GO): the programme then
+  // turns and warps. Until then it holds the attitude it started in and does not warp (the sequence and TIG are fixed and run on). Unanswered, it
+  // moves on by itself at TIG-35, where the real clock task blanks the display (the sequence leaves COAST).
+  IF pro_pressed AND NOT prog["GO"] { SET prog["GO"] TO TRUE. }
+
+  // ---- V97 (engine failure, Luminary COMFAIL; the same in 210): ENTR lights the engine again from TIG-5; PRO takes the failure back and monitors again ----
+  LOCAL dv_failed IS prog:HASKEY("DVMON") AND prog["ENGINE_LIT"] AND prog["DVMON"]["FAILED"].
+  IF dv_failed AND pro_pressed { dvmon_reset(prog["DVMON"]). SET prog["DVSHOWN"] TO FALSE. SET dv_failed TO FALSE. SET msg TO "P63: THRUST MONITOR RESET.". }
+  ELSE IF dv_failed AND ks["ENTER"] {
+    ctl_engine_off(prog["ENGINE"]).
+    SET prog["ENGINE_LIT"] TO FALSE.
+    SET prog["ZOOMED"] TO FALSE.
+    SET prog["THR"] TO 0.
+    SET prog["GP"] TO LEXICON().
+    SET prog["TGO"] TO J_IGN_TGO_SEED.
+    SET prog["TIG"] TO now_ut + DVMON_RETRY_S.
+    SET prog["SEQ"] TO j_seq_new(prog["TIG"]).
+    dvmon_reset(prog["DVMON"]).
+    SET prog["DVSHOWN"] TO FALSE.
+    SET dv_failed TO FALSE.
+    SET msg TO "P63: NEW IGNITION IN " + DVMON_RETRY_S + " S.".
+  }
 
   // ---- the sequence: countdown, ullage, enable prompt, ignition, zoom ----
   LOCAL sq IS j_seq_step(prog["SEQ"], now_ut, pro_pressed, terminating).
+  IF sq["STATE"] <> "COAST" { SET prog["GO"] TO TRUE. }
   IF sq["ULLAGE"] <> prog["ULLAGE_ON"] {
     ctl_ullage(sq["ULLAGE"]).
     SET prog["ULLAGE_ON"] TO sq["ULLAGE"].
@@ -166,11 +191,12 @@ FUNCTION j_p63_step {
       SET prog["WCMD"] TO win_min_rotation(prog["FORE0"], prog["WIN0"], dir_cmd).
     }
   }
-  ctl_set_command(dir_cmd, prog["WCMD"], prog["THR"]).
+  IF prog["GO"] { ctl_set_command(dir_cmd, prog["WCMD"], prog["THR"]). }
 
   // ---- turn, then warp: once the ship holds the burn attitude, warp to P63_WARP_LEAD_S before ignition (once only) ----
   // After the command above, so the attitude error is measured against this cycle's command, not the previous one.
-  LOCAL warp_ut IS warp_step(prog["WARP"], now_ut, prog["TIG"], ctl_att_error_deg(), ctl_rate_deg_s()).
+  LOCAL warp_ut IS 0.
+  IF prog["GO"] { SET warp_ut TO warp_step(prog["WARP"], now_ut, prog["TIG"], ctl_att_error_deg(), ctl_rate_deg_s()). }
   IF warp_ut > 0 {
     ctl_warp_to(warp_ut).
     SET msg TO "P63: ATTITUDE REACHED. WARPING TO " + P63_WARP_LEAD_S + " S BEFORE IGNITION (CANCEL WITH KSP'S WARP CANCEL KEY).".
@@ -191,7 +217,11 @@ FUNCTION j_p63_step {
   // ---- what the display should show ----
   LOCAL set_verb IS -1.
   LOCAL set_noun IS -1.
-  IF NOT terminating AND sq["VN"] <> "" AND (sq["STATE"] <> prog["LAST_STATE"] OR sq["STATE"] = "PROMPT") {
+  LOCAL request IS FALSE.
+  IF NOT prog["GO"] {
+    IF NOT prog["N61_SHOWN"] OR ks["RECYCLE"] { SET set_verb TO 6. SET set_noun TO 61. SET prog["N61_SHOWN"] TO TRUE. }     // V32 shows it again
+    SET request TO LEXICON("VERB", 6, "NOUN", 61).
+  } ELSE IF NOT terminating AND sq["VN"] <> "" AND (sq["STATE"] <> prog["LAST_STATE"] OR sq["STATE"] = "PROMPT") {
     SET set_verb TO sq["VN"]:SUBSTRING(1, 2):TONUMBER(0).
     SET set_noun TO sq["VN"]:SUBSTRING(4, 2):TONUMBER(0).
   }
@@ -206,13 +236,40 @@ FUNCTION j_p63_step {
     SET prog["LAST_ALARM"] TO alarm_no.
   }
   IF terminating { SET prog["ENDED"] TO TRUE. }
-  LOCAL extra IS LEXICON("TTOGO", sq["TTOGO"], "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"]).
+  IF sq["PROMPT"] { SET request TO LEXICON("VERB", 99, "NOUN", 62). }          // the V99 N62 enable prompt flashes until PRO
+  IF terminating { SET request TO FALSE. }
+  // The thrust monitor runs once the engine is lit (after this cycle's delta-v); a failure makes V97 N62 flash until PRO, ENTR or V34 answers it.
+  IF prog:HASKEY("DVMON") AND prog["ENGINE_LIT"] AND NOT terminating {
+    dvmon_step(prog["DVMON"], prog["DV"], now_ut).
+    IF prog["DVMON"]["FAILED"] {
+      IF NOT request:ISTYPE("Lexicon") { SET request TO LEXICON("VERB", 97, "NOUN", 62). }
+      IF NOT prog["DVSHOWN"] { SET prog["DVSHOWN"] TO TRUE. SET msg TO "P63: ENGINE FAILURE (V97): NO THRUST. PRO RESETS, ENTR TRIES AGAIN, V34 ENDS.". SET set_verb TO 97. SET set_noun TO 62. }
+      ELSE IF set_verb >= 0 { SET set_verb TO 97. SET set_noun TO 62. }          // a state change must not take the display off V97
+    }
+  }
+  SET prog["LAST_REQ"] TO request:ISTYPE("Lexicon").         // before the N63 request below: V34 does not answer that one
+  // Luminary 210: the N63 display flashes from ignition until the astronaut keys V57 (landing radar updates permitted), and again after V58. PRO, ENTER and V34
+  // do nothing to it (the permit flag, prog["LR_PERMIT"], is LM_VEH's, copied in by the vehicle's step adapter).
+  LOCAL lr_wait IS prog["ENGINE_LIT"] AND NOT prog["LR_PERMIT"] AND NOT terminating.
+  IF NOT lr_wait { SET prog["N63_SHOWN"] TO FALSE. }
+  IF lr_wait AND NOT request:ISTYPE("Lexicon") {
+    IF NOT prog["N63_SHOWN"] OR ks["RECYCLE"] { SET set_verb TO 6. SET set_noun TO 63. SET prog["N63_SHOWN"] TO TRUE. }
+    SET request TO LEXICON("VERB", 6, "NOUN", 63).
+  }
+  LOCAL extra IS LEXICON("TTOGO", sq["TTOGO"], "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"], "THR_PCT", j_thr_percent(prog["THR"], state)).
   IF prog["ENGINE_LIT"] { SET extra["TTFDISP"] TO prog["TGO"]. }
 
   j_p63_log(prog, sq, gp, state, derived).
-  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", sq["KEY_REL"], "BLANK", sq["BLANK"],
-                 "FLASH", sq["PROMPT"], "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
+  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", sq["BLANK"],
+                 "REQUEST", request, "FLASH", FALSE, "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
                  "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 63).
+}
+
+// j_thr_percent: N92 R1, the thrust the guidance wants as a percent of the engine's rated thrust (J_DPS_RATED_KN, 10,500 lbf): the wanted fraction
+// of this craft's full thrust (state["THRUST"], kN) times that thrust over the rated one. A fraction below zero (no data) counts as zero.
+FUNCTION j_thr_percent {
+  PARAMETER wanted_fraction, state.
+  RETURN MAX(0, wanted_fraction) * state["THRUST"] / J_DPS_RATED_KN * 100.
 }
 
 // j_burn_shared_step: the per-cycle work P63 and P64 both do, in the order P63 did it (it moved here from j_p63_step unchanged;
@@ -244,7 +301,7 @@ FUNCTION j_burn_shared_step {
   }
   // Luminary 210 (THE_LUNAR_LANDING, HLROFF; SERVICER 760-762): the landing radar is not used below J_HLROFF (50 ft). The lamps
   // then keep their last state and the radar tests stop, as they did in the LM.
-  IF derived["VALID"] AND state["ALT_RADAR"] >= J_HLROFF { radar_step(prog["RAD"], derived["HCALC"], state["ALT_RADAR"], derived["ABVEL"], 0). }
+  IF derived["VALID"] AND state["ALT_RADAR"] >= J_HLROFF { radar_step(prog["RAD"], derived["HCALC"], state["ALT_RADAR"], derived["ABVEL"], 0, prog["HIGHGATE"]). }
   IF prog["ENGINE_LIT"] AND state["MASS"] > 0 { SET prog["DV"] TO prog["DV"] + state["THRUST_NOW"] / state["MASS"] * dt. }
   RETURN msg.
 }
@@ -261,7 +318,7 @@ FUNCTION j_p63_log {
   LOCAL hdot IS 0.
   LOCAL hcalc IS 0.
   IF derived["VALID"] { SET abvel TO derived["ABVEL"]. SET hdot TO derived["HDOT"]. SET hcalc TO derived["HCALC"]. }
-  LOCAL att_err IS VANG(SHIP:FACING:FOREVECTOR, CTL_DIR).
+  LOCAL att_err IS VANG(SHIP:FACING:FOREVECTOR, CTL_GOAL_DIR).
   // The thrust the engine is really giving as a fraction of its full thrust, to compare with the throttle setting THR:
   // on a RealFuels engine the setting may not equal the thrust fraction (flight test 1 checks this).
   LOCAL thrust_frac IS 0.

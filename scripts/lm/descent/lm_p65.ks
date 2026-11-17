@@ -15,7 +15,7 @@
 //        AUTO, and with SAS on the pilot flies it.
 //   There is no window logic in this phase (source 72-81): the ship's own roll is held (win_hold), with the roll stick in AUTO.
 //   Contact: the CONTACT lamp lights at touchdown (contact_test) and the engine is cut off P66_CUTOFF_DELAY_S later unless the
-//   pilot stopped it first; the programme then shows P68 (landing confirmation) and ends.
+//   pilot stopped it first; the programme then hands over to P68 (landing confirmation, lm_p68.ks).
 //
 // Simplifications (spec section 11): the throttle lever's Shift and Ctrl keys stand in for the ROD switch; ROD clicks are applied
 // every cycle (Luminary applies them once a second); the engine is cut off automatically after contact (the crew did it by hand);
@@ -38,7 +38,11 @@ FUNCTION p65_start {
   SET prog["VDG"] TO 0.                      // the commanded descent rate in P66 (up positive); set to HDOT when P66 starts
   SET prog["CG"] TO FALSE.
   IF prog["GP"]:HASKEY("CG") { SET prog["CG"] TO prog["GP"]["CG"]. }
-  SET prog["ROD"] TO rod_new().
+  IF NOT prog:HASKEY("ROD") { SET prog["ROD"] TO rod_new(). }       // P63 made it and kept it up (an early P66 click); a test or other start makes one
+  SET prog["PENDING_P66"] TO FALSE.          // an early ROD click (made in P63 or P64) starts P66 at the first valid step
+  IF prog:HASKEY("ROD_START") { SET prog["PENDING_P66"] TO prog["ROD_START"]. }
+  SET prog["ROD_START"] TO FALSE.
+  SET prog["STEER_OFF"] TO FALSE.            // PRO or ENTER drops the steering target (see p65_step)
   SET prog["TRIM"] TO 0.                     // the thrust trim (trim_step)
   SET prog["SAMPLES"] TO 0.                  // lever samples since the last cycle (logged, to see how often the lever is read)
   SET prog["CT"] TO contact_new().
@@ -78,16 +82,27 @@ FUNCTION p65_trimmed {
 }
 
 // p65_step: one cycle, the same arguments as p64_step. Returns the same keys (SET_VERB, SET_NOUN, KEY_REL, BLANK, FLASH, ALARM,
-// ALT_LAMP, VEL_LAMP, EXTRA, MSG, ENDED, HANDOVER (always FALSE), PROG_NO: 65, 66, or 68 on the cycle the engine is cut off) and
+// ALT_LAMP, VEL_LAMP, EXTRA, MSG, ENDED, HANDOVER (TRUE on the cycle the engine is cut off: P68 takes over), PROG_NO: 65, 66, or 68 on that cycle) and
 // CONTACT (the lamp).
 FUNCTION p65_step {
   PARAMETER prog, state, derived, ks.
   LOCAL now_ut IS state["T"].
   LOCAL dt IS MAX(0, now_ut - prog["T_LAST"]).
   SET prog["T_LAST"] TO now_ut.
+  LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
   LOCAL terminating IS FALSE.          // P65 raises no flashing request, so V34 (Luminary VBTERM) does nothing here
+  // PRO or ENTER (Task 0 reading) takes the steering target away: the steering lock is dropped and the coast deadband is not run until the attitude
+  // mode changes. In AUTO only (in ATT HOLD the steering is not locked anyway).
+  IF (pro_pressed OR ks["ENTER"]) AND NOT prog["STEER_OFF"] {
+    SET prog["STEER_OFF"] TO TRUE.
+    IF prog["ATT"]["MODE"] = "AUTO" {
+      ctl_steer_release().
+      SET prog["DB"]["LOCKED"] TO FALSE.
+    }
+    SET msg TO "P" + prog["PROG_NO"] + ": STEERING TARGET DROPPED (CHANGE THE ATTITUDE MODE TO TAKE IT BACK).".
+  }
 
   // ---- mode: the first ROD click made with SAS on starts P66 ----
   LOCAL clicks IS rod_take(prog["ROD"]).
@@ -96,6 +111,23 @@ FUNCTION p65_step {
   IF clicks <> 0 AND NOT sas_now {
     SET clicks TO 0.
     SET msg TO "ROD CLICK IGNORED IN AUTO: SWITCH SAS ON (ATT HOLD) FIRST, AS IN THE LM.".
+  }
+  // P66 lasts only while SAS is on (audit L1): with SAS off the programme is P65 again, with the commanded rate kept for the next P66.
+  IF prog["MODE"] = "P66" AND NOT sas_now {
+    SET prog["MODE"] TO "P65".
+    SET prog["PROG_NO"] TO 65.
+    SET prog["SHOWN"] TO "".                 // V06 N60 is shown again for P65
+    SET msg TO "P65: SAS OFF. AUTOMATIC LANDING RESUMED.".
+  }
+  // An early ROD click (P63 or P64): the first valid step is the P66 start, without a click to count.
+  IF prog["PENDING_P66"] AND derived["VALID"] {
+    SET prog["PENDING_P66"] TO FALSE.
+    IF prog["MODE"] = "P65" AND sas_now {
+      SET prog["MODE"] TO "P66".
+      SET prog["PROG_NO"] TO 66.
+      SET prog["VDG"] TO derived["HDOT"].
+      SET msg TO "P66: RATE OF DESCENT. SHIFT RAISES THE COMMANDED RATE, CTRL LOWERS IT.".
+    }
   }
   IF prog["MODE"] = "P65" AND clicks <> 0 AND derived["VALID"] {
     SET prog["MODE"] TO "P66".
@@ -148,8 +180,7 @@ FUNCTION p65_step {
     SET CTL_THR TO 0.
     SET prog["ENGINE_LIT"] TO FALSE.
     SET prog["THR"] TO 0.
-    SET prog_no TO 68.
-    SET prog["ENDED"] TO TRUE.
+    SET prog_no TO 68.            // the core hands over to P68 (table NEXT 68); the vehicle's P68 START adds the position
     SET msg TO "P68: LANDING CONFIRMED." + (CHOOSE " ENGINE CUT OFF." IF ct_out["CUT_NOW"] ELSE " ENGINE ALREADY STOPPED.").
   }
 
@@ -171,7 +202,7 @@ FUNCTION p65_step {
   p65_log(prog, state, derived, ct_out["LAMP"]).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE,
                  "FLASH", FALSE, "ALARM", 0, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
-                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", FALSE, "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
+                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", ct_out["DONE"], "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
                  "STATUS", p65_status(prog, derived)).
 }
 

@@ -4,6 +4,7 @@
 // key_enter_prog check what the pilot typed against them, and light OPR ERR for anything else.
 // Keyboard: V, N, two digits, E = ENTR, P = PRO, C = CLR, R = RSET (Enter/Return also work as ENTR).
 
+RUNONCEPATH("0:/core/dsky_alarm.ks").      // the alarm facility (alarm_new, alarm_raise, alarm_reset)
 RUNONCEPATH("0:/core/dsky_store.ks").      // octal_parse, octal_text, store_locate (P27)
 RUNONCEPATH("0:/core/dsky_load.ks").       // the keyed loaders V21 to V25 (load_new, load_key, load_begin)
 RUNONCEPATH("0:/core/dsky_p27.ks").        // the update programme V71, V72, V33, V34 (p27_new, p27_key, p27_begin, p27_verify)
@@ -21,8 +22,14 @@ RUNONCEPATH("0:/core/dsky_p27.ks").        // the update programme V71, V72, V33
 // until then: a load or update verb is then OPR ERR).
 // start_vn (optional): LIST(verb, noun) shown at start. -1 for both is a blank display (no verb or noun, the registers dark),
 // as a real DSKY powers up. Without it the start is V16 and the vehicle's first noun.
+// nonoun (optional): LIST of the verbs the vehicle accepts with no noun (V37, V34, V33, V32, V71 and V72 always are).
+// Pending request: "PENDING" is FALSE or LEXICON("VERB", v, "NOUN", n), the display the running programme is asking the pilot about (the core sets it
+// from the programme's REQUEST). "KEYREL" is the KEY REL lamp: it lights when the pilot keys over a pending request (V, N, a digit, a sign, CLR or ENTR),
+// and goes out when the request ends or the pilot presses KEY REL, which puts the request (else "PROG_VN", the verb and noun the programme last set,
+// else nothing) back on the display. "RECYCLE" (V32), "TERMINATE" (V34 with a request pending) and "ENTER" (any ENTR) are TRUE for one cycle for the
+// programme to read; PRO is "PRO", cleared by the programme (V33 sets it too).
 FUNCTION keys_new {
-  PARAMETER nouns, verbs, progs, start_vn IS LIST().
+  PARAMETER nouns, verbs, progs, start_vn IS LIST(), nonoun IS LIST().
   LOCAL first_noun IS 0.
   IF nouns:LENGTH > 0 { SET first_noun TO nouns[0]. }     // the noun shown at start is the vehicle's first
   LOCAL start_verb IS 16.
@@ -31,7 +38,8 @@ FUNCTION keys_new {
   RETURN LEXICON("VERB", start_verb, "NOUN", start_noun, "MODE", "", "VBUF", "", "NBUF", "", "OPRERR", FALSE, "PRO", FALSE,
                  "AWAIT_PROG", FALSE, "PBUF", "", "PROG_REQ", -1, "VERB_BEFORE", start_verb,
                  "NOUNS", nouns, "VERBS", verbs, "PROGS", progs,
-                 "LOAD", load_new(), "P27", p27_new(), "VEHICLE", FALSE, "PROGRAM", FALSE, "QUIT", FALSE).
+                 "LOAD", load_new(), "P27", p27_new(), "VEHICLE", FALSE, "PROGRAM", FALSE, "QUIT", FALSE, "ALARM", alarm_new(),
+                 "PENDING", FALSE, "KEYREL", FALSE, "PROG_VN", LIST(-1, -1), "RECYCLE", FALSE, "TERMINATE", FALSE, "ENTER", FALSE, "NONOUN", nonoun, "LAMPTEST_UNTIL", -1).
 }
 
 // quit_step: the DSKY window's close cross. state is "IDLE" (cross showing), "ASK" (the End DSKY? question showing) or "QUIT"
@@ -62,6 +70,25 @@ FUNCTION key_prog_cancel {
   }
 }
 
+// key_rel_press: KEY REL. Gives the display back to what was asking: clears the lamp and whatever is being typed, then shows the pending
+// request's verb and noun, else the verb and noun the programme last set (PROG_VN), else leaves the display as it is.
+FUNCTION key_rel_press {
+  PARAMETER ks.
+  SET ks["KEYREL"] TO FALSE.
+  SET ks["MODE"] TO "".
+  SET ks["VBUF"] TO "".
+  SET ks["NBUF"] TO "".
+  SET ks["AWAIT_PROG"] TO FALSE.
+  SET ks["PBUF"] TO "".
+  IF ks["PENDING"]:ISTYPE("Lexicon") {
+    SET ks["VERB"] TO ks["PENDING"]["VERB"].
+    SET ks["NOUN"] TO ks["PENDING"]["NOUN"].
+  } ELSE IF ks["PROG_VN"][0] >= 0 {
+    SET ks["VERB"] TO ks["PROG_VN"][0].
+    SET ks["NOUN"] TO ks["PROG_VN"][1].
+  }
+}
+
 // key_enter_prog: ENTR while waiting for a programme number. Two digits naming a programme in the vehicle's list (ks["PROGS"]) make the
 // request; anything else is OPR ERR. Either way the wait ends.
 FUNCTION key_enter_prog {
@@ -72,9 +99,31 @@ FUNCTION key_enter_prog {
   key_prog_cancel(ks).
 }
 
+// key_noun_free: does this verb take no noun? (V37, V34, V33, V32, V71, V72 and the vehicle's "NO_NOUN_VERBS" list, kept in ks["NONOUN"])
+FUNCTION key_noun_free {
+  PARAMETER ks, verb_no.
+  IF verb_no = 37 OR verb_no = 34 OR verb_no = 33 OR verb_no = 32 OR verb_no = 35 OR verb_no = 71 OR verb_no = 72 { RETURN TRUE. }
+  RETURN ks["NONOUN"]:CONTAINS(verb_no).
+}
+
+// V35 is the lamp test (Luminary VBTSTLTS): every lamp and digit lights for a few seconds. key_lamptest_on says whether it is running at UT now.
+GLOBAL KEYS_LAMPTEST_S IS 5.
+FUNCTION key_lamptest_on {
+  PARAMETER ks, now.
+  RETURN ks["LAMPTEST_UNTIL"] > now.
+}
+
+// key_verb_actions: the vehicle's verb-action table (verb as text -> delegate (ks) -> bool), or an empty LEXICON.
+FUNCTION key_verb_actions {
+  PARAMETER ks.
+  IF ks["VEHICLE"]:ISTYPE("Lexicon") { IF ks["VEHICLE"]:HASKEY("VERB_ACTIONS") { RETURN ks["VEHICLE"]["VERB_ACTIONS"]. } }
+  RETURN LEXICON().
+}
+
 // key_enter: ENTR. Both typed numbers are checked first, and nothing changes if either is bad.
 FUNCTION key_enter {
   PARAMETER ks.
+  SET ks["ENTER"] TO TRUE.                // every ENTR is seen by the programme for one cycle (P68 repeats its display on it)
   IF ks["AWAIT_PROG"] { key_enter_prog(ks). RETURN. }
   LOCAL verb_new IS ks["VERB"].
   LOCAL noun_new IS ks["NOUN"].
@@ -87,10 +136,10 @@ FUNCTION key_enter {
     IF ks["NBUF"]:LENGTH = 2 AND ks["NOUNS"]:CONTAINS(ks["NBUF"]:TONUMBER(-1)) { SET noun_new TO ks["NBUF"]:TONUMBER(-1). }
     ELSE { SET bad TO TRUE. }
   }
-  // A blank verb (-1) means nothing is displayed yet: ENTR needs a verb, and a noun unless it is V37 (programme change) or
-  // V34 (terminate), which take none.
+  // A blank verb (-1) means nothing is displayed yet: ENTR needs a verb, and a noun unless the verb takes none (V37 programme change, V34
+  // terminate, V33 proceed, V32 recycle, V71 and V72, and the vehicle's own list).
   IF verb_new < 0 { SET bad TO TRUE. }
-  IF noun_new < 0 AND verb_new <> 37 AND verb_new <> 34 AND verb_new <> 33 AND verb_new <> 71 AND verb_new <> 72 { SET bad TO TRUE. }
+  IF noun_new < 0 AND NOT key_noun_free(ks, verb_new) { SET bad TO TRUE. }
   IF bad { SET ks["OPRERR"] TO TRUE. }
   ELSE {
     // During P27 only V33 (verify and store) and V34 (throw the block away) are taken; any other verb is OPR ERR.
@@ -103,23 +152,53 @@ FUNCTION key_enter {
       SET ks["MODE"] TO "".
       RETURN.
     }
-    // V33 means "proceed" and has nothing to proceed with here.
-    IF verb_new = 33 {
-      SET ks["OPRERR"] TO TRUE.
+    // V33 is Proceed (Luminary VBPROC): it never errors, and the display shows what it showed. With a keyed load active it acts as PRO for the
+    // load, otherwise it is PRO for the programme. V32 is Recycle: the programme sees it for one cycle. Both give KEY REL back.
+    IF verb_new = 33 OR verb_new = 32 {
+      SET ks["VBUF"] TO "".
+      SET ks["NBUF"] TO "".
+      SET ks["MODE"] TO "".
+      SET ks["KEYREL"] TO FALSE.
+      IF verb_new = 32 { SET ks["RECYCLE"] TO TRUE. }
+      ELSE IF load_active(ks) { load_key(ks, ks["VEHICLE"], "P"). }
+      ELSE { SET ks["PRO"] TO TRUE. }
+      RETURN.
+    }
+    // V35 is the lamp test: it runs for KEYS_LAMPTEST_S and the display afterwards is as it was (the verb and noun shown do not change).
+    IF verb_new = 35 AND NOT load_active(ks) {
+      SET ks["LAMPTEST_UNTIL"] TO TIME:SECONDS + KEYS_LAMPTEST_S.
       SET ks["VBUF"] TO "".
       SET ks["NBUF"] TO "".
       SET ks["MODE"] TO "".
       RETURN.
     }
-    // A verb keyed and entered during a keyed load ends that load first (nothing is committed). V34 then ends only the load
-    // (the display goes to the monitor verb). With no load active V34 just shows verb 34 (a running programme reads it as Terminate); the DSKY
-    // itself is ended from the window's close cross (quit_step), never by a verb.
-    IF load_active(ks) {
-      load_cancel(ks).
-      IF verb_new = 34 { SET verb_new TO 16. }
+    // V34 is Terminate (Luminary VBTERM). It ends a keyed load (the display goes to the monitor verb) and, with a request pending, is seen by
+    // the programme for one cycle without changing the display. With neither, verb 34 just shows (the old programmes read it as Terminate).
+    IF verb_new = 34 {
+      SET ks["KEYREL"] TO FALSE.
+      IF load_active(ks) { load_cancel(ks). SET verb_new TO 16. }
+      ELSE IF ks["PENDING"]:ISTYPE("Lexicon") {
+        SET ks["TERMINATE"] TO TRUE.
+        SET ks["VBUF"] TO "".
+        SET ks["NBUF"] TO "".
+        SET ks["MODE"] TO "".
+        RETURN.
+      }
     }
-    // V37 ENTR: the DSKY now waits for the programme number. VERB shows 37 meanwhile.
-    IF verb_new = 37 AND ks["VERB"] <> 37 {
+    // A verb the vehicle runs as an action (the LM's V57, V58, V77, ...) calls its delegate; FALSE is OPR ERR. The display does not change.
+    LOCAL actions IS key_verb_actions(ks).
+    IF actions:HASKEY("" + verb_new) {
+      IF NOT actions["" + verb_new]:CALL(ks) { SET ks["OPRERR"] TO TRUE. }
+      SET ks["VBUF"] TO "".
+      SET ks["NBUF"] TO "".
+      SET ks["MODE"] TO "".
+      RETURN.
+    }
+    // A verb keyed and entered during a keyed load ends that load first (nothing is committed).
+    IF load_active(ks) { load_cancel(ks). }
+    // V37 ENTR: the DSKY now waits for the programme number. VERB shows 37 meanwhile. Also when 37 is already shown (the standing V37 N99 request after a
+    // programme ends: keying V37 E over it, or ENTR alone, must still ask for the number).
+    IF verb_new = 37 {
       SET ks["VERB_BEFORE"] TO ks["VERB"].
       SET ks["AWAIT_PROG"] TO TRUE.
       SET ks["PBUF"] TO "".
@@ -142,6 +221,11 @@ FUNCTION key_enter {
 FUNCTION key_press {
   PARAMETER ks, ch.
   LOCAL key IS ch:TOUPPER.
+  IF key = "R" { alarm_reset(ks["ALARM"]). }          // RSET also clears the alarm slots and the PROG lamp (Luminary ERROR), whatever else is active
+  // Keying over a pending request lights KEY REL (Luminary: every key but RSET; PRO is not a key here, KEY REL itself releases).
+  IF ks["PENDING"]:ISTYPE("Lexicon") AND key <> "R" AND key <> "P" AND key <> "K" {
+    IF "VN0123456789CE+-":CONTAINS(key) OR ch = CHAR(13) OR ch = CHAR(10) { SET ks["KEYREL"] TO TRUE. }
+  }
   // A keyed load (V21 to V25) takes digits, signs, CLR, RSET and ENTR/PRO while it is active; V and N are not its keys.
   LOCAL load_name IS key.
   IF ch = CHAR(13) OR ch = CHAR(10) { SET load_name TO "E". }
@@ -162,7 +246,8 @@ FUNCTION key_press {
     IF ks["MODE"] = "V" { SET ks["VBUF"] TO "". }
     IF ks["MODE"] = "N" { SET ks["NBUF"] TO "". }
   }
-  ELSE IF key = "R" { SET ks["OPRERR"] TO FALSE. }     // RSET
+  ELSE IF key = "K" { key_rel_press(ks). }
+  ELSE IF key = "R" { SET ks["OPRERR"] TO FALSE. }     // RSET: OPR ERR out (the alarm slots were cleared above); a load or request is left alone
   ELSE IF "0123456789":CONTAINS(key) AND key:LENGTH = 1 {
     IF ks["MODE"] = "V" AND ks["VBUF"]:LENGTH < 2 { SET ks["VBUF"] TO ks["VBUF"] + key. }
     ELSE IF ks["MODE"] = "N" AND ks["NBUF"]:LENGTH < 2 { SET ks["NBUF"] TO ks["NBUF"] + key. }

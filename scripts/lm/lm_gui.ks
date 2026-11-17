@@ -580,6 +580,23 @@ FUNCTION gui_entry_text {
 // verb and noun flash together, the V99 "please enable engine" prompt).
 FUNCTION gui_update {
   PARAMETER ui, derived, prog, verb, noun, flags.
+  // V35, the lamp test: every lamp lit, 88 in the programme, verb and noun cells and +88888 in the registers. When it ends every lamp goes out once
+  // (the lamps nothing drives, such as NO ATT, were lit by the test too) and the normal display comes back below.
+  LOCAL testing IS flags:HASKEY("LAMPTEST") AND flags["LAMPTEST"].
+  IF NOT ui:HASKEY("TEST_ON") { SET ui["TEST_ON"] TO FALSE. }
+  IF testing OR ui["TEST_ON"] {
+    FOR lamp_name IN ui["LAMPS"]:KEYS { IF lamp_name <> "" { gui_lamp_set(ui, lamp_name, testing). } }
+    IF testing {
+      gui_set_cells(ui["PROG"], "88").
+      gui_set_cells(ui["VERB"], "88").
+      gui_set_cells(ui["NOUN"], "88").
+      FOR reg_cells IN ui["REGS"] { gui_set_cells(reg_cells, "+88888"). }
+      SET ui["TEST_ON"] TO TRUE.
+      SET ui["REG_NEXT"] TO 0.
+      RETURN.
+    }
+    SET ui["TEST_ON"] TO FALSE.
+  }
   gui_lamp_set(ui, "PROG", flags["PROG"]).
   gui_lamp_set(ui, "OPR ERR", flags["OPRERR"]).
   IF flags:HASKEY("KEYREL") { gui_lamp_set(ui, "KEY REL", flags["KEYREL"]). }

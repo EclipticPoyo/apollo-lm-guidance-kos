@@ -23,7 +23,7 @@ FUNCTION ld_type_keys {
 }
 
 FUNCTION ld_fresh_keys {
-  LOCAL ks IS keys_new(LIST(33, 88, 60), LIST(6, 16, 21, 22, 23, 24, 25, 34, 37), LIST(0)).
+  LOCAL ks IS keys_new(LIST(33, 88, 60), LIST(6, 16, 21, 22, 23, 24, 25, 32, 33, 34, 37), LIST(0)).
   SET ks["VEHICLE"] TO fake_vehicle.
   COMMITS:CLEAR().
   RETURN ks.
@@ -110,7 +110,14 @@ assert_true("the load restarted at R1 (ALMCYCLE): the earlier +00001 is gone", C
 // ---- abandoning a load changes nothing (Review Focus 3) --------------------------------------------------------------------
 SET ks TO ld_fresh_keys().
 ld_type_keys(ks, "V25N33E+00012ER").
-assert_true("RSET ends the load and commits nothing", NOT load_active(ks) AND COMMITS:LENGTH = 0 AND NOT ks["OPRERR"]).
+assert_true("RSET leaves the load running and commits nothing (Review Focus 4)", load_active(ks) AND COMMITS:LENGTH = 0 AND NOT ks["OPRERR"]).
+ld_type_keys(ks, "V34E").
+assert_true("V34 ENTR then ends it", NOT load_active(ks) AND COMMITS:LENGTH = 0).
+SET ks TO ld_fresh_keys().
+ld_type_keys(ks, "V25N33E+00012EV33E").
+assert_true("V33 ENTR during a load acts as PRO: R2 is left as it was and the load goes on, no OPR ERR", load_active(ks) AND NOT ks["OPRERR"] AND ks["VERB"] = 25 AND COMMITS:LENGTH = 0).
+ld_type_keys(ks, "V33E").
+assert_true("V33 ENTR on the last register ends the load and commits only R1", NOT load_active(ks) AND COMMITS:LENGTH = 1 AND COMMITS[0][2][0] = 12).
 SET ks TO ld_fresh_keys().
 ld_type_keys(ks, "V25N33E+00012EV34E").
 assert_true("V34 ENTR ends the load, commits nothing", NOT load_active(ks) AND COMMITS:LENGTH = 0).

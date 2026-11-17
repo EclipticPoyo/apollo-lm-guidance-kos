@@ -46,6 +46,7 @@ FUNCTION j_p66_start {
   SET prog["CG"] TO FALSE.
   IF prog["GP"]:HASKEY("CG") { SET prog["CG"] TO prog["GP"]["CG"]. }
   SET prog["A_HZ"] TO V(0, 0, 0).            // the last horizontal command (guidance axes), fed back by the law
+  SET prog["HZ_OFF"] TO FALSE.               // PRO or V32 switch the horizontal law off (see j_p66_step)
   SET prog["T_HZ"] TO -1.                    // UT of the last horizontal pass (-1 = none yet)
   SET prog["ROD"] TO rod_new().
   SET prog["TRIM"] TO 0.                     // the thrust trim (j_trim_step)
@@ -93,16 +94,23 @@ FUNCTION j_p66_hz_due {
 }
 
 // j_p66_step: one cycle, the same arguments as j_p64_step. Returns the same keys (SET_VERB, SET_NOUN, KEY_REL, BLANK, FLASH, ALARM,
-// ALT_LAMP, VEL_LAMP, EXTRA, MSG, ENDED, HANDOVER (always FALSE), PROG_NO: 66, or 68 on the cycle the engine is cut off) and
+// ALT_LAMP, VEL_LAMP, EXTRA, MSG, ENDED, HANDOVER (TRUE on the cycle the engine is cut off: P68 takes over), PROG_NO: 66, or 68 on that cycle) and
 // CONTACT (the lamp).
 FUNCTION j_p66_step {
   PARAMETER prog, state, derived, ks.
   LOCAL now_ut IS state["T"].
   LOCAL dt IS MAX(0, now_ut - prog["T_LAST"]).
   SET prog["T_LAST"] TO now_ut.
+  LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
-  LOCAL terminating IS FALSE.          // P66 raises no flashing request, so V34 (Luminary VBTERM) does nothing here
+  // Luminary 210 P66 flashes V06 N60 all the time; V34 answers it (ends the programme), and PRO or V32 turn the horizontal law off (Task 0 reading;
+  // the engine-arm switch of the real LM is treated as off, J4): the ship then holds the last commanded direction.
+  LOCAL terminating IS ks["TERMINATE"].
+  IF (pro_pressed OR ks["RECYCLE"]) AND NOT prog["HZ_OFF"] {
+    SET prog["HZ_OFF"] TO TRUE.
+    SET msg TO "P66: HORIZONTAL NULLING OFF. THE LAST COMMANDED DIRECTION IS HELD.".
+  }
 
   // ---- the commanded descent rate: the rate now at the start, then the pilot's ROD clicks (in any attitude mode) ----
   IF NOT prog["VDG_SET"] AND derived["VALID"] {
@@ -118,22 +126,26 @@ FUNCTION j_p66_step {
 
   // ---- guidance: the vertical channel throttles, the horizontal channel steers ----
   LOCAL dir_cmd IS prog["BURN_DIR"].
+  LOCAL rod_wanted IS 0.                // the thrust fraction the vertical law wanted (N92)
   LOCAL vgu_vec IS V(0, 0, 0).
   IF derived["VALID"] AND prog["VDG_SET"] {
     IF NOT prog["CG"]:ISTYPE("List") { SET prog["CG"] TO guidance_cg(prog["LAND"], state["R"], V(0, 0, 0), 0). }
     LOCAL g_mag IS j_guid_gravity(state["R"], state["MU"]):MAG.
     SET vgu_vec TO vgu(prog["CG"], state["V"], state["R"], prog["WM"]).
-    IF j_p66_hz_due(prog["T_HZ"], now_ut) {
+    IF NOT prog["HZ_OFF"] AND j_p66_hz_due(prog["T_HZ"], now_ut) {
       SET prog["A_HZ"] TO j_guid_hz(vgu_vec, prog["A_HZ"], g_mag).
       SET prog["T_HZ"] TO now_ut.
     }
-    SET dir_cmd TO cg_unapply(prog["CG"], prog["A_HZ"]):NORMALIZED.
-    SET prog["BURN_DIR"] TO dir_cmd.
+    IF NOT prog["HZ_OFF"] {
+      SET dir_cmd TO cg_unapply(prog["CG"], prog["A_HZ"]):NORMALIZED.
+      SET prog["BURN_DIR"] TO dir_cmd.
+    }
     LOCAL tilt_cos IS VDOT(state["XNB"], state["R"]:NORMALIZED).
     LOCAL a_present IS 0.
     IF state["MASS"] > 0 { SET a_present TO state["THRUST_NOW"] / state["MASS"]. }       // kN over tonnes is m/s^2
     LOCAL rod_out IS j_guid_rod_throttle(prog["VDG"], derived["HDOT"], tilt_cos, state["MASS"] * 1000, state["THRUST"] * 1000, prog["THR"], a_present, g_mag).
     SET prog["THR"] TO j_p66_trimmed(prog, rod_out["THR"], rod_out["WANTED"], state, dt).
+    SET rod_wanted TO rod_out["WANTED"].
   }
 
   // ---- window (the ship's own roll, with the roll stick in AUTO) and the commands ----
@@ -154,8 +166,7 @@ FUNCTION j_p66_step {
     SET CTL_THR TO 0.
     SET prog["ENGINE_LIT"] TO FALSE.
     SET prog["THR"] TO 0.
-    SET prog_no TO 68.
-    SET prog["ENDED"] TO TRUE.
+    SET prog_no TO 68.            // the core hands over to P68 (table NEXT 68); the vehicle's P68 START adds the position
     SET msg TO "P68: LANDING CONFIRMED." + (CHOOSE " ENGINE CUT OFF." IF ct_out["CUT_NOW"] ELSE " ENGINE ALREADY STOPPED.").
   }
 
@@ -166,18 +177,20 @@ FUNCTION j_p66_step {
   // ---- the display: V06 N60 on entering P66 ----
   LOCAL set_verb IS -1.
   LOCAL set_noun IS -1.
-  IF NOT prog["SHOWN"] AND NOT terminating AND NOT ct_out["DONE"] {
+  IF (NOT prog["SHOWN"] OR ks["RECYCLE"]) AND NOT terminating AND NOT ct_out["DONE"] {
     SET prog["SHOWN"] TO TRUE.
     SET set_verb TO 6.
     SET set_noun TO 60.
   }
   IF terminating { SET prog["ENDED"] TO TRUE. }
-  LOCAL extra IS LEXICON("TTOGO", 0, "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"], "TTFDISP", 0).
+  LOCAL extra IS LEXICON("TTOGO", 0, "DVTOTAL", prog["DV"], "OUTOFPLN", prog["OUTOFPLN"], "TTFDISP", 0, "THR_PCT", j_thr_percent(rod_wanted, state)).
+  LOCAL request IS LEXICON("VERB", 6, "NOUN", 60).
+  IF terminating OR ct_out["DONE"] { SET request TO FALSE. }
 
   j_p66_log(prog, state, derived, vgu_vec, ct_out["LAMP"]).
-  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE,
+  RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE, "REQUEST", request,
                  "FLASH", FALSE, "ALARM", 0, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
-                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", FALSE, "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
+                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", ct_out["DONE"], "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
                  "STATUS", j_p66_status(prog, derived, vgu_vec)).
 }
 

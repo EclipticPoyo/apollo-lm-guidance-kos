@@ -3,6 +3,29 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
+## 1.3.1 (2026-11-17, landing aids)
+
+The landing gets closer to Luminary 099 and 210: an alarm facility, a pending-request mechanism with a working KEY REL, the procedure verbs and radar nouns, the flashing displays Luminary has at the P63 start, in P64 and in the J-class P63 and P66, P66 returning to P65, and P68. It is a patch release: the burn programmes are 1.4.
+
+### Added
+- **Alarm facility** in the DSKY core: PROG latches on an alarm until **RSET**, three alarm slots (a fourth overwrites the third with bit 15 set), **V05 N09** shows the codes. Scripted alarms: the `ALARMS` setting (`OFF`, `A11` for the Apollo 11 1202/1201 pattern, or `code@seconds,...` after ignition) raises them and restarts the display as the real software did.
+- **Flashing requests the core owns:** KEY REL (the lamp lights when you key over a request; the **KEY REL** button restores it), **V32** (recycle), **V33** (proceed, never an error), **V34** (terminate a request); RSET no longer ends a keyed load or update.
+- **Radar state:** V57 and V58 (updates permitted/inhibited, a flag only), V77, V59/V60 accepted; nouns **N66** and **N67** from the simulated radar; the radar altitude test runs only after the high gate, as in the source.
+- **P63 starts with `V06 N61` flashing** until **PRO** (it goes on by itself at 35 s before ignition); **P64's `V06 N64`** flashes while redesignation is open; **V97 N62** appears if the engine gives no thrust (PRO monitors again, ENTR re-ignites 5 s later, V34 ends P63).
+- **P66 returns to P65** when SAS goes off; an early P66 from a ROD click in P63 or P64; PRO or ENTR in P65/P66 drops the steering target.
+- **P68** (landing confirmation): after contact it shows `V06 N43` (the true latitude, longitude and height) and stores the position as the landing site; `V37 E 68 E` selects it once down. New noun **N43**.
+- **J-class (Luminary 210):** P63 flashes `V06 N63` until `V57 E`; P66 flashes `V06 N60` (V34 ends it, PRO or V32 hold the last direction); nouns **N60**, **N63**, **N68** show the 210 contents; new nouns **N92** (wanted thrust in percent) and **N69** (landing-site correction, loadable with V25).
+- **V35** lamp test.
+
+### Changed
+- P65 and J's P66 hand over to P68 at touchdown instead of ending.
+- P63 holds the attitude it has until **PRO**, then turns to the burn attitude as one smooth rotation (at most 10 degrees a second) instead of one big RCS burst.
+- P68 gives the steering back, and `V16 N43 E` keeps showing the landing position after P68 ends.
+- When a programme ends with **PRO** or `V34 E`, PROG goes to 00 and `V37 N99` flashes, as Luminary does; `V37 E` answers it.
+- P65's and P66's terminal readout is drawn in place at the top of the terminal, not as scrolling messages.
+- `P64_PITCH_SIGN` now defaults to +1, after the Apollo 11 flight: **W** sends the aim point farther away and **S** brings it closer.
+- The pilot's manual is rewritten: the flight comes before the DSKY reference, with a key-by-key landing, units in every register, a quick reference and a glossary; the wiki is split into pages. `scripts/tests/check_manual.py` checks the manual's settings, nouns, verbs and quoted numbers against the code.
+
 ## 1.3 (2026-11-15, uplink and loads)
 
 The DSKY gets an erasable store of the cells the descent needs, loaded the way the real crew loaded them, and the planner can print a PAD of the data to load. The planner now makes a PAD and an uplink by default: press **SEND** after PLAN, or tick **Skip simulated uplink** to keep the 1.2 steps.

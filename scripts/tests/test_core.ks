@@ -111,6 +111,38 @@ assert_true("idle text shows in PROG_TEXT and lights CONTACT via IDLE_LAMPS", id
 core_request(crun, fake_vehicle, ks, 0).
 assert_true("a later request clears the idle text", crun["IDLE_TEXT"] = "00").
 
+// 9b: with an END_REQUEST, a programme that ends (PRO or V34) leaves a standing flashing request (Luminary GOTOPOOH: V37 N99) that a V37 selection answers.
+SET fake_vehicle["END_REQUEST"] TO LEXICON("VERB", 37, "NOUN", 99).
+core_request(crun, fake_vehicle, ks, 1).
+SET NEXT_OUT TO fake_out(1).
+SET NEXT_OUT["ENDED"] TO TRUE.
+LOCAL res_e1 IS core_step(crun, fake_vehicle, nav, ks).
+assert_true("an ended programme leaves V37 N99 on the display, flashing", ks["VERB"] = 37 AND ks["NOUN"] = 99 AND res_e1["FLAGS"]["FLASH"] AND crun["IDLE_REQUEST"]:ISTYPE("Lexicon")).
+LOCAL res_e2 IS core_step(crun, fake_vehicle, nav, ks).
+assert_true("and it stays flashing while idle", res_e2["FLAGS"]["FLASH"] AND ks["PENDING"]:ISTYPE("Lexicon") AND res_e2["PROG_TEXT"] = "00").
+key_press(ks, "V").
+LOCAL res_e3 IS core_step(crun, fake_vehicle, nav, ks).
+assert_true("keying over it lights KEY REL", res_e3["FLAGS"]["KEYREL"]).
+key_press(ks, "K").
+core_step(crun, fake_vehicle, nav, ks).
+assert_true("KEY REL puts V37 N99 back", ks["VERB"] = 37 AND ks["NOUN"] = 99 AND NOT ks["KEYREL"]).
+core_request(crun, fake_vehicle, ks, 0).
+LOCAL res_e4 IS core_step(crun, fake_vehicle, nav, ks).
+assert_true("a V37 selection clears the request", NOT crun["IDLE_REQUEST"]:ISTYPE("Lexicon") AND NOT res_e4["FLAGS"]["FLASH"]).
+// Through the keys, as the pilot does it: V37 E 00 E and V37 E 03 E over the displayed V37 N99 (an earlier guard ignored V37 E when 37 was already shown).
+LOCAL ks_v IS keys_new(fake_vehicle["NOUNS"], fake_vehicle["VERBS"], fake_vehicle["PROGS"]).
+SET ks_v["VERB"] TO 37.
+SET ks_v["NOUN"] TO 99.
+FOR key_char IN LIST("V", "3", "7", "E", "0", "0", "E") { key_press(ks_v, key_char). }
+assert_true("V37 E 00 E over V37 N99 asks for no programme", ks_v["PROG_REQ"] = 0 AND NOT ks_v["AWAIT_PROG"] AND NOT ks_v["OPRERR"]).
+SET ks_v["PROG_REQ"] TO -1.
+FOR key_char IN LIST("V", "3", "7", "E", "0", "3", "E") { key_press(ks_v, key_char). }
+assert_true("V37 E 03 E over V37 N99 asks for programme 3", ks_v["PROG_REQ"] = 3 AND NOT ks_v["OPRERR"]).
+SET ks_v["PROG_REQ"] TO -1.
+FOR key_char IN LIST("E", "0", "0", "E") { key_press(ks_v, key_char). }
+assert_true("ENTR alone over V37 N99 also waits for the programme number", ks_v["PROG_REQ"] = 0 AND NOT ks_v["OPRERR"]).
+fake_vehicle:REMOVE("END_REQUEST").
+
 // 10: a lamp key in the programme's output reaches the flag the vehicle names.
 core_request(crun, fake_vehicle, ks, 1).
 SET NEXT_OUT TO fake_out(1).
@@ -165,13 +197,16 @@ assert_true("LM vehicle: version follows the plan profile",
 assert_true("LM vehicle: only P63 is selectable by V37",
             lmv["PROGRAMMES"]["63"]["SELECTABLE"] AND NOT lmv["PROGRAMMES"]["64"]["SELECTABLE"] AND NOT lmv["PROGRAMMES"]["65"]["SELECTABLE"]
             AND NOT lmv["PROGRAMMES"]["66"]["SELECTABLE"]).
-assert_true("LM vehicle: P63 hands over to P64, P64 to P65 (J: P66), P65 and P66 to nothing",
+assert_true("LM vehicle: P63 hands over to P64, P64 to P65 (J: P66), P65 and P66 to P68, P68 to nothing",
             lmv["PROGRAMMES"]["63"]["NEXT"] = 64 AND lmv["PROGRAMMES"]["64"]["NEXT"] = (CHOOSE 66 IF veh_j ELSE 65)
-            AND lmv["PROGRAMMES"]["65"]["NEXT"] = -1 AND lmv["PROGRAMMES"]["66"]["NEXT"] = -1).
-assert_true("LM vehicle: only P64 and P65 have a SAMPLE hook",
-            lmv["PROGRAMMES"]["63"]["SAMPLE"]:ISTYPE("Boolean") AND NOT lmv["PROGRAMMES"]["64"]["SAMPLE"]:ISTYPE("Boolean") AND NOT lmv["PROGRAMMES"]["65"]["SAMPLE"]:ISTYPE("Boolean")).
-assert_true("LM vehicle: CONTACT stays lit while PROG shows 68", lmv["IDLE_LAMPS"]:CALL("68")["CONTACT"] AND NOT lmv["IDLE_LAMPS"]:CALL("00")["CONTACT"]).
-assert_true("LM vehicle: 68 is a sticky programme", lmv["STICKY_PROGS"]:CONTAINS(68)).
+            AND lmv["PROGRAMMES"]["65"]["NEXT"] = 68 AND lmv["PROGRAMMES"]["66"]["NEXT"] = 68 AND lmv["PROGRAMMES"]["68"]["NEXT"] = -1).
+assert_true("LM vehicle: P63, P64 and P65 have a SAMPLE hook (the ROD lever is read from P63 on)",
+            NOT lmv["PROGRAMMES"]["63"]["SAMPLE"]:ISTYPE("Boolean") AND NOT lmv["PROGRAMMES"]["64"]["SAMPLE"]:ISTYPE("Boolean") AND NOT lmv["PROGRAMMES"]["65"]["SAMPLE"]:ISTYPE("Boolean")).
+assert_true("LM vehicle: no CONTACT lamp idle before a landing", NOT lmv["IDLE_LAMPS"]:CALL("00")["CONTACT"]).
+SET LM_VEH["LANDED_POS"] TO LEXICON("LAT", 0, "LNG", 0, "ALT", 0).
+assert_true("LM vehicle: CONTACT stays lit after P68 (the landing position is kept)", lmv["IDLE_LAMPS"]:CALL("00")["CONTACT"]).
+LM_VEH:REMOVE("LANDED_POS").
+assert_true("LM vehicle: no sticky programme, and a flashing V37 N99 request after a programme ends", lmv["STICKY_PROGS"]:LENGTH = 0 AND lmv["END_REQUEST"]["VERB"] = 37 AND lmv["END_REQUEST"]["NOUN"] = 99).
 IF EXISTS(PLAN_PLAN_FILE) {
   report("SKIPPED LM vehicle no-plan checks: " + PLAN_PLAN_FILE + " exists").
 } ELSE {
@@ -197,5 +232,30 @@ FOR quit_char IN LIST("V", "3", "4", "E") { key_press(quit_keys, quit_char). }
 assert_true("V34 E with nothing pending shows verb 34, no OPR ERR, and does not quit", quit_keys["VERB"] = 34 AND NOT quit_keys["OPRERR"] AND NOT quit_keys["QUIT"]).
 FOR quit_char IN LIST("V", "3", "7", "E", "0", "0", "E") { key_press(quit_keys, quit_char). }
 assert_true("V37 E 00 E after a V34 leaves a blank display, not V34 again", quit_keys["VERB"] = -1 AND quit_keys["NOUN"] = -1).
+
+// V35, the lamp test (1.3.1): runs for KEYS_LAMPTEST_S, needs no noun, and leaves the verb and noun as they were. The display itself is checked in KSP.
+LOCAL lt_keys IS keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+assert_true("lamp test: off at the start", NOT key_lamptest_on(lt_keys, TIME:SECONDS)).
+LOCAL lt_verb IS lt_keys["VERB"].
+LOCAL lt_noun IS lt_keys["NOUN"].
+FOR lt_char IN LIST("V", "3", "5", "E") { key_press(lt_keys, lt_char). }
+assert_true("V35 E needs no noun: no OPR ERR", NOT lt_keys["OPRERR"]).
+assert_true("V35 E starts the lamp test", key_lamptest_on(lt_keys, TIME:SECONDS)).
+assert_true("the test is still on just before the time is up", key_lamptest_on(lt_keys, TIME:SECONDS + KEYS_LAMPTEST_S - 0.5)).
+assert_true("and off after it", NOT key_lamptest_on(lt_keys, TIME:SECONDS + KEYS_LAMPTEST_S + 0.5)).
+assert_true("the verb and noun shown do not change", lt_keys["VERB"] = lt_verb AND lt_keys["NOUN"] = lt_noun).
+
+// ---- messages under a status readout: word wrap (core_wrap) and the fixed message area (core_message) ----
+LOCAL wr IS core_wrap("P65: STEERING TARGET DROPPED (CHANGE THE ATTITUDE MODE TO TAKE IT BACK).", 48).
+assert_true("a long message wraps to lines of at most 48 characters", wr:LENGTH = 2 AND wr[0]:LENGTH <= 48 AND wr[1]:LENGTH <= 48).
+assert_true("the wrapped lines join back to the message", wr[0] + " " + wr[1] = "P65: STEERING TARGET DROPPED (CHANGE THE ATTITUDE MODE TO TAKE IT BACK).").
+assert_true("a short message stays one line", core_wrap("hello there", 48):LENGTH = 1).
+assert_true("an empty message gives no lines", core_wrap("", 48):LENGTH = 0).
+LOCAL wr_long IS core_wrap("ABCDEFGHIJ", 4).
+assert_true("a word longer than a line is cut", wr_long:LENGTH = 3 AND wr_long[0] = "ABCD" AND wr_long[2] = "IJ").
+LOCAL crun_m IS core_new(fake_vehicle).
+SET crun_m["STATUS_ROWS"] TO 3.
+FROM { LOCAL i IS 0. } UNTIL i >= 10 STEP { SET i TO i + 1. } DO { core_message(crun_m, "message number " + i). }
+assert_true("the message area keeps at most CORE_MSG_ROWS lines, the newest last", crun_m["MSGS"]:LENGTH <= CORE_MSG_ROWS AND crun_m["MSGS"][crun_m["MSGS"]:LENGTH - 1] = "message number 9").
 
 test_end().

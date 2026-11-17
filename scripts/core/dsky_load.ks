@@ -7,9 +7,9 @@
 // decimal only), all of its digits, ENTR. V21 loads R1, V22 R2, V23 R3, V24 R1 then R2, V25 R1, R2, R3. PRO leaves that
 // register as it was (ENTR with fewer digits than the register has, or with no sign, is OPR ERR; with no sign the load starts again from R1). CLR drops what is keyed in the register. A digit too many, or a sign anywhere but first, is ignored (no alarm, as in PINBALL). After the last register the vehicle
 // commits all the values at once (a load that is abandoned before the end changes nothing) and the display goes to the monitor
-// verb (V16) on the same noun. While a load is active the VERB and NOUN cells flash. The load ends without effect on RSET, or
-// when a verb is keyed and entered (V34 ENTR ends only the load, V37 and the others replace it).
-// Departures from Luminary: RSET ends the load (on the real DSKY it only clears the lamp), and PRO on a register keeps the old
+// verb (V16) on the same noun. While a load is active the VERB and NOUN cells flash. RSET only clears OPR ERR (as on the real DSKY); the load
+// ends without effect on V34 ENTR (Terminate), or when another verb is keyed and entered (V37 and the others replace it), and V33 ENTR acts as PRO.
+// Departure from Luminary: PRO on a register keeps the old
 // value (Luminary's "proceed without data" is a verb, V33). Documented in docs/DEVELOPMENT.md.
 
 // load_new: the load state kept in the key state (ks["LOAD"]).
@@ -122,8 +122,7 @@ FUNCTION load_key {
     RETURN TRUE.
   }
   IF key = "R" {
-    load_cancel(ks).
-    SET ks["OPRERR"] TO FALSE.
+    SET ks["OPRERR"] TO FALSE.          // RSET leaves the load running (Luminary ERROR clears OPR ERR and restores the display lock only)
     RETURN TRUE.
   }
   IF key = "E" OR key = "P" {

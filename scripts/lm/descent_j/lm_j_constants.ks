@@ -50,6 +50,7 @@ GLOBAL J_ELEACH_RAD IS 0.01746.        // source line 1447 (= AZEACH), rad
 GLOBAL J_AZEACH_RAD IS 0.01746.        // source line 1444, rad (Apollo 11: 2 degrees)
 // (P64DB, 0.3 degrees, is the attitude deadband Luminary 210 puts in force at the P64 start. It is not a constant here: it is a
 // DAP deadband for the RCS jets, and in P64 the engine burns, so the steering lock stays on and no deadband applies; see lm_j_p63.ks.)
+GLOBAL J_DPS_RATED_KN IS 46.71.            // the descent engine's rated thrust, 10,500 lbf (the 100 % of N92 R1; Luminary 4FMAXNOM); this craft's LMDE gives 46.71 kN in vacuum
 GLOBAL J_HLROFF IS 15.24.              // source (THE_LUNAR_LANDING): landing radar not used below this height, m (50 ft)
 
 // ---- P66: rate of descent and horizontal nulling ----
