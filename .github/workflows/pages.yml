@@ -1,0 +1,47 @@
+name: Manual site
+
+# Kept in tools/ in the private dev repo; publish_public.py copies it to .github/workflows/ in the public repo.
+# Builds the pilot's manual (docs/MANUAL.md) into a web page and publishes it with GitHub Pages.
+# Pages is switched on in the PUBLIC repo only (Settings > Pages > Source: GitHub Actions); the guard below keeps this
+# from running in the private dev repo, where Pages is not available.
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/MANUAL.md
+      - docs/MANUAL.pdf
+      - docs/images/**
+      - make_site.py
+      - VERSION
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.repository == 'EclipticPoyo/apollo-lm-guidance-kos'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install markdown
+      - run: python make_site.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

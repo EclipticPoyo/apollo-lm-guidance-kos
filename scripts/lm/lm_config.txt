@@ -20,7 +20,7 @@
 // P63_WARP_LEAD_S = 60
 
 // Flip (1 or -1) if a redesignation key in P64 moves the aim point the wrong way.
-// P64_PITCH_SIGN = -1
+// P64_PITCH_SIGN = 1
 // P64_YAW_SIGN = -1
 
 // Flip (1 or -1) if Shift/Ctrl in P66 change the rate of descent the wrong way.
@@ -32,7 +32,7 @@
 
 // Program alarms 1202 and 1201 replayed in the descent, so you can meet the alarm display (PROG lamp, V05 N09, RSET). OFF, A11 (the
 // Apollo 11 pattern, A11 software only) or your own list: code@seconds after ignition, for example 1202@315,1201@548.
-// ALARMS = OFF
+// ALARMS = A11
 
 // The body you land on.
 // BODY_NAME = Moon

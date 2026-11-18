@@ -1,0 +1,26 @@
+name: Offline checks
+
+# Kept in tools/ in the private dev repo; publish_public.py copies it to .github/workflows/ in the public repo.
+# The four checks that need no KSP: name clashes, bracket balance, script paths, and the manual against the code.
+# The pad tests and flights still run in KSP (see docs/DEVELOPMENT.md).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Names (built-in clashes, case)
+        run: python scripts/tests/check_names.py
+      - name: Syntax (brackets and strings)
+        run: python scripts/tests/check_syntax.py
+      - name: Paths (every script path resolves)
+        run: python scripts/tests/check_paths.py
+      - name: Manual against the code
+        run: python scripts/tests/check_manual.py
