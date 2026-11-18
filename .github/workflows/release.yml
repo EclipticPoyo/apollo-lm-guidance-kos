@@ -1,0 +1,38 @@
+# Kept in tools/ in the private dev repo; publish_public.py copies it to .github/workflows/ in the public repo.
+name: Draft release
+
+# Push a version tag (git tag v1.4 && git push origin v1.4) and this builds the zip with make_release.py and creates a DRAFT
+# GitHub release with it attached. Nothing is published: open the draft, set the title (vX.Y: Name), write the notes
+# ("Named for ...", upgrade note, changelog section), check the zip, then publish by hand.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tag must match VERSION
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match VERSION $version. Fix VERSION, move the tag, and push again."
+            exit 1
+          fi
+      - name: Build the zip
+        run: python make_release.py
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Draft. Set the title (vX.Y: Name), add the Named for line, the upgrade note and the changelog section, then publish." \
+            --draft
