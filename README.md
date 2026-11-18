@@ -35,7 +35,7 @@ RUN dsky.
 
 ## How to fly it
 
-See the **[Pilot's Manual](docs/MANUAL.md)** ([PDF](docs/MANUAL.pdf)).
+See the **[Pilot's Manual](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/)** ([Markdown](docs/MANUAL.md), [PDF](docs/MANUAL.pdf)).
 
 ## Made with Claude
 
