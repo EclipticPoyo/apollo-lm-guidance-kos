@@ -13,7 +13,7 @@ An Apollo Lunar Module-inspired guidance computer for Kerbal Space Program, writ
 - Kerbal Space Program 1.12.5
 - [kOS](https://github.com/KSP-KOS/KOS) 1.6.0.1 (a kOS processor on the lander)
 - [Realism Overhaul](https://github.com/KSP-RO/RealismOverhaul) (RO) and its own dependencies
-- [Sol](https://github.com/Kopernicus/Sol) (replaces RSS)
+- Sol (replaces RSS)
 
 **Recommended**
 
