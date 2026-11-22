@@ -325,7 +325,7 @@ assert_true("the message does not repeat the new rate (the status readout shows 
 assert_true("and says P66 has started", out5["MSG"]:CONTAINS("RATE OF DESCENT")).
 // The terminal status readout: two fixed lines, descent rate positive going down, in m/s.
 assert_true("status has three lines", out5["STATUS"]:LENGTH = 3).
-assert_true("P66 status line 3 is the key hint", out5["STATUS"][2]:CONTAINS("SHIFT")).
+assert_true("P66 status line 3 is the key hint", out5["STATUS"][2]:CONTAINS("SHIFT") AND out5["STATUS"][2]:CONTAINS("H/")).
 assert_true("status line 1 is the descent rate in m/s (down positive)", out5["STATUS"][0] = "DESCENT RATE  " + p65_ms_text(-d5["HDOT"]) + " m/s").
 assert_true("P66 status line 2 is the commanded rate in m/s", out5["STATUS"][1] = "P66 COMMANDED " + p65_ms_text(-p5["VDG"]) + " m/s").
 assert_true("p65_ms_text 0.9144", p65_ms_text(0.9144) = "0.91").

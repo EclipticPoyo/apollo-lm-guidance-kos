@@ -16,10 +16,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      # Publishing a release by hand (a draft made with gh, or this workflow's draft) creates its tag, which starts this workflow
+      # again. If the release already exists there is nothing to draft, so the steps below are skipped.
+      - name: Is there already a release for this tag?
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "A release for $GITHUB_REF_NAME already exists; nothing to do."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.existing.outputs.exists != 'true'
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Tag must match VERSION
+        if: steps.existing.outputs.exists != 'true'
         run: |
           version="$(tr -d '[:space:]' < VERSION)"
           if [ "$GITHUB_REF_NAME" != "v$version" ]; then
@@ -27,8 +40,10 @@ jobs:
             exit 1
           fi
       - name: Build the zip
+        if: steps.existing.outputs.exists != 'true'
         run: python make_release.py
       - name: Create the draft release
+        if: steps.existing.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

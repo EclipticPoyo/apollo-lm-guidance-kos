@@ -130,14 +130,14 @@ FUNCTION p65_step {
       SET prog["MODE"] TO "P66".
       SET prog["PROG_NO"] TO 66.
       SET prog["VDG"] TO derived["HDOT"].
-      SET msg TO "P66: RATE OF DESCENT. SHIFT RAISES THE COMMANDED RATE, CTRL LOWERS IT.".
+      SET msg TO "P66: RATE OF DESCENT. H OR SHIFT RAISES THE COMMANDED RATE, N OR CTRL LOWERS IT.".
     }
   }
   IF prog["MODE"] = "P65" AND clicks <> 0 AND derived["VALID"] {
     SET prog["MODE"] TO "P66".
     SET prog["PROG_NO"] TO 66.
     SET prog["VDG"] TO derived["HDOT"].
-    SET msg TO "P66: RATE OF DESCENT. SHIFT RAISES THE COMMANDED RATE, CTRL LOWERS IT.".
+    SET msg TO "P66: RATE OF DESCENT. H OR SHIFT RAISES THE COMMANDED RATE, N OR CTRL LOWERS IT.".
   }
   IF prog["MODE"] = "P66" AND clicks <> 0 {
     SET prog["VDG"] TO prog["VDG"] + clicks * RODSCALE.
@@ -228,8 +228,8 @@ FUNCTION p65_status {
   LOCAL rate_text IS "-----".
   IF derived["VALID"] { SET rate_text TO p65_ms_text(-derived["HDOT"]). }
   LOCAL line1 IS "DESCENT RATE  " + rate_text + " m/s".
-  IF prog["MODE"] = "P66" { RETURN LIST(line1, "P66 COMMANDED " + p65_ms_text(-prog["VDG"]) + " m/s", "SHIFT = SLOWER   CTRL = FASTER (SAS ON)"). }
-  RETURN LIST(line1, "P65 TARGET    " + p65_ms_text(-V2FG:X) + " m/s", "SAS ON + SHIFT OR CTRL = P66 RATE CONTROL").
+  IF prog["MODE"] = "P66" { RETURN LIST(line1, "P66 COMMANDED " + p65_ms_text(-prog["VDG"]) + " m/s", "H/SHIFT = SLOWER  N/CTRL = FASTER (SAS ON)"). }
+  RETURN LIST(line1, "P65 TARGET    " + p65_ms_text(-V2FG:X) + " m/s", "SAS ON + H/N (SHIFT/CTRL) = P66 RATE CONTROL").
 }
 
 // p65_log: one line per cycle to P65_LOG_PATH.

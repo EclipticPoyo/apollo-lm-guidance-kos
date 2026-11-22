@@ -112,7 +112,7 @@ FUNCTION j_p66_step {
   IF NOT prog["VDG_SET"] AND derived["VALID"] {
     SET prog["VDG"] TO derived["HDOT"].
     SET prog["VDG_SET"] TO TRUE.
-    SET msg TO "P66: RATE OF DESCENT. SHIFT RAISES THE COMMANDED RATE, CTRL LOWERS IT. HORIZONTAL SPEED IS NULLED AUTOMATICALLY.".
+    SET msg TO "P66: RATE OF DESCENT. H OR SHIFT RAISES THE COMMANDED RATE, N OR CTRL LOWERS IT. HORIZONTAL SPEED IS NULLED AUTOMATICALLY.".
   }
   LOCAL clicks IS rod_take(prog["ROD"]).
   IF clicks <> 0 AND prog["VDG_SET"] {
@@ -210,7 +210,7 @@ FUNCTION j_p66_status {
   LOCAL hz_text IS "-----".
   IF derived["VALID"] { SET hz_text TO j_p66_ms_text(SQRT(vgu_vec:Y ^ 2 + vgu_vec:Z ^ 2)). }
   RETURN LIST("DESCENT RATE  " + rate_text + " m/s",
-              "P66 COMMANDED " + j_p66_ms_text(-prog["VDG"]) + " m/s  (SHIFT/CTRL)",
+              "P66 COMMANDED " + j_p66_ms_text(-prog["VDG"]) + " m/s  (H/N, SHIFT/CTRL)",
               "HORIZONTAL    " + hz_text + " m/s  AUTO NULL").
 }
 
