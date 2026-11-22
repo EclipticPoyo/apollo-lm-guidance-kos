@@ -2,11 +2,25 @@
 
 An Apollo Lunar Module-inspired guidance computer for Kerbal Space Program, written in KerboScript (kOS). It plans the descent and flies the powered descent and landing (P63 braking, P64 approach, P65 automatic landing, P66 rate of descent) with a DSKY-style display.
 
-Target: the Sol planet pack with Mirage and TiltEm, Realism Overhaul (RO) and kOS 1.6.0.1.
-
 **Not guaranteed:** it was only tested on one Realism Overhaul LM, in that setup. It has not been tested on any other lander and is not guaranteed to work at all.
 
 **Status:** flown and confirmed in KSP on that lander: planning, P63 braking, P64 approach with redesignation (both window modes), P65 automatic landing, P66 rate of descent and touchdown, with the Apollo 11 profile; and planning, P63, P64, P66 and touchdown with the J-class profile.
+
+## Dependencies
+
+**Required**
+
+- Kerbal Space Program 1.12.5
+- [kOS](https://github.com/KSP-KOS/KOS) 1.6.0.1 (a kOS processor on the lander)
+- [Realism Overhaul](https://github.com/KSP-RO/RealismOverhaul) (RO) and its own dependencies
+- [Sol](https://github.com/Kopernicus/Sol) (replaces RSS)
+
+**Recommended**
+
+- Mirage
+- TiltEm, if you use Mirage (Mirage works best with it; this program does not need it)
+
+It was only tested with these installed together.
 
 ## Install
 
@@ -17,7 +31,7 @@ Target: the Sol planet pack with Mirage and TiltEm, Realism Overhaul (RO) and kO
 1. Copy the `core`, `lm` and `shared` folders from `scripts` into `<KSP>/Ships/Script/`, so kOS sees them as `0:/core/`, `0:/lm/` and `0:/shared/`.
 2. Create two one-line stubs in `<KSP>/Ships/Script/`: `dsky.ks` containing `RUNPATH("0:/core/dsky.ks").` and `plan.ks` containing `RUNPATH("0:/lm/planner/lm_plan_ui.ks").`
 
-**Test craft:** the `craft/` folder in the repository has the two Realism Overhaul landers the program was flown on, `H Class.craft` and `J Class.craft` (KSP 1.12.5). Copy them to `<KSP>/saves/<your save>/Ships/VAB/`. They need the same mods as above and may need part changes with other mod versions.
+**Test craft:** the `craft/` folder in the repository has the two Realism Overhaul landers the program was flown on, `H Class.craft` and `J Class.craft` (KSP 1.12.5). Copy them to `<KSP>/saves/<your save>/Ships/VAB/`. They need the mods under Dependencies and may need part changes with other mod versions.
 
 ## Run
 
