@@ -67,12 +67,31 @@ SET st TO pp_state(2000.25, r_p5, v_p5, 13.15).
 SET out TO p65_step(p5, st, nav_derived(st, land, wm), ks).
 assert_true("SAS off: back to P65, programme number 65, V06 N60 sent again", p5["MODE"] = "P65" AND out["PROG_NO"] = 65 AND out["SET_VERB"] = 6 AND out["SET_NOUN"] = 60).
 
+// ---- a click while the navigation state is not valid says so and starts nothing ----
+LOCAL p5v IS p65_start(pp_prog("HOLD")).
+SET p5v["ROD"]["CLICKS"] TO 1.
+LOCAL st_bad IS pp_state(2000, r_p5, v_p5, 13.15).
+SET st_bad["BODY_OK"] TO FALSE.
+LOCAL out_bad IS p65_step(p5v, st_bad, nav_derived(st_bad, land, wm), ks).
+assert_true("P65: a click with no valid state stays P65 and says NO VALID STATE", p5v["MODE"] = "P65" AND out_bad["MSG"]:CONTAINS("NO VALID STATE")).
+LOCAL p6v IS p65_start(pp_prog("HOLD")).
+SET p6v["ROD"]["CLICKS"] TO 1.
+LOCAL st_ok IS pp_state(2000, r_p5, v_p5, 13.15).
+p65_step(p6v, st_ok, nav_derived(st_ok, land, wm), ks).
+LOCAL vdg_before IS p6v["VDG"].
+SET p6v["ROD"]["CLICKS"] TO 1.
+SET st_bad TO pp_state(2000.25, r_p5, v_p5, 13.15).
+SET st_bad["BODY_OK"] TO FALSE.
+SET out_bad TO p65_step(p6v, st_bad, nav_derived(st_bad, land, wm), ks).
+assert_true("P66: a click with no valid state keeps the commanded rate and says NO VALID STATE", p6v["MODE"] = "P66" AND p6v["VDG"] = vdg_before AND out_bad["MSG"]:CONTAINS("NO VALID STATE")).
+
 // ---- clicks in AUTO or before the engine is lit start nothing (Review Focus 3) ----
 LOCAL p3 IS pp_p63(TRUE, TRUE, "AUTO").
 SET p3["ROD"]["CLICKS"] TO 1.
 LOCAL st3 IS pp_state(1005, V(1739309.437, 0, -6771.996), V(-40.965, 0, 145.871), 43.4547).
 LOCAL out3 IS p63_step(p3, st3, nav_derived(st3, land, p3["WM"]), ks).
-assert_true("P63: a click in AUTO sets no ROD_START and is not kept", NOT p3["ROD_START"] AND p3["ROD"]["CLICKS"] = 0 AND NOT out3["HANDOVER"] AND out3["MSG"] = "").
+assert_true("P63: a click in AUTO sets no ROD_START and is not kept", NOT p3["ROD_START"] AND p3["ROD"]["CLICKS"] = 0 AND NOT out3["HANDOVER"]).
+assert_true("P63: a click in AUTO says SAS is off (message and ROD_DROP)", out3["MSG"]:CONTAINS("SAS") AND p3["ROD_DROP"]:CONTAINS("SAS")).
 LOCAL p3u IS pp_p63(FALSE, FALSE, "HOLD").
 SET p3u["T_LAST"] TO 959.75.
 SET p3u["ROD"]["CLICKS"] TO 1.
@@ -80,12 +99,16 @@ LOCAL r_far IS V(1737400 + RIGNX, 0, RIGNZ).
 LOCAL st3u IS pp_state(960, r_far, V(421.056611, 0, 1636.972015), 0).
 LOCAL out3u IS p63_step(p3u, st3u, nav_derived(st3u, land, p3u["WM"]), ks).
 assert_true("P63: a click with SAS on before the engine is lit changes nothing", NOT p3u["ROD_START"] AND p3u["ROD"]["CLICKS"] = 0 AND NOT out3u["HANDOVER"]).
+assert_true("P63: and says the engine is not lit (not SAS)", p3u["ROD_DROP"]:CONTAINS("ENGINE") AND NOT p3u["ROD_DROP"]:CONTAINS("SAS") AND out3u["MSG"]:CONTAINS("ENGINE")).
+LOCAL p_norod IS LEXICON().
+assert_true("burn_rod_start: a programme with no ROD is FALSE and untouched", NOT burn_rod_start(p_norod, TRUE) AND p_norod:LENGTH = 0).
 
 // ---- a click with SAS on, engine lit and zoomed, starts P66 early: P63 -> P64 -> P65 in P66 ----
 LOCAL p3h IS pp_p63(TRUE, TRUE, "HOLD").
 SET p3h["ROD"]["CLICKS"] TO 1.
 LOCAL out3h IS p63_step(p3h, st3, nav_derived(st3, land, p3h["WM"]), ks).
 assert_true("P63: a click with SAS on, engine lit and zoomed sets ROD_START and hands over", p3h["ROD_START"] AND out3h["HANDOVER"] AND out3h["MSG"]:CONTAINS("ROD")).
+assert_true("P63: a used click leaves ROD_DROP empty", p3h["ROD_DROP"] = "").
 p64_start(p3h, 0, 23.47, 0).
 assert_true("P64 start keeps the flag", p3h["ROD_START"]).
 LOCAL r_a4 IS V(1739767.504, 0, -8502.208).
@@ -107,6 +130,7 @@ LOCAL p4a IS p64_start(pp_prog("AUTO"), 0, 23.47, 0).
 SET p4a["ROD"]["CLICKS"] TO 1.
 LOCAL out4a IS p64_step(p4a, st4, nav_derived(st4, land, p4a["WM"]), ks).
 assert_true("P64: a click in AUTO sets no ROD_START and starts no handover", NOT p4a["ROD_START"] AND NOT out4a["HANDOVER"] AND p4a["ROD"]["CLICKS"] = 0).
+assert_true("P64: a click in AUTO says SAS is off", out4a["MSG"]:CONTAINS("SAS")).
 LOCAL p4h IS p64_start(pp_prog("HOLD"), 0, 23.47, 0).
 SET p4h["ROD"]["CLICKS"] TO 1.
 LOCAL out4h IS p64_step(p4h, st4, nav_derived(st4, land, p4h["WM"]), ks).

@@ -43,7 +43,7 @@ You need:
 | 5 | Ignition | At 5 s before ignition `V99 N62` flashes: press **PRO** to enable the engine |
 | 6 | P64 | Starts by itself after braking. **PRO** permits redesignation, then **W/S** (0.5°) and **A/D** (2°) move the aim point |
 | 7 | P65 | Starts by itself. It nulls the horizontal speed and lands at 3 ft/s |
-| 8 | P66 (optional) | SAS on, then **Shift** (slower) or **Ctrl** (faster) to set the rate of descent yourself |
+| 8 | P66 (optional) | SAS on, then **H** or **Shift** (slower) or **N** or **Ctrl** (faster) to set the rate of descent yourself |
 | 9 | Touchdown | The CONTACT lamp lights, the engine cuts off, PROG shows 68. The X in the window, then YES, ends the computer |
 
 `V37 E 00 E` ends any programme at any time and hands the controls back.
@@ -107,7 +107,7 @@ The key sequences in this section are all you need for a normal landing; section
 3. At 5 s before ignition `V99 N62` flashes. **PRO** again enables the engine.
 4. The engine lights and burns. There is nothing to key (`V16 N60 E` shows speeds and height if you want them).
 5. P64 starts by itself. **PRO** permits redesignation, then **W/S/A/D** move the aim point.
-6. P65 lands the ship by itself. To fly the rate of descent yourself, switch SAS on and tap **Shift** or **Ctrl** (P66).
+6. P65 lands the ship by itself. To fly the rate of descent yourself, switch SAS on and tap **H** or **N** (or **Shift** or **Ctrl**) (P66).
 7. After CONTACT, P68 shows your landing position. **PRO** ends it.
 
 ### What each programme displays
@@ -153,9 +153,9 @@ The top three terminal lines show a live readout: the descent rate in m/s (posit
 
 ### P66: you control the rate of descent
 
-Switch SAS on, then tap **Shift** (slower descent) or **Ctrl** (faster). Each tap is one rate-of-descent click of 1 ft/s, and the first starts P66. The throttle then holds your commanded rate and you fly the attitude yourself with SAS on. A click in AUTO (SAS off) is ignored, as in Luminary. With SAS off again, P66 turns back into P65 and the commanded rate is kept for the next P66.
+Switch SAS on, then tap **H** (slower descent) or **N** (faster). **Shift** and **Ctrl** do the same, as in 1.3.1 (`ROD_KEYS`, appendix A). Each tap is one rate-of-descent click of 1 ft/s, and the first starts P66. The throttle then holds your commanded rate and you fly the attitude yourself with SAS on. A click in AUTO (SAS off) is ignored, as in Luminary, and the terminal says so. With SAS off again, P66 turns back into P65 and the commanded rate is kept for the next P66. H and N are KSP's default fore and aft translation keys (the manual calls the ROD input by them); with RCS on they also fire the jets along the thrust axis for as long as you hold them, so tap rather than hold. If you have rebound those keys, the clicks follow your binding for fore/aft translation.
 
-You can ask for P66 early: with SAS on and the engine lit at full throttle, a **Shift** or **Ctrl** tap in P63 or P64 starts P66 as soon as P65 would. **PRO** or **ENTR** in P65 or P66 drops the steering target until you change the attitude mode.
+You can ask for P66 early: with SAS on and the engine lit at full throttle, an **H**, **N**, **Shift** or **Ctrl** tap in P63 or P64 starts P66 as soon as P65 would. **PRO** or **ENTR** in P65 or P66 drops the steering target until you change the attitude mode.
 
 ### Touchdown and P68
 
@@ -167,7 +167,7 @@ With the J-class profile (`RUN dsky.` prints `LUMINARY210`), P63 and P64 work as
 
 - The ignition point is lower and further out, so the planner puts the descent orbit's perilune, where PDI happens, about 1 km higher than for Apollo 11.
 - P64 starts shorter (the time-to-go step is -70 s, not -110 s), and each redesignation click moves the aim point **1°** on both axes.
-- **There is no P65.** When time to go falls below 12 s, P64 hands over straight to **P66**, which holds the descent rate the approach had and lets **Shift** and **Ctrl** change it by 1 ft/s a click, in AUTO or with SAS on. It also **nulls the horizontal speed** by itself, leaning the thrust against the drift (time constant about 7 s). The terminal shows the descent rate, the commanded rate and the horizontal speed.
+- **There is no P65.** When time to go falls below 12 s, P64 hands over straight to **P66**, which holds the descent rate the approach had and lets **H** and **N** (or **Shift** and **Ctrl**) change it by 1 ft/s a click, in AUTO or with SAS on. It also **nulls the horizontal speed** by itself, leaning the thrust against the drift (time constant about 7 s). The terminal shows the descent rate, the commanded rate and the horizontal speed.
 - The landing radar is not used below 50 ft (15 m), and `V57 E` is cleared there. P63 shows `V06 N63` flashing from ignition until you key `V57 E` (and again after `V58 E`); **PRO**, **ENTR** and `V34 E` are ignored while it flashes.
 - P66's `V06 N60` flashes throughout. `V34 E` ends it; **PRO** or `V32 E` switches the horizontal nulling off and the lander holds the last commanded direction.
 
@@ -189,6 +189,7 @@ The window copies the LM's DSKY: PROG (programme), VERB, NOUN and three data reg
 | KEY REL (key release) | a programme has a flashing request up and you have keyed over it. The **KEY REL** button gives the display back and shows the request again |
 | ALT, VEL | the landing radar's altitude or velocity data is not good (altitude above 12 km, velocity above 2000 ft/s, or a failed check) |
 | CONTACT | the lander has touched down |
+| ATT HOLD | SAS is on and the computer has recognised it (not a lamp on the real DSKY, the ATT HOLD switch was on the main panel). A ROD click (H, N, Shift or Ctrl) starts P66 while it is lit. It goes out when SAS goes off |
 
 The other lamps (UPLINK ACTY, uplink activity, lights during an uplink; NO ATT, STBY, TEMP, GIMBAL LOCK, RESTART and TRACKER never light).
 
@@ -206,7 +207,7 @@ Click the on-screen buttons. In this manual a single button is **bold**, and a k
 | **KEY REL** | Give the display back to a flashing request; with nothing flashing it only clears the lamp |
 | **+**, **-** | The signs in a keyed load |
 
-The keyboard also works while the kOS terminal has focus: V, N, digits, E (ENTR), P (PRO), C (CLR), R (RSET). Clicking needs no focus, so prefer it. The flying keys **W/S/A/D**, **Q/E**, **Shift** and **Ctrl** are KSP's own, read while the KSP window has focus.
+The keyboard also works while the kOS terminal has focus: V, N, digits, E (ENTR), P (PRO), C (CLR), R (RSET). Clicking needs no focus, so prefer it. The flying keys **W/S/A/D**, **Q/E**, **H**, **N**, **Shift** and **Ctrl** (the ROD clicks) are KSP's own, read while the KSP window has focus.
 
 ### Verbs and nouns
 
@@ -311,7 +312,8 @@ The defaults suit the RO LM. Settings live in a plain text file, `lm_config.txt`
 | `PAD_PROFILE` | `A11` | `A11` (Luminary 099) or `J` (Luminary 210): the software version, which picks the pad loads, programmes and store addresses. The planner menu sets it too, and a saved plan wins. With the uplink, set it to match the menu |
 | `DSKY_START` | `BLANK` | `BLANK` or `N60`: what the DSKY shows at start |
 | `P64_PITCH_SIGN`, `P64_YAW_SIGN` | 1, -1 | Flip (1 or -1) if a redesignation key moves the aim point the wrong way |
-| `P66_ROD_SIGN` | 1 | Flip if **Shift** and **Ctrl** change the rate of descent the wrong way |
+| `P66_ROD_SIGN` | 1 | Flip if **H** and **N** change the rate of descent the wrong way |
+| `ROD_KEYS` | BOTH | Which keys give ROD clicks: `BOTH` (H/N and Shift/Ctrl), `HN` (the translation keys only: the throttle lever is neither read nor written, for a pilot whose controller moves it) or `SHIFTCTRL` (the throttle lever only) |
 | `ALARMS` | `OFF` | Alarms replayed in the descent: `OFF`, `A11` (1202 at 301 s, 364 s, 585 s and 600 s and 1201 at 560 s after ignition; Apollo 11 software only) or your own list as `code@seconds`, for example `1202@315,1201@548` |
 | `BODY_NAME` | `Moon` | The body you land on |
 
@@ -346,7 +348,7 @@ The defaults suit the RO LM. Settings live in a plain text file, `lm_config.txt`
 
 - **A key moves the wrong way:** see the sign settings in section 8.
 - **P63 refuses to start:** see the table in section 7.
-- **Anything else:** the X in the DSKY window, then YES, ends the computer and gives you the controls. To report a bug, set `LM_LOG` to TRUE, fly again and send the logs from `0:/lm/logs/`.
+- **Anything else:** the X in the DSKY window, then YES, ends the computer and gives you the controls. Every ROD click is written to `0:/lm/logs/rod.log` whatever `LM_LOG` says. To report a bug, send that file, and set `LM_LOG` to TRUE, fly again and send the other logs from `0:/lm/logs/` too.
 
 ## Appendix A: Quick reference
 
@@ -375,7 +377,7 @@ The defaults suit the RO LM. Settings live in a plain text file, `lm_config.txt`
 |---|---|
 | **W/S** | P64, after **PRO**, SAS off: move the aim point 0.5° (J-class 1°) |
 | **A/D** | P64, after **PRO**, SAS off: move the aim point 2° (J-class 1°) |
-| **Shift** / **Ctrl** | P66: slower / faster descent, 1 ft/s a click. SAS on |
+| **H** or **Shift** / **N** or **Ctrl** | P66: slower / faster descent, 1 ft/s a click. SAS on |
 | SAS button | Off is AUTO (the computer steers); on is ATT HOLD (you hold the attitude) |
 
 **Nouns worth monitoring**
@@ -425,7 +427,7 @@ The defaults suit the RO LM. Settings live in a plain text file, `lm_config.txt`
 | LMDE | the LM's descent engine |
 | ullage | a small push (RCS) that settles the propellant at the tank outlets before the engine lights |
 | redesignation | moving the aim point, the spot the lander steers to, during P64 |
-| ROD | rate of descent; a ROD click is one tap of Shift or Ctrl in P66 |
+| ROD | rate of descent; a ROD click is one tap of H, N, Shift or Ctrl in P66 |
 | window mode (`UP`, `KEEP`) | whether the ship turns so its window faces the site (`UP`) or keeps its roll (`KEEP`) |
 | AUTO, ATT HOLD | the two attitude modes: the computer steers, or the crew holds attitude (the SAS button) |
 | clock zero | the mission time the AGC clock counts from |

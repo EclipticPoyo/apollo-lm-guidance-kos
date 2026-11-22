@@ -270,8 +270,16 @@ FUNCTION dvmon_reset {
   SET mon["T0"] TO -1.
 }
 
-FUNCTION rod_new {
+// A programme's ROD detector (rod_new) holds two independent detectors, so that one input never disturbs the other: the top level reads
+// the H and N keys (the lever-style level of rod_key_level), and rod["LV"] reads the throttle lever (Shift and Ctrl, the 1.3.1 input). Which
+// are fed is the ROD_KEYS setting (rod_feed). rod_take and rod_discard cover both.
+FUNCTION rod_base {
   RETURN LEXICON("REF", 0.5, "LAST", 0.5, "HELD", 0, "QUIET_SINCE", -1, "CLICKS", 0, "RECENTRE", FALSE).
+}
+FUNCTION rod_new {
+  LOCAL rod IS rod_base().
+  SET rod["LV"] TO rod_base().
+  RETURN rod.
 }
 
 // rod_sample: feed the lever value (0 to 1) of one moment; call it every 0.02 s. Returns the click this sample made: -1, 0 or 1,
@@ -312,22 +320,32 @@ FUNCTION rod_sample {
   RETURN click.
 }
 
-// ctl_rod_feed: read the throttle lever into the ROD click detector and re-centre it when the detector asks (call every 0.02 s; P63 and P64 use it
-// so a click can start P66 early, P65 has its own copy that also counts the samples).
+// ctl_rod_feed: read the ROD inputs into the click detectors (call every 0.02 s; P63 and P64 use it so a click can start P66 early, P65 and
+// J P66 call it from their own sample hook, which also counts the samples). ROD_KEYS says which inputs count: "BOTH" (default), "HN" (the H
+// and N keys only; the lever is neither read nor written) or "SHIFTCTRL" (the throttle lever only). The lever detector re-centres the lever
+// when it asks; the H/N detector writes nothing.
 FUNCTION ctl_rod_feed {
   PARAMETER rod.
-  rod_sample(rod, ctl_pilot_throttle(), TIME:SECONDS).
-  IF rod["RECENTRE"] {
-    SET rod["RECENTRE"] TO FALSE.
-    ctl_lever_centre().
+  LOCAL now_ut IS TIME:SECONDS.
+  IF ROD_KEYS <> "SHIFTCTRL" { rod_sample(rod, ctl_pilot_keys(), now_ut). }
+  IF ROD_KEYS <> "HN" AND rod:HASKEY("LV") {
+    rod_sample(rod["LV"], ctl_pilot_throttle(), now_ut).
+    IF rod["LV"]["RECENTRE"] {
+      SET rod["LV"]["RECENTRE"] TO FALSE.
+      ctl_lever_centre().
+    }
   }
 }
 
-// rod_take: the waiting clicks (signed sum), and the waiting count back to zero.
+// rod_take: the waiting clicks from both detectors (signed sum), and the waiting count back to zero.
 FUNCTION rod_take {
   PARAMETER rod.
   LOCAL n IS rod["CLICKS"].
   SET rod["CLICKS"] TO 0.
+  IF rod:HASKEY("LV") {
+    SET n TO n + rod["LV"]["CLICKS"].
+    SET rod["LV"]["CLICKS"] TO 0.
+  }
   RETURN n.
 }
 
@@ -335,6 +353,16 @@ FUNCTION rod_take {
 FUNCTION rod_discard {
   PARAMETER rod.
   SET rod["CLICKS"] TO 0.
+  IF rod:HASKEY("LV") { SET rod["LV"]["CLICKS"] TO 0. }
+}
+
+// rod_log: one line to ROD_LOG_PATH for every ROD click a programme took (used or thrown away, and why), so a report such as "SAS was on
+// and the clicks did nothing" can be read back from the log. Always on (not tied to LM_LOG: it is one short line per click, and it is the log
+// that answers an input report), but only with a ship (not on the pad: CTL_DRY).
+GLOBAL ROD_LOG_PATH IS "0:/lm/logs/rod.log".
+FUNCTION rod_log {
+  PARAMETER text.
+  IF NOT CTL_DRY { LOG ROUND(TIME:SECONDS, 2) + " " + text TO ROD_LOG_PATH. }
 }
 
 // ---- Contact and engine cut-off (milestone 5; pure) ----------------------------------------------------------------------
@@ -447,6 +475,25 @@ FUNCTION ctl_pilot_yaw {
   RETURN SHIP:CONTROL:PILOTYAW.
 }
 
+// rod_key_level: the ROD input as a lever-style level for rod_sample (pure). fore_in is the pilot's fore/aft translation input,
+// -1, 0 or 1 (SHIP:CONTROL:PILOTFORE: H is +1, N is -1 with KSP's default keys; probe_translation.ks: exact steps, same with RCS on
+// or off). H gives 0.6, N gives 0.4, anything else 0.5, so a press is a step of 0.1 from the reference: a click for rod_sample and
+// well under its ROD_LEVER_JUMP.
+FUNCTION rod_key_level {
+  PARAMETER fore_in.
+  IF fore_in >= 0.5 { RETURN 0.6. }
+  IF fore_in <= -0.5 { RETURN 0.4. }
+  RETURN 0.5.
+}
+
+// ctl_pilot_keys: the H and N ROD input level, 0.4 / 0.5 / 0.6 (see rod_key_level). Added in 1.3.2 because a pilot whose throttle keys did
+// nothing could not click (reported on 1.3.1), and the lever has to be written back to centre, which a controller axis can fight. The
+// translation keys are read-only. 0.5 (no key) on the pad (CTL_DRY).
+FUNCTION ctl_pilot_keys {
+  IF CTL_DRY { RETURN 0.5. }
+  RETURN rod_key_level(SHIP:CONTROL:PILOTFORE).
+}
+
 // ctl_pilot_throttle: the throttle lever, 0 to 1 (SHIP:CONTROL:PILOTMAINTHROTTLE: Shift raises it, Ctrl lowers it, 0.5 per second,
 // even while the programme's LOCK THROTTLE is active: probe_rod.ks). 0.5 (centred) on the pad (CTL_DRY).
 FUNCTION ctl_pilot_throttle {
@@ -454,16 +501,17 @@ FUNCTION ctl_pilot_throttle {
   RETURN SHIP:CONTROL:PILOTMAINTHROTTLE.
 }
 
+// ctl_lever_centre: put the throttle lever back to 0.5 so both keys have room (writing it sticks: probe_rod.ks). Nothing on the pad, and
+// nothing when ROD_KEYS is "HN" (the lever is then left alone).
+FUNCTION ctl_lever_centre {
+  IF CTL_DRY OR ROD_KEYS = "HN" { RETURN. }
+  SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0.5.
+}
+
 // ctl_status: the ship's status text (SHIP:STATUS: "LANDED", "SPLASHED", "FLYING", "SUB_ORBITAL", ...). CTL_DRY_STATUS on the pad (CTL_DRY).
 FUNCTION ctl_status {
   IF CTL_DRY { RETURN CTL_DRY_STATUS. }
   RETURN SHIP:STATUS.
-}
-
-// ctl_lever_centre: put the throttle lever back to 0.5 so both keys have room (writing it sticks: probe_rod.ks). Nothing on the pad.
-FUNCTION ctl_lever_centre {
-  IF CTL_DRY { RETURN. }
-  SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0.5.
 }
 
 // ctl_engine_off: shut the engine down (Engine:SHUTDOWN) and the throttle command to zero. Nothing on the pad.

@@ -12,7 +12,7 @@ RUNONCEPATH("0:/lm/lm_alarms.ks").          // alarm_script_parse, to check the 
 
 GLOBAL CFG_PATH IS "0:/lm/lm_config.txt".
 GLOBAL CFG_WARNINGS IS LIST().
-GLOBAL CFG_NAMES IS LIST("LM_LOG", "DSKY_START", "P63_WINDOW_MODE", "P63_WARP_LEAD_S", "P64_PITCH_SIGN", "P64_YAW_SIGN", "P66_ROD_SIGN", "BODY_NAME", "PAD_PROFILE", "ALARMS").
+GLOBAL CFG_NAMES IS LIST("LM_LOG", "DSKY_START", "P63_WINDOW_MODE", "P63_WARP_LEAD_S", "P64_PITCH_SIGN", "P64_YAW_SIGN", "P66_ROD_SIGN", "BODY_NAME", "PAD_PROFILE", "ALARMS", "ROD_KEYS").
 
 // cfg_apply_line: apply one line of the file. Returns "" when the line was empty, a comment or applied, else the reason it
 // was skipped (also added to CFG_WARNINGS).
@@ -44,6 +44,10 @@ FUNCTION cfg_apply_line {
   IF key = "PAD_PROFILE" {
     IF value:TOUPPER = "A11" OR value:TOUPPER = "J" { SET PAD_PROFILE TO value:TOUPPER. RETURN "". }
     RETURN cfg_skip(raw_line, "PAD_PROFILE must be A11 or J").
+  }
+  IF key = "ROD_KEYS" {
+    IF value:TOUPPER = "BOTH" OR value:TOUPPER = "HN" OR value:TOUPPER = "SHIFTCTRL" { SET ROD_KEYS TO value:TOUPPER. RETURN "". }
+    RETURN cfg_skip(raw_line, "ROD_KEYS must be BOTH, HN or SHIFTCTRL").
   }
   IF key = "ALARMS" {
     IF alarm_script_parse(value, "A11"):ISTYPE("Boolean") { RETURN cfg_skip(raw_line, "ALARMS must be OFF, A11 or a list like 1202@315,1201@548"). }

@@ -3,6 +3,15 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
+## 1.3.2 (2026-11-22, ROD click keys)
+
+A patch release for a report that, with SAS on, ROD clicks did not take P65 to P66 (the reporter's throttle keys did nothing). The clicks now have a second input, the diagnostics say what a dropped click was, and `rod.log` records every click.
+
+### Changed
+- **ATT HOLD lamp** in the DSKY window (the free slot at the bottom of the left column): lit while the computer sees SAS on, so you know a ROD click will start P66. Not a real DSKY lamp; it stands in for the ATT HOLD switch's position.
+- **ROD clicks can be given with H and N** (KSP's fore and aft translation keys; H slower, N faster) as well as Shift and Ctrl. A pilot whose throttle keys did nothing could not start P66 (reported on 1.3.1), and the throttle lever has to be written back to centre, which a controller axis can fight. The two inputs have separate detectors, so one never disturbs the other. The new `ROD_KEYS` setting picks `BOTH` (default), `HN` (the lever is then neither read nor written) or `SHIFTCTRL` (as 1.3.1). With RCS on, H and N also fire the jets along the thrust axis while held. `P66_ROD_SIGN` flips the direction.
+- A ROD click that cannot be used now says why in the terminal (SAS off, engine not lit and zoomed in P63, no valid navigation state in P65), and every click is written to `rod.log` (always, whatever `LM_LOG` says; the other logs still need `LM_LOG`). This is for a report that SAS was on and the clicks did nothing; it changes no flight behaviour.
+
 ## 1.3.1 (2026-11-17, landing aids)
 
 The landing gets closer to Luminary 099 and 210: an alarm facility, a pending-request mechanism with a working KEY REL, the procedure verbs and radar nouns, the flashing displays Luminary has at the P63 start, in P64 and in the J-class P63 and P66, P66 returning to P65, and P68. It is a patch release: the burn programmes are 1.4.

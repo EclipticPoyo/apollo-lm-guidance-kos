@@ -202,6 +202,11 @@ assert_true("LM vehicle: P63 hands over to P64, P64 to P65 (J: P66), P65 and P66
             AND lmv["PROGRAMMES"]["65"]["NEXT"] = 68 AND lmv["PROGRAMMES"]["66"]["NEXT"] = 68 AND lmv["PROGRAMMES"]["68"]["NEXT"] = -1).
 assert_true("LM vehicle: P63, P64 and P65 have a SAMPLE hook (the ROD lever is read from P63 on)",
             NOT lmv["PROGRAMMES"]["63"]["SAMPLE"]:ISTYPE("Boolean") AND NOT lmv["PROGRAMMES"]["64"]["SAMPLE"]:ISTYPE("Boolean") AND NOT lmv["PROGRAMMES"]["65"]["SAMPLE"]:ISTYPE("Boolean")).
+assert_true("LM vehicle: the ATT HOLD lamp key is in the lamp table", lmv["LAMPS"]["ATT_HOLD"] = "ATTHOLD").
+assert_true("ATT HOLD lamp: lit when the attitude mode is HOLD", lm_att_lamp(LEXICON(), LEXICON("ATT", LEXICON("MODE", "HOLD")))["ATT_HOLD"]).
+assert_true("ATT HOLD lamp: dark in AUTO", NOT lm_att_lamp(LEXICON(), LEXICON("ATT", LEXICON("MODE", "AUTO")))["ATT_HOLD"]).
+assert_true("ATT HOLD lamp: dark when the programme has no attitude mode", NOT lm_att_lamp(LEXICON(), LEXICON())["ATT_HOLD"]).
+assert_true("ATT HOLD lamp: keeps the step's other keys", lm_att_lamp(LEXICON("MSG", "x"), LEXICON())["MSG"] = "x").
 assert_true("LM vehicle: no CONTACT lamp idle before a landing", NOT lmv["IDLE_LAMPS"]:CALL("00")["CONTACT"]).
 SET LM_VEH["LANDED_POS"] TO LEXICON("LAT", 0, "LNG", 0, "ALT", 0).
 assert_true("LM vehicle: CONTACT stays lit after P68 (the landing position is kept)", lmv["IDLE_LAMPS"]:CALL("00")["CONTACT"]).

@@ -23,8 +23,12 @@
 // P64_PITCH_SIGN = 1
 // P64_YAW_SIGN = -1
 
-// Flip (1 or -1) if Shift/Ctrl in P66 change the rate of descent the wrong way.
+// Flip (1 or -1) if H/N and Shift/Ctrl in P66 change the rate of descent the wrong way.
 // P66_ROD_SIGN = 1
+
+// Which keys give rate-of-descent clicks: BOTH (H and N, and Shift and Ctrl), HN (the translation keys only; the throttle lever is left alone,
+// use it if a controller moves your throttle) or SHIFTCTRL (the throttle lever only, as 1.3.1).
+// ROD_KEYS = BOTH
 
 // The flight software version: A11 (Luminary 099, Apollo 11) or J (Luminary 210, Apollo 15 to 17). The planner window sets it too;
 // a saved plan carries it and wins over this setting.

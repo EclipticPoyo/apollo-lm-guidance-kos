@@ -1,7 +1,7 @@
 // lm_p65.ks -- the P65 and P66 programmes (milestone 5): final descent and the pilot's rate-of-descent control.
 //   p65_start(prog)                      takes P64's programme state over (engine, attitude mode, deadband, radar and window
 //                                        bookkeeping carry on without a gap) and returns it as the P65 state
-//   p65_sample(prog)                     read the throttle lever into the ROD click detector (call every 0.02 s)
+//   p65_sample(prog)                     read the ROD keys (H and N) into the click detector (call every 0.02 s)
 //   p65_step(prog, state, derived, ks)   one cycle; returns what the main loop shows (the same keys as p64_step, plus CONTACT)
 //   p65_end(prog)                        gives the controls back (the same as P63's)
 //
@@ -17,7 +17,7 @@
 //   Contact: the CONTACT lamp lights at touchdown (contact_test) and the engine is cut off P66_CUTOFF_DELAY_S later unless the
 //   pilot stopped it first; the programme then hands over to P68 (landing confirmation, lm_p68.ks).
 //
-// Simplifications (spec section 11): the throttle lever's Shift and Ctrl keys stand in for the ROD switch; ROD clicks are applied
+// Simplifications (spec section 11): the H and N translation keys stand in for the ROD switch; ROD clicks are applied
 // every cycle (Luminary applies them once a second); the engine is cut off automatically after contact (the crew did it by hand);
 // contact comes from the ship's status (no contact probes); no P67, no landing radar reasonableness test.
 
@@ -30,7 +30,7 @@ RUNONCEPATH("0:/lm/descent/lm_p63.ks").                 // burn_shared_step and 
 GLOBAL P65_LOG_PATH IS "0:/lm/logs/p65.log".          // one line per cycle, read back after a flight
 
 // p65_start: P64 has just reported HANDOVER. prog is P64's programme lexicon and is changed and returned as P65's. The guidance
-// axes P64 left (gp["CG"]) stay frozen for the vertical phase; the throttle lever is centred so both keys have room.
+// axes P64 left (gp["CG"]) stay frozen for the vertical phase.
 FUNCTION p65_start {
   PARAMETER prog.
   SET prog["PROG_NO"] TO 65.
@@ -60,16 +60,12 @@ FUNCTION p65_start {
   RETURN prog.
 }
 
-// p65_sample: read the throttle lever into the ROD click detector and re-centre it when the detector asks. The main loop calls it
-// every 0.02 s so a key tap shorter than one 0.25 s cycle still counts.
+// p65_sample: read the ROD keys (H and N) into the click detector. The main loop calls it every 0.02 s so a key tap shorter than
+// one 0.25 s cycle still counts.
 FUNCTION p65_sample {
   PARAMETER prog.
   SET prog["SAMPLES"] TO prog["SAMPLES"] + 1.
-  rod_sample(prog["ROD"], ctl_pilot_throttle(), TIME:SECONDS).
-  IF prog["ROD"]["RECENTRE"] {
-    SET prog["ROD"]["RECENTRE"] TO FALSE.
-    ctl_lever_centre().
-  }
+  ctl_rod_feed(prog["ROD"]).
 }
 
 // p65_trimmed: the throttle to command: the one guidance gave, or, when a low thrust is wanted (under THR_TRIM_BAND) and the engine
@@ -109,9 +105,17 @@ FUNCTION p65_step {
   LOCAL sas_now IS ctl_sas_read(prog["ATT"]["MODE"] = "HOLD").
   // ROD clicks are used only in ATT HOLD (SAS on): in AUTO the click count is zeroed every pass (source 224-225).
   IF clicks <> 0 AND NOT sas_now {
+    rod_log("p65 mode " + prog["MODE"] + " clicks " + clicks + " sas FALSE -> SAS OFF").
     SET clicks TO 0.
     SET msg TO "ROD CLICK IGNORED IN AUTO: SWITCH SAS ON (ATT HOLD) FIRST, AS IN THE LM.".
   }
+  // A click while the navigation state is not valid cannot be used (P66 needs HDOT): say so instead of dropping it silently.
+  IF clicks <> 0 AND NOT derived["VALID"] {
+    SET clicks TO 0.
+    SET msg TO "ROD CLICK IGNORED: NO VALID STATE.".
+    rod_log("p65 mode " + prog["MODE"] + " sas " + sas_now + " valid FALSE -> NO VALID STATE").
+  }
+  IF clicks <> 0 { rod_log("p65 mode " + prog["MODE"] + " clicks " + clicks + " sas " + sas_now + " -> USED"). }
   // P66 lasts only while SAS is on (audit L1): with SAS off the programme is P65 again, with the commanded rate kept for the next P66.
   IF prog["MODE"] = "P66" AND NOT sas_now {
     SET prog["MODE"] TO "P65".

@@ -85,6 +85,7 @@ FUNCTION p63_start {
   IF ign["TIG"] < now_ut + P63_MIN_LEAD_S { RETURN p63_refuse("the ignition time is less than " + P63_MIN_LEAD_S + " s away"). }
   LOCAL win0_vec IS ctl_window_face_vec().
   ctl_start().
+  IF EXISTS(ROD_LOG_PATH) { DELETEPATH(ROD_LOG_PATH). }     // rod.log is always written (one line per ROD click), whatever LM_LOG says
   IF LM_LOG {
   IF EXISTS(P63_LOG_PATH) { DELETEPATH(P63_LOG_PATH). }
   LOG "UT,STATE,TTOGO,TGO,ALARM,THR,MODE,ALT_RADAR,HCALC,ABVEL,HDOT,RGU_X,RGU_Y,RGU_Z,VGU_X,VGU_Y,VGU_Z,ATT_ERR_DEG,ALT_LAMP,VEL_LAMP,DV_GAINED,THRUST_FRAC,STEER_LOCKED" TO P63_LOG_PATH.
@@ -207,6 +208,7 @@ FUNCTION p63_step {
   // A ROD click with SAS on, once the engine is lit and zoomed, asks for P66 at once: P63 hands over to P64, which hands over to P65, which starts in P66.
   LOCAL rod_msg IS "".
   IF burn_rod_start(prog, prog["ENGINE_LIT"] AND prog["ZOOMED"]) { SET rod_msg TO "P63: ROD CLICK WITH SAS ON. P66 RATE OF DESCENT IS ASKED FOR.". }
+  IF prog:HASKEY("ROD_DROP") AND prog["ROD_DROP"] <> "" AND msg = "" { SET msg TO prog["ROD_DROP"]. }
   IF prog["ZOOMED"] AND ((gp:HASKEY("HANDOFF") AND gp["HANDOFF"]) OR prog["ROD_START"]) AND prog["HANDOFF_T"] < 0 {
     SET prog["HANDOFF_T"] TO now_ut.
     SET handover TO TRUE.
@@ -261,16 +263,21 @@ FUNCTION p63_step {
                  "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 63).
 }
 
-// burn_rod_start: the ROD clicks waiting from the throttle lever (prog["ROD"], P63 and P64 only) start P66 early: a click made with SAS on (ATT HOLD),
-// and with the engine lit and zoomed when engine_ok says so, sets prog["ROD_START"] (P65 then starts in P66). Any other click is thrown away with no
-// message (in AUTO the click count is zeroed every pass, as in P66). Returns TRUE the cycle the flag is set. A programme with no ROD (the J set) is ignored.
+// burn_rod_start: the ROD clicks waiting from the H and N keys (prog["ROD"], P63 and P64 only) start P66 early: a click made with SAS on (ATT HOLD),
+// and with the engine lit and zoomed when engine_ok says so, sets prog["ROD_START"] (P65 then starts in P66). Any other click is thrown away (in AUTO the
+// click count is zeroed every pass, as in P66) and prog["ROD_DROP"] says why, for the caller's message. Returns TRUE the cycle the flag is set. A programme with no ROD (the J set) is ignored.
 FUNCTION burn_rod_start {
   PARAMETER prog, engine_ok.
   IF NOT prog:HASKEY("ROD") { RETURN FALSE. }
+  // ROD_DROP says why a click was thrown away this cycle ("" when none was, or it was used); the caller shows it. Every click taken is logged (rod_log).
+  SET prog["ROD_DROP"] TO "".
   LOCAL clicks IS rod_take(prog["ROD"]).
   IF clicks = 0 OR prog["ROD_START"] { RETURN FALSE. }
-  IF NOT engine_ok { RETURN FALSE. }
-  IF NOT ctl_sas_read(prog["ATT"]["MODE"] = "HOLD") { RETURN FALSE. }
+  LOCAL sas_now IS ctl_sas_read(prog["ATT"]["MODE"] = "HOLD").
+  IF NOT engine_ok { SET prog["ROD_DROP"] TO "ROD CLICK IGNORED: ENGINE NOT LIT AND ZOOMED YET.". }
+  ELSE IF NOT sas_now { SET prog["ROD_DROP"] TO "ROD CLICK IGNORED: SAS IS OFF (AUTO). TURN SAS ON FIRST.". }
+  rod_log("burn clicks " + clicks + " sas " + sas_now + " engine_ok " + engine_ok + " -> " + (CHOOSE "USED" IF prog["ROD_DROP"] = "" ELSE prog["ROD_DROP"])).
+  IF prog["ROD_DROP"] <> "" { RETURN FALSE. }
   SET prog["ROD_START"] TO TRUE.
   RETURN TRUE.
 }

@@ -161,7 +161,7 @@ FUNCTION p64_start {
 FUNCTION p64_sample {
   PARAMETER prog.
   clk_sample(prog["CLK"], ctl_pilot_pitch(), ctl_pilot_yaw()).
-  IF prog:HASKEY("ROD") { ctl_rod_feed(prog["ROD"]). }          // the throttle lever too: a ROD click with SAS on starts P66 early
+  IF prog:HASKEY("ROD") { ctl_rod_feed(prog["ROD"]). }          // the ROD keys too: a ROD click with SAS on starts P66 early
 }
 
 // p64_apply_clicks: use the clicks that have built up since the last cycle. They are used only when the pilot has pressed PRO,
@@ -216,6 +216,7 @@ FUNCTION p64_step {
   }
   // A ROD click with SAS on asks for P66 at once (P65 then starts in P66); the handover below does not wait for the end of the approach.
   IF burn_rod_start(prog, TRUE) { SET msg TO "P64: ROD CLICK WITH SAS ON. P66 RATE OF DESCENT IS ASKED FOR.". }
+  ELSE IF prog:HASKEY("ROD_DROP") AND prog["ROD_DROP"] <> "" { SET msg TO prog["ROD_DROP"]. }
   p64_apply_clicks(prog, state).               // no terminal message per click: the look angle (R1) and the site vector show it
   // Once, when the redesignation window closes (about 34 s to go), say that the aim point is now fixed.
   IF NOT prog["REDES_ENDED"] AND NOT p64_redes_open(prog["TGO"]) {

@@ -283,7 +283,7 @@ FUNCTION lm_p64_start {
 FUNCTION lm_p65_start {
   PARAMETER prev.
   LOCAL started IS p65_start(prev).
-  PRINT "P65 started: automatic landing. SAS on plus a Shift or Ctrl tap starts P66; SAS off returns to P65.".
+  PRINT "P65 started: automatic landing. SAS on plus an H or N tap (or Shift or Ctrl) starts P66; SAS off returns to P65.".
   RETURN started.
 }
 
@@ -291,26 +291,33 @@ FUNCTION lm_p65_start {
 FUNCTION lm_p66_start {
   PARAMETER prev.
   LOCAL started IS j_p66_start(prev).
-  PRINT "P66 started: rate of descent, horizontal speed nulled automatically. Shift or Ctrl taps change the rate.".
+  PRINT "P66 started: rate of descent, horizontal speed nulled automatically. H or N taps (or Shift or Ctrl) change the rate.".
   RETURN started.
 }
 
 // The core hands a step the nav LEXICON; the programmes take its STATE and DERIVED parts.
+// lm_att_lamp: add the ATT HOLD lamp to a step's output: lit while the programme's attitude mode is HOLD, which is the SAS button being on
+// (att_step). It is what the pilot's SAS click is "recognised" as: the lamp lights when the computer has seen SAS on, and a ROD click can start P66.
+FUNCTION lm_att_lamp {
+  PARAMETER out, prog.
+  SET out["ATT_HOLD"] TO prog:HASKEY("ATT") AND prog["ATT"]["MODE"] = "HOLD".
+  RETURN out.
+}
 FUNCTION lm_p63_step {
   PARAMETER prog, nav, ks.
   IF LM_VEH["PROFILE"] = "J" {
     SET prog["LR_PERMIT"] TO LM_VEH["LR_PERMIT"].          // V57 and V58 (the J display waits for the permit)
-    RETURN j_p63_step(prog, nav["STATE"], nav["DERIVED"], ks).
+    RETURN lm_att_lamp(j_p63_step(prog, nav["STATE"], nav["DERIVED"], ks), prog).
   }
-  RETURN p63_step(prog, nav["STATE"], nav["DERIVED"], ks).
+  RETURN lm_att_lamp(p63_step(prog, nav["STATE"], nav["DERIVED"], ks), prog).
 }
 FUNCTION lm_p64_step {
   PARAMETER prog, nav, ks.
-  IF LM_VEH["PROFILE"] = "J" { RETURN j_p64_step(prog, nav["STATE"], nav["DERIVED"], ks). }
-  RETURN p64_step(prog, nav["STATE"], nav["DERIVED"], ks).
+  IF LM_VEH["PROFILE"] = "J" { RETURN lm_att_lamp(j_p64_step(prog, nav["STATE"], nav["DERIVED"], ks), prog). }
+  RETURN lm_att_lamp(p64_step(prog, nav["STATE"], nav["DERIVED"], ks), prog).
 }
-FUNCTION lm_p65_step { PARAMETER prog, nav, ks. RETURN p65_step(prog, nav["STATE"], nav["DERIVED"], ks). }
-FUNCTION lm_p66_step { PARAMETER prog, nav, ks. RETURN j_p66_step(prog, nav["STATE"], nav["DERIVED"], ks). }
+FUNCTION lm_p65_step { PARAMETER prog, nav, ks. RETURN lm_att_lamp(p65_step(prog, nav["STATE"], nav["DERIVED"], ks), prog). }
+FUNCTION lm_p66_step { PARAMETER prog, nav, ks. RETURN lm_att_lamp(j_p66_step(prog, nav["STATE"], nav["DERIVED"], ks), prog). }
 
 // END and SAMPLE adapters (P63's END is the same for both sets; the J functions only differ in their names).
 FUNCTION lm_p63_end {
@@ -323,7 +330,7 @@ FUNCTION lm_p64_end {
 }
 FUNCTION lm_p63_sample {
   PARAMETER prog.
-  IF prog:HASKEY("ROD") { ctl_rod_feed(prog["ROD"]). }          // the throttle lever: a ROD click with SAS on starts P66 early (the A11 set only)
+  IF prog:HASKEY("ROD") { ctl_rod_feed(prog["ROD"]). }          // the ROD keys (H and N): a ROD click with SAS on starts P66 early (the A11 set only)
 }
 FUNCTION lm_p64_sample {
   PARAMETER prog.
@@ -491,7 +498,7 @@ FUNCTION lm_vehicle_new {
     "NOUN_REGS", lm_noun_registers@,
     "NAV", lm_veh_nav@,
     "HOOK", lm_veh_hook@,
-    "LAMPS", LEXICON("KEY_REL", "KEYREL", "ALT_LAMP", "ALT", "VEL_LAMP", "VEL", "CONTACT", "CONTACT"),
+    "LAMPS", LEXICON("KEY_REL", "KEYREL", "ALT_LAMP", "ALT", "VEL_LAMP", "VEL", "CONTACT", "CONTACT", "ATT_HOLD", "ATTHOLD"),
     "IDLE_LAMPS", lm_idle_lamps@,
     "STICKY_PROGS", LIST(),                       // after P68 ends PROG goes to 00 as in Luminary (GOTOPOOH)
     "END_REQUEST", LEXICON("VERB", 37, "NOUN", 99),          // the flashing V37 N99 request after a programme ends (Luminary GOP00FIX)

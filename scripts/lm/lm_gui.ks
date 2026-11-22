@@ -395,7 +395,7 @@ FUNCTION gui_fill {
   // The seven rows still fill the panel from top to bottom: the space the shorter lamps leave is shared out as
   // equal gaps. Each lamp's top margin makes the gap above it, its bottom margin is 0 (set below).
   LOCAL lamp_gap IS FLOOR((GUI_PANEL_H - 2 * GUI_LAMP_INSET - 7 * lamp_h) / 6).
-  LOCAL left_names IS LIST("UPLINK ACTY", "NO ATT", "STBY", "KEY REL", "OPR ERR", "CONTACT", "").   // CONTACT: the P65/P66 touchdown lamp (on the real LM it was on the main panel, not the DSKY)
+  LOCAL left_names IS LIST("UPLINK ACTY", "NO ATT", "STBY", "KEY REL", "OPR ERR", "CONTACT", "ATT HOLD").   // CONTACT: the P65/P66 touchdown lamp (on the real LM it was on the main panel, not the DSKY). ATT HOLD: SAS is on and the computer has recognised it (not an Apollo DSKY lamp: the ATT HOLD switch was on the main panel)
   LOCAL right_names IS LIST("TEMP", "GIMBAL LOCK", "PROG", "RESTART", "TRACKER", "ALT", "VEL").
   SET ui["LAMPS"] TO LEXICON().
   SET ui["LAMP_LIT"] TO LEXICON().
@@ -575,7 +575,7 @@ FUNCTION gui_entry_text {
 
 // gui_update: same inputs as display_update in dsky_display.ks. flags: "PROG" and "OPRERR" (lamps), "MODE"
 // ("", "V" or "N"), "VBUF" and "NBUF" (digits typed so far); flags_from_keys in dsky_keys.ks builds it, and the core adds "REGS" (three register texts).
-// Optional flags, added by the P63 programme (each is ignored when absent): "KEYREL", "ALT", "VEL", "CONTACT" (lamps),
+// Optional flags, added by the P63 programme (each is ignored when absent): "KEYREL", "ALT", "VEL", "CONTACT", "ATTHOLD" (lamps),
 // "BLANK" (blank every display for the countdown) and "FLASH" (the
 // verb and noun flash together, the V99 "please enable engine" prompt).
 FUNCTION gui_update {
@@ -604,6 +604,7 @@ FUNCTION gui_update {
   IF flags:HASKEY("ALT") { gui_lamp_set(ui, "ALT", flags["ALT"]). }
   IF flags:HASKEY("VEL") { gui_lamp_set(ui, "VEL", flags["VEL"]). }
   IF flags:HASKEY("CONTACT") { gui_lamp_set(ui, "CONTACT", flags["CONTACT"]). }
+  IF flags:HASKEY("ATTHOLD") { gui_lamp_set(ui, "ATT HOLD", flags["ATTHOLD"]). }
   // BLANK (TIG-35 to TIG-30): every display goes dark; COMP ACTY is left as it is.
   IF flags:HASKEY("BLANK") AND flags["BLANK"] {
     gui_set_cells(ui["PROG"], "").

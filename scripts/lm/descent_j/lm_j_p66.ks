@@ -1,7 +1,7 @@
 // lm_j_p66.ks -- the J-class P66 programme (Luminary 210, Apollo 15 to 17): rate of descent with horizontal velocity nulling.
 //   j_p66_start(prog)                      takes P64's programme state over (engine, attitude mode, radar and window bookkeeping carry
 //                                          on without a gap) and returns it as the P66 state
-//   j_p66_sample(prog)                     read the throttle lever into the ROD click detector (call every 0.02 s)
+//   j_p66_sample(prog)                     read the ROD keys (H and N) into the click detector (call every 0.02 s)
 //   j_p66_step(prog, state, derived, ks)   one cycle; returns what the main loop shows (the same keys as j_p64_step, plus CONTACT)
 //   j_p66_end(prog)                        gives the controls back (the same as P63's)
 //
@@ -15,7 +15,7 @@
 // ROD clicks are used in any attitude mode in 210's P66 (the click count is zeroed every pass only in P63 and P64, GUILDRET,
 // source 231-232), so there is no "switch SAS on first" rule as in the 099 P66.
 //
-// Simplifications (spec section 11, as 1.0): the throttle lever's Shift and Ctrl keys stand in for the ROD switch; ROD clicks are
+// Simplifications (spec section 11, as 1.0): the H and N translation keys stand in for the ROD switch; ROD clicks are
 // applied every cycle (Luminary applies them once a second); the engine is cut off automatically after contact (the crew did it by
 // hand), so the programme ends at the cut-off and the PROCEED that ends the horizontal channel after touchdown (STOPFIRE) is not
 // needed; contact comes from the ship's status (no contact probes); no landing radar reasonableness test.
@@ -35,7 +35,7 @@ RUNONCEPATH("0:/lm/descent_j/lm_j_p63.ks").                 // j_burn_shared_ste
 GLOBAL J_P66_LOG_PATH IS "0:/lm/logs/j_p66.log".          // one line per cycle, read back after a flight
 
 // j_p66_start: P64 has just reported HANDOVER. prog is P64's programme lexicon and is changed and returned as P66's. The guidance
-// axes P64 left (gp["CG"]) stay frozen for the vertical phase; the throttle lever is centred so both keys have room. VDG is set
+// axes P64 left (gp["CG"]) stay frozen for the vertical phase. VDG is set
 // on the first step that has valid data (it is the descent rate then, source 162-163).
 FUNCTION j_p66_start {
   PARAMETER prog.
@@ -66,16 +66,12 @@ FUNCTION j_p66_start {
   RETURN prog.
 }
 
-// j_p66_sample: read the throttle lever into the ROD click detector and re-centre it when the detector asks. The main loop calls it
-// every 0.02 s so a key tap shorter than one 0.25 s cycle still counts.
+// j_p66_sample: read the ROD keys (H and N) into the click detector. The main loop calls it every 0.02 s so a key tap shorter than
+// one 0.25 s cycle still counts.
 FUNCTION j_p66_sample {
   PARAMETER prog.
   SET prog["SAMPLES"] TO prog["SAMPLES"] + 1.
-  rod_sample(prog["ROD"], ctl_pilot_throttle(), TIME:SECONDS).
-  IF prog["ROD"]["RECENTRE"] {
-    SET prog["ROD"]["RECENTRE"] TO FALSE.
-    ctl_lever_centre().
-  }
+  ctl_rod_feed(prog["ROD"]).
 }
 
 // j_p66_trimmed: the throttle to command: the one guidance gave, or, when a low thrust is wanted (under THR_TRIM_BAND) and the engine

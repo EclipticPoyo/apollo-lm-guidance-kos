@@ -91,6 +91,44 @@ assert_near("rod: zero mass keeps the throttle", rd["THR"], 0.4, 0).
 SET rd TO guid_rod_throttle(-2, -2, 1, rd_m, 0, 0.4, 1.62, 1.62).
 assert_near("rod: zero thrust keeps the throttle", rd["THR"], 0.4, 0).
 
+// ---- ROD clicks from the H and N translation keys (probe_translation.ks: PILOTFORE reads exactly -1, 0 or 1) ----------
+assert_near("rod key: H (fore +1) is level 0.6", rod_key_level(1), 0.6, 0.0001).
+assert_near("rod key: N (fore -1) is level 0.4", rod_key_level(-1), 0.4, 0.0001).
+assert_near("rod key: no key is level 0.5", rod_key_level(0), 0.5, 0.0001).
+assert_near("rod key: a small input is no key", rod_key_level(0.2), 0.5, 0.0001).
+LOCAL rk IS rod_new().
+LOCAL rk_t IS 0.
+rod_sample(rk, 0.5, rk_t).
+FROM { LOCAL i IS 0. } UNTIL i >= 2 STEP { SET i TO i + 1. } DO { SET rk_t TO rk_t + 0.02. rod_sample(rk, rod_key_level(1), rk_t). }   // a 0.04 s H tap
+FROM { LOCAL i IS 0. } UNTIL i >= 6 STEP { SET i TO i + 1. } DO { SET rk_t TO rk_t + 0.02. rod_sample(rk, rod_key_level(0), rk_t). }
+assert_near("rod key: a short H tap is one click", rod_take(rk), P66_ROD_SIGN, 0).
+FROM { LOCAL i IS 0. } UNTIL i >= 2 STEP { SET i TO i + 1. } DO { SET rk_t TO rk_t + 0.02. rod_sample(rk, rod_key_level(-1), rk_t). }  // a 0.04 s N tap
+FROM { LOCAL i IS 0. } UNTIL i >= 6 STEP { SET i TO i + 1. } DO { SET rk_t TO rk_t + 0.02. rod_sample(rk, rod_key_level(0), rk_t). }
+assert_near("rod key: a short N tap is one click the other way", rod_take(rk), -P66_ROD_SIGN, 0).
+FROM { LOCAL i IS 0. } UNTIL i >= 4 STEP { SET i TO i + 1. } DO { SET rk_t TO rk_t + 0.02. rod_sample(rk, rod_key_level(1), rk_t). }   // H held 0.08 s: still one click
+assert_near("rod key: H held is one click", rod_take(rk), P66_ROD_SIGN, 0).
+
+// ---- both inputs at once: rod["LV"] is the throttle lever detector, the top level reads H and N; rod_take sums them, neither disturbs the other ----
+LOCAL rb IS rod_new().
+assert_true("rod_new holds a second detector for the lever", rb:HASKEY("LV")).
+rod_sample(rb, 0.6, 0).
+rod_sample(rb["LV"], 0.52, 0).
+assert_near("both inputs: an H click and a Shift click are two clicks", rod_take(rb), 2 * P66_ROD_SIGN, 0).
+assert_near("both inputs: and nothing is left in either", rod_take(rb), 0, 0).
+rod_sample(rb, 0.4, 1).
+rod_sample(rb["LV"], 0.52, 1).
+assert_near("both inputs: an N click and a Shift click cancel", rod_take(rb), 0, 0).
+rod_sample(rb, 0.6, 2).
+rod_sample(rb["LV"], 0.52, 2).
+rod_discard(rb).
+assert_near("both inputs: discard clears both", rod_take(rb), 0, 0).
+SET rb TO rod_new().
+rod_sample(rb["LV"], 0.5, 0).
+rod_sample(rb["LV"], 0.7, 0.02).                       // a stuck lever (a controller axis): it is one click, then held
+rod_sample(rb, 0.5, 0.02).
+rod_sample(rb, 0.6, 0.04).                             // H still counts while the lever is held away from 0.5
+assert_near("both inputs: a displaced lever does not block H", rod_take(rb), 2 * P66_ROD_SIGN, 0).
+
 // ---- Task 4: ROD clicks from the throttle lever (probe: 0.01 per 0.02 s sample while a key is down) -------------------
 // rod_ramp: feed `count` samples, 0.02 s apart from time t0, with the lever going from lever0 by `delta` each sample (never past 0 or 1);
 // then, like the main loop, re-centre the lever when the detector asks. Returns the time after the last sample. The lever now

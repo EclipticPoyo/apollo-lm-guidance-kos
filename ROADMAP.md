@@ -37,7 +37,7 @@ Work that is being researched before it gets a place in a release. If it works i
 
 | Item | What it is | Status | Possible release |
 |---|---|---|---|
-| **Attitude control** | An autopilot like the Lunar Module's own (Luminary's digital autopilot, the DAP) instead of kOS's steering lock: the guidance-to-autopilot interface (commanded rates over the 2 s guidance pass, a lag angle, a thrust-direction filter), jet firing from a phase plane with the real deadbands, the descent engine's gimbal trim, and the pilot's stick handled as the real DAP does. It starts with a probe of the RCS on the Realism Overhaul LM (how short a pulse works, whether the engine gimbal shares the control inputs, how much each jet turns the ship) to find out whether this can work in kOS at all | 🔬 Being researched | 1.4, if it works |
+| **Attitude control** | The kOS steering stays (an own RCS autopilot was tried and dropped: kOS steering works under time warp and on any craft). Added on top of it: a small panel with the rate-of-descent clicker and the attitude-mode switch, and P66 attitude control by the pilot through kOS steering (a custom SAS, with AG1 or Shift / Ctrl as the keyboard keys) instead of KSP's SAS | 📝 Planned | 1.4 |
 
 ## Order and dependencies
 
