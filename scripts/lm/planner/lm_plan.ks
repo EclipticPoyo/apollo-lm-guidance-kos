@@ -187,6 +187,17 @@ FUNCTION plan_lv_components {
   RETURN LIST(VDOT(dv_vec, track_unit), -VDOT(dv_vec, normal_axis), -VDOT(dv_vec, up_unit)).
 }
 
+// plan_lv_to_dv: the inverse of plan_lv_components: the delta-v vector from lv = LIST(x, y, z) in local vertical axes at the burn point
+// (position r_vec, velocity v_vec). X is along the track, Y is opposite the node normal, Z is down (-up), so the vector is
+// x * track - y * normal - z * up (1.4: the DSKY turns N81 into the vector the burn programmes steer by).
+FUNCTION plan_lv_to_dv {
+  PARAMETER lv_list, r_vec, v_vec.
+  LOCAL up_unit IS r_vec:NORMALIZED.
+  LOCAL track_unit IS (v_vec - VDOT(v_vec, up_unit) * up_unit):NORMALIZED.
+  LOCAL normal_axis IS plan_node_axes(r_vec, v_vec)[1].
+  RETURN track_unit * lv_list[0] - normal_axis * lv_list[1] - up_unit * lv_list[2].
+}
+
 FUNCTION plan_components_to_dv {
   PARAMETER rad_comp, nrm_comp, pro_comp, r_vec, v_vec.
   LOCAL axes IS plan_node_axes(r_vec, v_vec).

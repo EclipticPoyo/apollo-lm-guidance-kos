@@ -1,17 +1,17 @@
-name: Manual site
+name: Pilot's pack site
 
 # Kept in tools/ in the private dev repo; publish_public.py copies it to .github/workflows/ in the public repo.
-# Builds the pilot's manual (docs/MANUAL.md) into a web page and publishes it with GitHub Pages.
+# Builds the pilot's pack (docs/pack/*.md) into a web page and publishes it with GitHub Pages.
 # Pages is switched on in the PUBLIC repo only (Settings > Pages > Source: GitHub Actions); the guard below keeps this
 # from running in the private dev repo, where Pages is not available.
 on:
   push:
     branches: [main]
     paths:
-      - docs/MANUAL.md
-      - docs/MANUAL.pdf
+      - docs/pack/**
+      - docs/PACK.pdf
       - docs/images/**
-      - make_site.py
+      - make_pack.py
       - VERSION
       - .github/workflows/pages.yml
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install markdown
-      - run: python make_site.py
+      - run: python make_pack.py
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

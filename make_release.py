@@ -4,8 +4,9 @@ The zip unzips straight into the KSP folder:
   Ships/Script/dsky.ks           the stub that runs the DSKY (RUN dsky.)
   Ships/Script/plan.ks           the stub that opens the planner (RUN plan.)
   Ships/Script/boot/lm_boot.ks   an optional boot file that selects the archive, so SWITCH TO 0. is not needed
-  Ships/Script/core, lm (with descent/, planner/, images/, lm_config.txt, an empty logs/), shared   from scripts/ (no tests/)
-  README.md, CHANGELOG.md, docs/MANUAL.md, docs/MANUAL.pdf (if built), docs/images/*   the readme and the pilot's manual
+  Ships/Script/agc_config.txt    the settings file for the whole project (an old lm/lm_config.txt is no longer shipped)
+  Ships/Script/core, lm (with descent/, planner/, images/, an empty logs/), shared   from scripts/ (no tests/)
+  README.md, CHANGELOG.md, docs/PACK.pdf, docs/images/*   the readme and the pilot's pack (the manual)
 VERSION (the version defaults to it, and a different argument is refused).
 Output: dist/apollo-lm-guidance-kos-<version>.zip (dist/ is git-ignored). The lowercase name is an aesthetic preference.
 """
@@ -23,16 +24,17 @@ out = out_dir / f"apollo-lm-guidance-kos-{version}.zip"
 STUB = '// dsky.ks -- runs the DSKY (Ships/Script/core/dsky.ks, seen here as 0:/core/dsky.ks).\nRUNPATH("0:/core/dsky.ks").\n'
 PLAN_STUB = '// plan.ks -- opens the deorbit planner (Ships/Script/lm/planner/lm_plan_ui.ks, seen here as 0:/lm/planner/lm_plan_ui.ks).\nRUNPATH("0:/lm/planner/lm_plan_ui.ks").\n'
 # Files the DSKY and planner write while running (the dev machine's own clock zero, loads and uplink): never shipped.
-RUNTIME_FILES = ("clock.txt", "store.txt", "uplink.txt")
+RUNTIME_FILES = ("clock.txt", "store.txt", "uplink.txt", "profile.txt")
 # scripts/ mirrors the archive volume 0:, so scripts/<folder>/<file> ships as Ships/Script/<folder>/<file>. tests/ stays out.
 files = []
 for folder in ("core", "lm", "shared", "boot"):
     for p in sorted((root / "scripts" / folder).rglob("*")):
         if p.is_file() and p.suffix in (".ks", ".png", ".txt") and p.name not in RUNTIME_FILES:
+            if p.name == "lm_config.txt":        # the old settings file stays in the repo but is replaced by agc_config.txt
+                continue
             files.append((p, f"Ships/Script/{p.relative_to(root / 'scripts').as_posix()}"))
-files += [(root / "VERSION", "VERSION"), (root / "README.md", "README.md"), (root / "CHANGELOG.md", "CHANGELOG.md"), (root / "docs" / "MANUAL.md", "docs/MANUAL.md")]
-if (root / "docs" / "MANUAL.pdf").exists():
-    files.append((root / "docs" / "MANUAL.pdf", "docs/MANUAL.pdf"))
+files.append((root / "scripts" / "agc_config.txt", "Ships/Script/agc_config.txt"))   # the settings file, at the top of Ships/Script
+files += [(root / "VERSION", "VERSION"), (root / "README.md", "README.md"), (root / "CHANGELOG.md", "CHANGELOG.md"), (root / "docs" / "PACK.pdf", "docs/PACK.pdf")]
 files += [(p, f"docs/images/{p.name}") for p in sorted((root / "docs" / "images").glob("*.png"))]
 
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:

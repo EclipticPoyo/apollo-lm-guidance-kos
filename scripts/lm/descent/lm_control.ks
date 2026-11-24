@@ -429,10 +429,12 @@ GLOBAL CTL_GOAL_UP IS V(0, 1, 0).
 GLOBAL CTL_SLEW_T IS 0.            // UT of the last slew step
 GLOBAL CTL_ROLL IS 0.              // extra roll about the thrust axis, degrees, so the crew window faces CTL_UP
 GLOBAL CTL_THR IS 0.               // throttle setting, 0 to 1
+GLOBAL CTL_THR_LOCKED IS FALSE.    // the programme holds the throttle (LOCK THROTTLE TO CTL_THR); FALSE once ctl_man_direct has given the engine to the lever
 // CTL_DRY: when TRUE every function below that would write the ship's controls does nothing, so the programme's step
 // (lm_p63.ks) can be run on the pad in the pad tests. Always FALSE in flight.
 GLOBAL CTL_DRY IS FALSE.
 GLOBAL CTL_DRY_STATUS IS "FLYING".   // what ctl_status returns on the pad (tests set it to "LANDED")
+GLOBAL CTL_DRY_LEVER IS 0.5.         // what ctl_pilot_throttle returns on the pad (tests set it to move the lever)
 
 // ctl_roll_for_window: the extra roll (degrees about the thrust axis) that puts the crew window face (WINDOW_AXIS in
 // lm_constants.ks) toward the roll reference instead of the ship's "top". "TOP" needs none, "BOTTOM" a half turn.
@@ -497,7 +499,7 @@ FUNCTION ctl_pilot_keys {
 // ctl_pilot_throttle: the throttle lever, 0 to 1 (SHIP:CONTROL:PILOTMAINTHROTTLE: Shift raises it, Ctrl lowers it, 0.5 per second,
 // even while the programme's LOCK THROTTLE is active: probe_rod.ks). 0.5 (centred) on the pad (CTL_DRY).
 FUNCTION ctl_pilot_throttle {
-  IF CTL_DRY { RETURN 0.5. }
+  IF CTL_DRY { RETURN CTL_DRY_LEVER. }
   RETURN SHIP:CONTROL:PILOTMAINTHROTTLE.
 }
 
@@ -563,6 +565,7 @@ FUNCTION ctl_start {
   SET CTL_THR TO 0.
   ctl_steer_lock().
   LOCK THROTTLE TO CTL_THR.
+  SET CTL_THR_LOCKED TO TRUE.
 }
 
 // ctl_set_command: the new command from guidance. dir_vec is the direction the thrust axis must point (a zero vector is
@@ -666,10 +669,11 @@ FUNCTION ctl_auto {
 FUNCTION ctl_release {
   PARAMETER hold_attitude.
   IF CTL_DRY { RETURN. }
-  SET SHIP:CONTROL:PILOTMAINTHROTTLE TO CTL_THR.
+  IF CTL_THR_LOCKED { SET SHIP:CONTROL:PILOTMAINTHROTTLE TO CTL_THR. }      // when the lever already drives the engine (ctl_man_direct) it is left as the pilot has it
   UNLOCK STEERING.
   STEERINGMANAGER:RESETTODEFAULT().
   UNLOCK THROTTLE.
+  SET CTL_THR_LOCKED TO FALSE.
   SET SHIP:CONTROL:FORE TO 0.
   SET SHIP:CONTROL:NEUTRALIZE TO TRUE.
   IF hold_attitude { SAS ON. } ELSE { SAS OFF. }
@@ -699,6 +703,76 @@ FUNCTION ctl_engine_on {
   PARAMETER eng.
   IF CTL_DRY { RETURN. }
   eng:ACTIVATE().
+}
+
+// ---- Burn control layer (release 1.4, P40 / P41): ENG ARM, ENG ARM OFF, the MAN throttle ----------------------------------------------
+// ctl_arm: ENG ARM. Engine on and the throttle command at the engine's minimum (Apollo: the burn starts at minimum throttle).
+FUNCTION ctl_arm {
+  PARAMETER eng.
+  SET CTL_THR TO THR_MIN_FRAC.
+  ctl_engine_on(eng).
+}
+
+// ctl_release_throttle_lock: drop the programme's throttle lock and neutralise the translation inputs, so a raised lever is the pilot's
+// again. With RCS on and the engine shut down, KSP's Fore By Throttle makes the lever fire the RCS (research section 16: probe_throttle
+// batch 1, phase 2 clear, a LOCK THROTTLE TO 0 suppressed it; whether it still fires after an engine run is the user's recollection,
+// "I think", not a clear number). Nothing on the pad (CTL_DRY).
+FUNCTION ctl_release_throttle_lock {
+  IF CTL_DRY { RETURN. }
+  UNLOCK THROTTLE.
+  SET CTL_THR_LOCKED TO FALSE.
+  SET SHIP:CONTROL:FORE TO 0.
+  SET SHIP:CONTROL:NEUTRALIZE TO TRUE.
+}
+
+// ctl_disarm: ENG ARM OFF at cutoff. Engine shut down and the command to zero (ctl_engine_off), then the throttle lock is dropped so the
+// lever drives the RCS (see ctl_release_throttle_lock for what the probe showed). The lever itself is zeroed too: on MAN the pilot has raised it
+// for the burn (about 40 percent for the DOI) and it would stay there, so with RCS on the shut-down ship would be pushed forward at once.
+FUNCTION ctl_disarm {
+  PARAMETER eng.
+  ctl_engine_off(eng).
+  ctl_release_throttle_lock().
+  IF NOT CTL_DRY { SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0. }
+}
+
+// ctl_man_throttle: the MAN throttle. The lever (0 to 1) floored at the engine's minimum so a lever at zero cannot flame the engine
+// out mid-burn (the real computer reads the throttle switch only for the V50 N25 prompt; MAN is a hardware override).
+FUNCTION ctl_man_throttle {
+  RETURN MAX(THR_MIN_FRAC, MIN(1, ctl_pilot_throttle())).
+}
+
+// ctl_man_direct: the MAN throttle, called every cycle while the engine burns on MAN. The engine is given to KSP's own lever: the programme's throttle lock is
+// dropped the first time (the lever is first raised to the minimum if it was below, so the drop cannot shut the engine down) and after that the only thing done
+// is the protection: a lever below the engine's minimum is raised to it, on the lever itself. Above the minimum the lever is left alone, so it is the pilot's
+// throttle with no programme in between. Returns the throttle the engine now has (the lever floored at the minimum, at most 1), for the display and the log.
+// On the pad (CTL_DRY) there is no lever to move: the same value as ctl_man_throttle.
+FUNCTION ctl_man_direct {
+  IF CTL_DRY { RETURN ctl_man_throttle(). }
+  LOCAL lever IS ctl_pilot_throttle().
+  IF lever < THR_MIN_FRAC {
+    SET SHIP:CONTROL:PILOTMAINTHROTTLE TO THR_MIN_FRAC.
+    SET lever TO THR_MIN_FRAC.
+  }
+  IF CTL_THR_LOCKED {
+    UNLOCK THROTTLE.
+    SET CTL_THR_LOCKED TO FALSE.
+  }
+  RETURN MIN(1, lever).
+}
+
+// ctl_thrust_pct: thrust now as a percent of full thrust, 0 to 100; 0 when there is no full thrust (the "raise throttle" readout).
+FUNCTION ctl_thrust_pct {
+  PARAMETER thrust_now, thrust_full.
+  IF thrust_full <= 0 { RETURN 0. }
+  RETURN MAX(0, MIN(100, 100 * thrust_now / thrust_full)).
+}
+
+// ctl_burn_end: the programme END for a burn: ullage off, ENG ARM OFF, then the controls back (ctl_release; hold_attitude as there).
+FUNCTION ctl_burn_end {
+  PARAMETER eng, hold_attitude.
+  ctl_ullage(FALSE).
+  ctl_disarm(eng).
+  ctl_release(hold_attitude).
 }
 
 // ctl_att_error_deg: how far the ship is from the attitude the steering lock is told to hold, in degrees: the larger of

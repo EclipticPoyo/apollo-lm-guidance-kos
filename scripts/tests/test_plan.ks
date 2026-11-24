@@ -278,4 +278,15 @@ LOCAL lv_axes IS plan_node_axes(lv_r, lv_v).
 LOCAL lv_nrm IS plan_lv_components(lv_axes[1] * 4, lv_r, lv_v).
 assert_near("LV: a burn along the node normal is -y (Y is opposite the normal)", lv_nrm[1], -4, 1e-6).
 
+// ---- 1.4: plan_lv_to_dv is the inverse of plan_lv_components (round trip within 1e-9, reference_burn.py checks the same cases) ----
+LOCAL lvd_in IS LIST(V(3, -2, 5), V(0, 0, 7), V(1, 2, 3), V(0, -4, 0)).
+FOR lvd_dv IN lvd_in {
+  assert_vec("LV round trip circular " + lvd_dv, plan_lv_to_dv(plan_lv_components(lvd_dv, lv_r, lv_v), lv_r, lv_v), lvd_dv, 1e-9).
+  assert_vec("LV round trip elliptical " + lvd_dv, plan_lv_to_dv(plan_lv_components(lvd_dv, lv_r, lv_ev), lv_r, lv_ev), lvd_dv, 1e-9).
+}
+// An out-of-plane burn (along the node normal) comes back along the normal, and a burn of x = 10 is along the horizontal track.
+assert_vec("LV to dv: y = -4 is along the node normal", plan_lv_to_dv(LIST(0, -4, 0), lv_r, lv_v), lv_axes[1] * 4, 1e-9).
+assert_vec("LV to dv: x = 10 is along the local horizontal", plan_lv_to_dv(LIST(10, 0, 0), lv_r, lv_ev), V(0, 10, 0), 1e-9).
+assert_vec("LV to dv: z = 3 is toward the Moon (down)", plan_lv_to_dv(LIST(0, 0, 3), lv_r, lv_v), V(-3, 0, 0), 1e-9).
+
 test_end().

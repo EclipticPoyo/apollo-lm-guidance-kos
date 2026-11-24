@@ -116,80 +116,22 @@ FUNCTION j_ign_solve {
 }
 
 // ======================================================================================================================
-// The BURNBABY sequence (plan Task 7)
+// The BURNBABY sequence now lives in lm/burn/lm_burnbaby.ks (release 1.4, plan Task 12)
 // ======================================================================================================================
-// BURNBABY (the master ignition routine) is everything between the pre-ignition check and the throttle-up. Times are
-// measured from TIG, dt = now - TIG:
-//   dt < -35         COAST    nothing special on the display
-//   -35 .. -30       BLANK    the DSKY is blanked for 5 s (to show the guidance is starting)         TIG-35
-//   -30 .. -5        COUNT    countdown display V06 N62                                              TIG-30
-//   -7.6 on          ullage   RCS pushes the propellant against the tank outlets (settling)          ULLGTASK
-//   dt >= -5         PROMPT   V99 N62 flashing: "please enable the engine"; KEY REL lights; PRO enables  TIG-5
-//   engine lit       BURN     from the moment of ignition; display V06 N63 (P63IGN sets the guidance display)
-//   TIG + 26         BRAKING  throttle-up ("zoom", P63ZOOM) and the guidance takes over; measured from NOMINAL TIG
-// The engine lights at TIG, or at the PRO press if that comes later. The ullage stops 0.5 s after light-up.
-// Everything is worked out from the clock each call, so a late call (time warp, a long cycle) still gives the right
-// answer. Simplifications (spec section 4): polled instead of AGC tasks, no restart protection, and a PRO pressed
-// before the prompt is ignored (Luminary sets the flag at any time; ignoring it cannot light the engine early).
+// The J (Luminary 210) sequence differed from the Apollo 11 one in one thing only: it read J_ZOOMTIME where the other reads
+// ZOOMTIME (both 26 s, the P63TABLE of 210 has the same values as 099). j_seq_new builds the P63 table for the J profile and
+// gives it J_ZOOMTIME, so the J constant is still the one that counts. P63 (J) calls these two; the old code is the
+// reference in tests/test_burnbaby.ks.
+RUNONCEPATH("0:/lm/burn/lm_burnbaby.ks").
 
-// j_seq_new: a new sequence for the ignition time tig (UT). The lexicon is the state: ARMED (PRO pressed in the prompt),
-// IGN_T (UT of ignition, -1 until lit), ZOOMED (the zoom has fired), ENDED (terminated).
 FUNCTION j_seq_new {
   PARAMETER tig.
-  RETURN LEXICON("TIG", tig, "ARMED", FALSE, "IGN_T", -1, "ZOOMED", FALSE, "ENDED", FALSE).
+  LOCAL tbl IS bb_table_p63("J").
+  SET tbl["ZOOMTIME"] TO J_ZOOMTIME.
+  RETURN bb_new(tbl, tig).
 }
 
-// j_seq_phase: the state name for a time offset dt from TIG with the engine lit or not (before the PRO handling).
-FUNCTION j_seq_phase {
-  PARAMETER seq, dt.
-  IF seq["IGN_T"] >= 0 {
-    IF seq["ZOOMED"] { RETURN "BRAKING". }
-    RETURN "BURN".
-  }
-  IF dt < -35 { RETURN "COAST". }
-  IF dt < -30 { RETURN "BLANK". }
-  IF dt < -5 { RETURN "COUNT". }
-  RETURN "PROMPT".
-}
-
-// j_seq_step: advance the sequence to UT now. pro_pressed is TRUE on the call the PRO key is pressed, terminate TRUE when
-// the pilot ends the programme (V34). Returns a LEXICON the caller acts on:
-//   STATE (text), VN (the verb/noun to display, "" for none), BLANK (blank the DSKY), ULLAGE (RCS ullage on),
-//   PROMPT (the enable prompt is up), KEY_REL (light KEY REL), ENGINE_ON (the engine is commanded on, and stays so),
-//   ZOOM (TRUE on the one call the throttle-up should happen), TTOGO (seconds to TIG, negative after it), ENDED.
 FUNCTION j_seq_step {
   PARAMETER seq, now, pro_pressed, terminate.
-  LOCAL dt IS now - seq["TIG"].
-  IF terminate { SET seq["ENDED"] TO TRUE. }
-  LOCAL zoom_now IS FALSE.
-  IF NOT seq["ENDED"] {
-    LOCAL phase IS j_seq_phase(seq, dt).
-    // PRO counts only in the prompt. Ignition: the prompt is up, the pilot has enabled, and TIG has come.
-    IF phase = "PROMPT" {
-      IF pro_pressed { SET seq["ARMED"] TO TRUE. }
-      IF seq["ARMED"] AND dt >= 0 { SET seq["IGN_T"] TO now. }
-    }
-    // Zoom: J_ZOOMTIME after the nominal TIG, but not before the engine is lit.
-    IF seq["IGN_T"] >= 0 AND NOT seq["ZOOMED"] AND now >= MAX(seq["TIG"] + J_ZOOMTIME, seq["IGN_T"]) {
-      SET seq["ZOOMED"] TO TRUE.
-      SET zoom_now TO TRUE.
-    }
-  }
-  LOCAL phase_now IS j_seq_phase(seq, dt).
-  IF seq["ENDED"] { SET phase_now TO "ENDED". }
-  LOCAL lit IS seq["IGN_T"] >= 0.
-  // Ullage: from TIG-30 + ULLAGE_START_AFTER_TIG30 (TIG-7.6) until ULLAGE_OFF_AFTER_IGN after the light-up. A
-  // terminated sequence has the ullage off.
-  LOCAL ullage IS FALSE.
-  IF NOT seq["ENDED"] {
-    IF lit { SET ullage TO now < seq["IGN_T"] + ULLAGE_OFF_AFTER_IGN. }
-    ELSE { SET ullage TO dt >= -30 + ULLAGE_START_AFTER_TIG30. }
-  }
-  LOCAL vn_text IS "".
-  IF phase_now = "COUNT" { SET vn_text TO "V06N62". }
-  IF phase_now = "PROMPT" { SET vn_text TO "V99N62". }
-  IF phase_now = "BURN" OR phase_now = "BRAKING" { SET vn_text TO "V06N63". }
-  RETURN LEXICON("STATE", phase_now, "VN", vn_text, "BLANK", phase_now = "BLANK", "ULLAGE", ullage,
-                 "PROMPT", phase_now = "PROMPT", "KEY_REL", phase_now = "PROMPT", "ENGINE_ON", lit,
-                 "ZOOM", zoom_now, "TTOGO", -dt, "ENDED", seq["ENDED"]).
+  RETURN bb_step(seq, now, pro_pressed, terminate, FALSE).
 }

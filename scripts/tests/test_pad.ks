@@ -6,6 +6,7 @@
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/tests/test_lib.ks").
 RUNONCEPATH("0:/lm/planner/lm_pad.ks").
+RUNONCEPATH("0:/lm/planner/lm_deorbit.ks").      // no arguments: loads the functions only (dp_node_text)
 
 test_begin("0:/lm/logs/test_pad.log").
 
@@ -23,7 +24,9 @@ assert_true("pad_v71_keys for two words at 1501 octal", pad_join(pad_v71_keys(83
 LOCAL pad IS pad_build(plan_a, "A11", moon_r, zero_ut).
 assert_true("PAD builds", pad["OK"]).
 LOCAL lines IS pad["LINES"].
-assert_near("PAD has 15 lines (three blocks with their headings; no KEYED part)", lines:LENGTH, 15, 0).
+assert_near("PAD has 19 lines (three blocks with their headings, then a blank and the three-line P30/P40 note; no KEYED part)", lines:LENGTH, 19, 0).
+assert_true("the PAD says to fly the DOI with P30 then P40 and gives the MAN reminder (ENG_THR_CONT, checklist 203)",
+            lines[16]:CONTAINS("P30 then P40") AND lines[17]:CONTAINS("ENG_THR_CONT = MAN") AND lines[17]:CONTAINS("203")).
 assert_true("header", lines[0] = "PAD LUMINARY099     CLOCK ZERO UT 100000").
 assert_true("uplink heading", lines[1] = "UPLINK in P00, one block at a time (V34 E abandons a block)").
 assert_true("blank line between header and first block", lines[2] = "").
@@ -45,11 +48,17 @@ LOCAL plan_pc IS LEXICON("SITE_LAT", 0.674, "SITE_LNG", 23.473, "SITE_ALT", -193
                          "LV_DOI", LIST(-30, 0, 0), "LV_PC", LIST(0, 2.5, 0)).
 LOCAL pad_pc IS pad_build(plan_pc, "A11", moon_r, zero_ut).
 LOCAL lines_pc IS pad_pc["LINES"].
-assert_near("PAD with a plane change has 17 lines (the 15, a blank and the PC note)", lines_pc:LENGTH, 17, 0).
+assert_near("PAD with a plane change has 21 lines (the 19, a blank and the PC note)", lines_pc:LENGTH, 21, 0).
 assert_true("the DOI block is the same as without a plane change", lines_pc[12] = lines[12] AND lines_pc[14] = lines[14]).
 assert_true("a blank line then the PC note says it is a CSM burn", lines_pc[15] = "" AND lines_pc[16] = "PC: a CSM burn, flown from its node; not loaded in the LM").
 assert_true("the uplink keys are the same as without a plane change", pad_join(pad_pc["UPLINK_KEYS"]) = pad_join(pad["UPLINK_KEYS"])).
 assert_true("nothing is keyed: no V25 and no KEYED heading", NOT pad_join(pad_pc["UPLINK_KEYS"]):CONTAINS("V25") AND NOT lines_pc:CONTAINS("KEYED (P00)")).
+
+// ---- PLAN_NODES: the planner's words about the nodes -------------------------------------------------------------------------
+LOCAL words_keep IS dp_node_text(2, TRUE).
+assert_true("PLAN_NODES TRUE: the planner says how many nodes it added and to fly the burns with P30 and P40", words_keep:CONTAINS("2 maneuver node") AND words_keep:CONTAINS("P30 and P40")).
+LOCAL words_none IS dp_node_text(2, FALSE).
+assert_true("PLAN_NODES FALSE: the planner says none were left and does not count nodes", words_none:CONTAINS("No maneuver nodes left") AND NOT words_none:CONTAINS("2 maneuver")).
 
 // ---- J profile uses the 210 addresses ----------------------------------------------------------------------------------------
 LOCAL pad_j IS pad_build(plan_a, "J", moon_r, zero_ut).
@@ -71,13 +80,6 @@ LOCAL pad_old IS pad_build(plan_old, "A11", moon_r, zero_ut).
 assert_true("a plan without the delta-v vectors asks for a new plan", NOT pad_old["OK"] AND pad_old["WHY"]:CONTAINS("plan again")).
 LOCAL pad_none IS pad_build(FALSE, "A11", moon_r, zero_ut).
 assert_true("no plan gives no PAD", NOT pad_none["OK"]).
-
-// ---- the DSKY's version must match the PAD's (it reads PAD_PROFILE from lm_config.txt when there is no plan) ------------------------
-assert_true("same profile: no note", pad_profile_note("A11", "A11") = "" AND pad_profile_note("J", "J") = "").
-LOCAL note_j IS pad_profile_note("J", "A11").
-assert_true("menu J, config A11: the note says to set J", note_j:CONTAINS("PAD_PROFILE = J") AND note_j:CONTAINS("lm_config.txt")).
-LOCAL note_a IS pad_profile_note("A11", "J").
-assert_true("menu A11, config J: the note says to set A11", note_a:CONTAINS("PAD_PROFILE = A11")).
 
 // ---- writing files ------------------------------------------------------------------------------------------------------------
 LOCAL pad_path IS "0:/lm/logs/test_pad_out.txt".

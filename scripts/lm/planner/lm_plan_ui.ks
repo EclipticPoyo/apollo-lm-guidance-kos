@@ -19,7 +19,7 @@
 // erasable store when it starts. By default (Skip simulated uplink off) it builds a PAD (lm_pad.ks) from the plan instead and, once the plan has worked, deletes
 // plan.json (and any old uplink file; a failed plan keeps them), so the DSKY starts empty and the pilot loads it the way the crew did: SEND writes 0:/lm/uplink.txt, which the DSKY
 // presses in as an uplink (V71 blocks for the site, the landing time and the DOI burn's delta-v and ignition time). A plane-change burn is the CSM's: the PAD only notes it.
-// The DSKY takes its software version (PAD_PROFILE) from lm_config.txt when there is no plan, so set it there to match the menu.
+// The PAD menu (Apollo 11 or J) is the software version. A saved plan carries it (PROFILE); with the uplink the planner saves it in 0:/lm/profile.txt with the PAD and the DSKY reads it.
 // The cross in the corner (CLOSE) ends this script; it does not remove the nodes.
 //
 // The pad loads (RIGNX, RIGNZ, VIGN) are one set per profile, the same for every site. A site with rough terrain
@@ -33,7 +33,6 @@ RUNONCEPATH("0:/lm/planner/lm_deorbit.ks").      // functions only (no arguments
 RUNONCEPATH("0:/lm/planner/lm_site_pins.ks").    // map-view pins for the sites
 RUNONCEPATH("0:/lm/planner/lm_pad.ks").          // pad_build, pad_write, pad_write_uplink (the simulated uplink)
 SET DP_QUIET TO TRUE.
-GLOBAL planui_cfg_profile IS PAD_PROFILE.         // the version lm_config.txt gave (the menu changes PAD_PROFILE later); the DSKY uses this one with the simulated uplink
 
 GLOBAL PLANUI_WIDTH IS 570.               // wide enough for the PAD's longest line (a burn block's eight words) at PLANUI_PAD_SIZE
 GLOBAL PLANUI_PAD_SIZE IS 12.             // the PAD text size (points)
@@ -235,11 +234,10 @@ FUNCTION planui_manual_after_plan {
     RETURN "No PAD: " + pad["WHY"] + ".".
   }
   lm_clock_zero_save(zero_ut).
+  lm_profile_save(PAD_PROFILE).          // the DSKY runs the version this PAD was made for
   planui_pad_show(ui, pad["LINES"]).
   SET ui["PAD_KEYS"] TO pad["UPLINK_KEYS"].
   IF LM_LOG { pad_write(pad["LINES"], "0:/lm/logs/pad.log"). }
-  LOCAL profile_note IS pad_profile_note(PAD_PROFILE, planui_cfg_profile).
-  IF profile_note <> "" { RETURN "PAD ready, but " + profile_note. }
   RETURN "PAD ready. SEND uplinks the site, the landing time and the DOI burn.".
 }
 
@@ -314,11 +312,12 @@ FUNCTION planui_run {
   IF DP_RESULT:LENGTH > 0 {
     planui_result(ui, "Plan OK! DOI: " + DP_RESULT["DOI"] + ", PDI: " + DP_RESULT["PDI"] + ", LDG: " + DP_RESULT["LDG"], PLANUI_GREEN).
     IF EXISTS(LM_STORE_FILE) { DELETEPATH(LM_STORE_FILE). }      // a new plan: loads kept from an earlier DSKY run are out of date
-    IF NOT manual { lm_clock_zero_clear(). }          // Skip simulated uplink: plan.json holds UT, no shared clock
+    IF NOT manual { lm_clock_zero_clear(). lm_profile_clear(). }          // Skip simulated uplink: plan.json holds UT and PROFILE, no shared clock or version file
+    IF manual { lm_profile_clear(). }                 // a PAD that fails below leaves no version from an older PAD
     IF manual {
       LOCAL pad_note IS planui_manual_after_plan(ui).
       LOCAL pad_colour IS PLANUI_GREEN.
-      IF pad_note:STARTSWITH("No PAD") OR pad_note:CONTAINS("PAD_PROFILE") { SET pad_colour TO PLANUI_AMBER. }
+      IF pad_note:STARTSWITH("No PAD") { SET pad_colour TO PLANUI_AMBER. }
       SET ui["RESULT"]:TEXT TO ui["RESULT"]:TEXT + CHAR(10) + "<size=12><color=" + pad_colour + ">" + pad_note + "</color></size>".
     }
     IF DP_RESULT["WARN"]:LENGTH > 0 {

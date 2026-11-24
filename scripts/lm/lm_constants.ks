@@ -143,10 +143,22 @@ GLOBAL P63_SETTLE_HOLD_S IS 5.                   // config: for this long, s
 //   "KEEP" Luminary 099 (Apollo 11): the ship keeps the roll it had; no programmed roll; in AUTO the stick can roll it.
 GLOBAL DSKY_START IS "BLANK".                  // what the DSKY shows when it starts: BLANK (PROG 00, nothing else, as a real DSKY after a fresh start) or N60 (V16 N60, a descent monitor); config file setting
 GLOBAL P63_WINDOW_MODE IS "UP".
-// The software version the descent runs: "A11" = Luminary 099 (Apollo 11), "J" = Luminary 210 (Apollo 15 to 17). A pilot setting (lm_config.txt),
-// not AGC data: on the real LM the version was fixed in the rope. It picks the cell addresses of the erasable store and the pad loads and
-// descent programmes. The planner window sets it too; a saved plan carries it as PROFILE and wins over this setting when they differ.
+// The software version the descent runs: "A11" = Luminary 099 (Apollo 11), "J" = Luminary 210 (Apollo 15 to 17). Not a setting any more (1.4): the planner's
+// PAD menu sets it, a saved plan carries it as PROFILE, and the uplink mode saves it in 0:/lm/profile.txt for the DSKY (lm_profile_for). This is the
+// default when none of those exists, and the planner menu's starting value. It picks the cell addresses of the erasable store, the pad loads and the
+// descent programmes.
 GLOBAL PAD_PROFILE IS "A11".
+// How the IMU's orientation is treated (release 1.4, lm_r02.ks): AUTO (the IMU orientation is known from the start, no programme asks for P51) or REQUIRED (P40, P41 and
+// P47 raise alarm 00220 until the pilot has run P51, as the real computer did without a REFSMMAT). A pilot setting (agc_config.txt).
+GLOBAL IMU_ALIGN IS "AUTO".
+// The ENG THR CONT switch (release 1.4, lm_p40.ks): AUTO (the computer's throttle: 10 percent at ignition, full thrust ZOOMTIME later on a long burn) or MAN (the
+// pilot's throttle lever; P40 shows the checklist 203 prompt and says RAISE THROTTLE 15 s after ignition). The real computer reads the switch only for that prompt
+// (research section 7). A pilot setting (agc_config.txt); a clickable switch may follow.
+GLOBAL ENG_THR_CONT IS "AUTO".
+// The planner's KSP maneuver nodes are a visual aid only (release 1.4): TRUE leaves them on the ship after planning, FALSE removes them. P30 and P40 never read a node. A pilot setting.
+GLOBAL PLAN_NODES IS TRUE.
+GLOBAL MAN_THROTTLE_AFTER_S IS 15.             // handbook: the DOI's manual throttle-up comes 15 s after ignition (the crew's "+15 s THROTTLE UP 40%")
+GLOBAL STAGED_THRUST_N IS 30000.                // alarm 1706 (descent stage gone) when no engine has at least this much vacuum thrust, N (the ascent engine gives 15.6 kN, the descent engine 46.7 kN)
 GLOBAL ALARMS IS "OFF".                        // scripted program alarms in the descent: OFF, A11 (the Apollo 11 pattern of 1202 and 1201) or a list code@seconds after ignition (lm_alarms.ks); config file setting
 // The uplink key file: the planner's SEND writes it (the simulated uplink) and the DSKY feeds it into its keys when it starts (core/dsky_uplink.ks).
 GLOBAL LM_UPLINK_FILE IS "0:/lm/uplink.txt".
@@ -235,8 +247,25 @@ GLOBAL P66_CONTACT_ALT_M IS 1.                   // chosen, m: the fallback heig
 GLOBAL P66_CONTACT_RATE IS 0.5.                  // chosen, m/s: ... and vertical speed under this
 GLOBAL ROD_LEVER_JUMP IS 0.3.                    // chosen: a lever change bigger than this in one sample is the X (cut) or Z (full throttle) key or our own re-centring, not a ROD click
 
+// ---- Burn programmes (1.4): Luminary 099 constants, lm_burn_s.ks. CC = CONTROLLED_CONSTANTS.agc, P4 = P40-P47.agc. SI units. ----
+GLOBAL DPSVEX IS 2955.88868.                     // Luminary: DPS exhaust velocity, m/s (CC:97, -2.95588868 E+1 m/cs); the TGO estimate in S40.8
+GLOBAL TDECAY_S IS -0.38.                        // Luminary: DPS tail-off, s (CC:38, DTDECAY -38 cs; the same in 210); added to TGO in S40.8
+GLOBAL BURN_THRUST_10PCT_N IS 4671.               // Luminary: DPS thrust at the 10 percent level, N (CC:60, S40.136 .4671 M.NEWTON): S40.13 burn time = mass x VG / this
+GLOBAL BURN_NOTHROTL_S IS 95.                    // Luminary: a burn under this many seconds at the 10 percent level never throttles up (P4: 6SEC + 89SECS)
+GLOBAL BURN_IMPULSE_S IS 6.                      // Luminary: a burn under this is an impulse burn, no steering (P4: 6SEC, IMPULSW)
+GLOBAL BURN_STEER_STOP_S IS 4.                   // Luminary: steering stops when TGO is under this, s (P4:944-949, FOURSECS 400 cs)
+GLOBAL BURN_PASS_S IS 2.                         // Luminary: the servicer pass, s; DELVREF is the delta-V gained in the last pass (P4:1132, -FOURDT 200 cs)
+GLOBAL TIG_TDEC1_S IS 29.9.                      // Luminary: the servicer starts this long before TIG (P4:188-221, TDEC1 = TIG - 29.9 s)
+GLOBAL TIG_SLIP_MIN_S IS 20.                     // Luminary: TIG is slipped (alarm 1703) when TDEC1 is earlier than now + this (TIMEDELT 2000 cs)
+GLOBAL TIG_SLIP_AHEAD_S IS 49.9.                 // Luminary: the slipped TIG is now + this (TDEC1 = now + 20 s, plus 29.9 s)
+GLOBAL RCS_ULLAGE2_N IS 889.6.                   // Luminary: two RCS jets, N (CC:46, FRCS2 200 lbf): 099 corrects VG for TIG ullage with this
+GLOBAL RCS_ULLAGE4_N IS 1779.2.                  // Luminary: four RCS jets, N (CC:45, FRCS4 400 lbf): 210 corrects VG for ullage with this
+GLOBAL ULLAGE2_S IS 4.                           // Luminary 099: seconds of 2-jet ullage S40.13 allows for (P4:1005, 4SEC(17))
+GLOBAL ULLAGE4_S IS 6.5.                         // Luminary 210: seconds of 4-jet ullage S40.13 allows for (210 P40-P47.agc:1042, 6.5SECS)
+GLOBAL APSIDE_CAP_NM IS 9999.9.                  // Luminary: apogee and perigee are shown no larger than this, nmi (P30 PERIAPO1, N42)
+
 // The logs go in 0:/lm/logs/. Make the folder if it is missing (a fresh install, or a release zip unzipped without it).
 IF NOT EXISTS("0:/lm/logs") { CREATEDIR("0:/lm/logs"). }
 
-// The pilot's settings file (0:/lm/lm_config.txt) overrides a few of the constants above; see lm_settings.ks.
+// The pilot's settings files (0:/agc_config.txt, and the older 0:/lm/lm_config.txt read first) override a few of the constants above; see lm_settings.ks.
 RUNONCEPATH("0:/lm/lm_settings.ks").

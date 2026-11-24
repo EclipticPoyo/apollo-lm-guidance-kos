@@ -1,7 +1,7 @@
 // lm_p63.ks -- the P63 programme (milestone 3): start, one step per main-loop cycle, end.
 //
 // P63 is the lunar landing braking phase. It joins the pieces built in the earlier files:
-//   lm_ignition.ks  finds the ignition time (IGNALG) and runs the BURNBABY countdown (seq_*)
+//   lm_ignition.ks  finds the ignition time (IGNALG) and runs the BURNBABY countdown (bb_*, lm/burn/lm_burnbaby.ks)
 //   lm_guidance.ks  the braking guidance, once the engine has zoomed to full throttle
 //   lm_control.ks   turns the commands into steering, throttle, ullage; the override; the simulated radar lamps
 // Luminary source: THE_LUNAR_LANDING.agc (P63LM) and BURN_BABY_BURN--MASTER_IGNITION_ROUTINE.agc.
@@ -23,6 +23,7 @@ RUNONCEPATH("0:/shared/lm_frame.ks").
 RUNONCEPATH("0:/lm/planner/lm_plan.ks").
 RUNONCEPATH("0:/lm/descent/lm_guidance.ks").
 RUNONCEPATH("0:/lm/descent/lm_ignition.ks").
+RUNONCEPATH("0:/lm/burn/lm_burnbaby.ks").
 RUNONCEPATH("0:/lm/descent/lm_control.ks").
 
 GLOBAL P63_MIN_LEAD_S IS 40.               // chosen: P63 refuses to start when the ignition is closer than this, s. The countdown
@@ -92,7 +93,7 @@ FUNCTION p63_start {
   LOG "# P63 start: TIG " + ROUND(ign["TIG"], 1) + " (in " + ROUND(ign["TIG"] - now_ut, 1) + " s), IGNALG passes " + ign["ITER"]
       + ", out of plane " + ROUND(ign["OUTOFPLN"]) + " m, full thrust " + ROUND(f_max_n / 1000, 2) + " kN, mass " + ROUND(SHIP:MASS, 3) + " t" TO P63_LOG_PATH.
   }
-  RETURN LEXICON("REFUSED", "", "PROG_NO", 63, "SEQ", seq_new(ign["TIG"]), "WINDOW_MODE", p63_pick_window(plan), "TURNED", FALSE, "FORE0", SHIP:FACING:FOREVECTOR, "WIN0", win0_vec, "WCMD", win0_vec, "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "ROD", rod_new(), "ROD_START", FALSE, "HIGHGATE", FALSE, "GO", FALSE, "DVMON", dvmon_new(), "DVSHOWN", FALSE, "LAST_REQ", FALSE, "N61_SHOWN", FALSE, "WARP", warp_new(), "ENGINE", eng,
+  RETURN LEXICON("REFUSED", "", "PROG_NO", 63, "SEQ", bb_new(bb_table_p63("A11"), ign["TIG"]), "WINDOW_MODE", p63_pick_window(plan), "TURNED", FALSE, "FORE0", SHIP:FACING:FOREVECTOR, "WIN0", win0_vec, "WCMD", win0_vec, "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "ROD", rod_new(), "ROD_START", FALSE, "HIGHGATE", FALSE, "GO", FALSE, "DVMON", dvmon_new(), "DVSHOWN", FALSE, "LAST_REQ", FALSE, "N61_SHOWN", FALSE, "WARP", warp_new(), "ENGINE", eng,
                  "LAND", land_vec, "WM", wm_vec, "TIG", ign["TIG"], "BURN_DIR", ign["THRUST_DIR"], "OUTOFPLN", ign["OUTOFPLN"],
                  "TGO", IGN_TGO_SEED, "THR", 0, "GP", LEXICON(), "ZOOMED", FALSE, "ENGINE_LIT", FALSE, "ULLAGE_ON", FALSE,
                  "DV", 0, "T_LAST", now_ut, "HANDOFF_T", -1, "LAST_STATE", "", "LAST_ALARM", 0, "ENDED", FALSE).
@@ -133,7 +134,7 @@ FUNCTION p63_step {
     SET prog["GP"] TO LEXICON().
     SET prog["TGO"] TO IGN_TGO_SEED.
     SET prog["TIG"] TO now_ut + DVMON_RETRY_S.
-    SET prog["SEQ"] TO seq_new(prog["TIG"]).
+    SET prog["SEQ"] TO bb_new(bb_table_p63("A11"), prog["TIG"]).
     dvmon_reset(prog["DVMON"]).
     SET prog["DVSHOWN"] TO FALSE.
     SET dv_failed TO FALSE.
@@ -141,7 +142,7 @@ FUNCTION p63_step {
   }
 
   // ---- the sequence: countdown, ullage, enable prompt, ignition, zoom ----
-  LOCAL sq IS seq_step(prog["SEQ"], now_ut, pro_pressed, terminating).
+  LOCAL sq IS bb_step(prog["SEQ"], now_ut, pro_pressed, terminating, FALSE).
   IF sq["STATE"] <> "COAST" { SET prog["GO"] TO TRUE. }
   IF sq["ULLAGE"] <> prog["ULLAGE_ON"] {
     ctl_ullage(sq["ULLAGE"]).

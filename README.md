@@ -1,10 +1,12 @@
 # Apollo LM Guidance System
 
-An Apollo Lunar Module-inspired guidance computer for Kerbal Space Program, written in KerboScript (kOS). It plans the descent and flies the powered descent and landing (P63 braking, P64 approach, P65 automatic landing, P66 rate of descent) with a DSKY-style display.
+An Apollo Lunar Module-inspired guidance computer for Kerbal Space Program, written in KerboScript (kOS). It plans the descent, flies the DOI and other burns (P30, P40, P41, P47) and flies the powered descent and landing (P63 braking, P64 approach, P65 automatic landing, P66 rate of descent) with a DSKY-style display.
 
 **Not guaranteed:** it was only tested on one Realism Overhaul LM, in that setup. It has not been tested on any other lander and is not guaranteed to work at all.
 
 **Status:** flown and confirmed in KSP on that lander: planning, P63 braking, P64 approach with redesignation (both window modes), P65 automatic landing, P66 rate of descent and touchdown, with the Apollo 11 profile; and planning, P63, P64, P66 and touchdown with the J-class profile.
+
+**Release 1.4 (burn programmes: P30, P40, P41, P47)** passes its pad tests in KSP; its flights (the DOI, the RCS trim and a P63 regression) are still to be done.
 
 ## Dependencies
 
@@ -49,7 +51,7 @@ RUN dsky.
 
 ## How to fly it
 
-See the **[Pilot's Manual](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/)** ([Markdown](docs/MANUAL.md), [PDF](docs/MANUAL.pdf)).
+See the **[Pilot's Pack](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/)**, the manual: a landing card, reference tables and checklists. Download the [PDF](docs/PACK.pdf) (A4, one page per sheet) to print it.
 
 ## Made with Claude
 

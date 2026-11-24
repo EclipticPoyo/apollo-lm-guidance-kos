@@ -8,6 +8,7 @@ scripts/lm/plan.json
 scripts/lm/clock.txt
 scripts/lm/store.txt
 scripts/lm/uplink.txt
+scripts/lm/profile.txt
 
 # Python cache (test reference script)
 __pycache__/

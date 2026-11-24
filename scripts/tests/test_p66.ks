@@ -44,7 +44,10 @@ FUNCTION pp_prog {
 // converge the time-to-go; the alarm message would otherwise replace the message under test.
 FUNCTION pp_p63 {
   PARAMETER lit, zoomed, att_mode.
-  LOCAL seq_lex IS LEXICON("TIG", 1000, "ARMED", TRUE, "IGN_T", (CHOOSE 1000 IF lit ELSE -1), "ZOOMED", zoomed, "ENDED", FALSE).
+  LOCAL seq_lex IS seq_new(1000).
+  SET seq_lex["ARMED"] TO TRUE.
+  SET seq_lex["IGN_T"] TO (CHOOSE 1000 IF lit ELSE -1).
+  SET seq_lex["ZOOMED"] TO zoomed.
   LOCAL pr IS LEXICON("REFUSED", "", "SEQ", seq_lex, "WINDOW_MODE", "UP", "TURNED", FALSE, "FORE0", V(1, 0, 0), "WIN0", V(0, 1, 0), "WCMD", V(0, 1, 0),
                  "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "ROD", rod_new(), "ROD_START", FALSE, "HIGHGATE", FALSE, "GO", TRUE, "LAST_REQ", FALSE, "N61_SHOWN", TRUE,
                  "WARP", warp_new(), "ENGINE", 0,

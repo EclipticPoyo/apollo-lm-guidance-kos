@@ -521,6 +521,13 @@ assert_true("pad: rate never settled", ctl_rate_deg_s() > P63_SETTLE_RATE_DEG_S)
 // CTL_DRY makes every ctl_* function that writes the ship's controls do nothing, so p63_step can run here.
 RUNONCEPATH("0:/shared/lm_nav.ks").
 SET CTL_DRY TO TRUE.
+// lit_seq: a P63 sequence armed and lit at UT 1000 (a burn_seq as a state).
+FUNCTION lit_seq {
+  LOCAL sq_lit IS seq_new(1000).
+  SET sq_lit["ARMED"] TO TRUE.
+  SET sq_lit["IGN_T"] TO 1000.
+  RETURN sq_lit.
+}
 FUNCTION dry_prog {
   PARAMETER seq_lex, lit, t_last.
   RETURN LEXICON("REFUSED", "", "SEQ", seq_lex, "WINDOW_MODE", "UP", "TURNED", FALSE, "FORE0", V(1, 0, 0), "WIN0", V(0, 1, 0), "WCMD", V(0, 1, 0), "ATT", att_new(), "DB", db_new(), "RAD", radar_new(), "ROD_START", FALSE, "HIGHGATE", FALSE, "GO", TRUE, "LAST_REQ", FALSE, "N61_SHOWN", TRUE, "WARP", warp_new(), "ENGINE", 0,
@@ -566,7 +573,9 @@ LOCAL dout_coast IS p63_step(dp_coast, dst_coast, nav_derived(dst_coast, d_land,
 assert_true("V34 in the coast (no request up) does not end P63", NOT dout_coast["ENDED"]).
 // Review critical 3: alarm 1406 reaches the display: the lander almost at the site and nearly stationary (V(1, 0, 1)) has no positive
 // time-to-go root (checked with reference.py's guid_pass_ref: ok False). The earlier state, 50 km on in z, does solve (tgo about 705 s).
-LOCAL burn_seq IS LEXICON("TIG", 1000, "ARMED", TRUE, "IGN_T", 1000, "ZOOMED", FALSE, "ENDED", FALSE).
+LOCAL burn_seq IS seq_new(1000).
+SET burn_seq["ARMED"] TO TRUE.
+SET burn_seq["IGN_T"] TO 1000.
 LOCAL dp2 IS dry_prog(burn_seq, TRUE, 1004.75).
 LOCAL dst2 IS dry_state_v(1005, V(1737400 + 100, 0, 10), V(1, 0, 1), 43.4547).
 LOCAL dout2 IS p63_step(dp2, dst2, nav_derived(dst2, d_land, d_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
@@ -585,7 +594,7 @@ assert_true("a normal burn is not a handover", NOT dout4["HANDOVER"]).
 assert_near("p63_step reports PROG_NO 63", dout4["PROG_NO"], 63, 0).
 // Milestone 4: when braking is over (time-to-go below TENDBRAK) the step asks for P64, once. The state is the braking sim
 // of reference.py about 50 s before the braking target (tgo 50.3 s), guidance axes with the site on the raw +X axis.
-LOCAL dp6 IS dry_prog(LEXICON("TIG", 1000, "ARMED", TRUE, "IGN_T", 1000, "ZOOMED", FALSE, "ENDED", FALSE), TRUE, 1004.75).
+LOCAL dp6 IS dry_prog(lit_seq(), TRUE, 1004.75).
 SET dp6["ZOOMED"] TO TRUE.
 SET dp6["TGO"] TO 50.5.
 LOCAL dst6 IS dry_state_v(1005, V(1739309.437, 0, -6771.996), V(-40.965, 0, 145.871), 43.4547).

@@ -200,6 +200,7 @@ FUNCTION key_enter {
     // programme ends: keying V37 E over it, or ENTR alone, must still ask for the number).
     IF verb_new = 37 {
       SET ks["VERB_BEFORE"] TO ks["VERB"].
+      SET ks["KEYREL"] TO FALSE.                 // the V37 ENTR releases the display (extended verb, RELDSP)
       SET ks["AWAIT_PROG"] TO TRUE.
       SET ks["PBUF"] TO "".
     }
@@ -223,7 +224,14 @@ FUNCTION key_press {
   LOCAL key IS ch:TOUPPER.
   IF key = "R" { alarm_reset(ks["ALARM"]). }          // RSET also clears the alarm slots and the PROG lamp (Luminary ERROR), whatever else is active
   // Keying over a pending request lights KEY REL (Luminary: every key but RSET; PRO is not a key here, KEY REL itself releases).
-  IF ks["PENDING"]:ISTYPE("Lexicon") AND key <> "R" AND key <> "P" AND key <> "K" {
+  // Departure from Luminary, documented: V37 is an extended verb, which releases the display (RELDSP, PINBALL 2982, 3592), so while the
+  // programme number is being keyed (AWAIT_PROG) its digits, CLR and ENTR do not light the lamp again. V or N keyed then still do.
+  LOCAL number_entry IS ks["AWAIT_PROG"] AND key <> "V" AND key <> "N".
+  // A request with "QUIET" set (the vehicle's standing request after a programme ends, V37 N99) never lights the lamp: nothing is waiting on the pilot,
+  // and getting rid of the lamp was a chore. KEY REL still brings the request back. A documented departure from Luminary.
+  LOCAL quiet_request IS FALSE.
+  IF ks["PENDING"]:ISTYPE("Lexicon") { IF ks["PENDING"]:HASKEY("QUIET") { SET quiet_request TO ks["PENDING"]["QUIET"]. } }
+  IF ks["PENDING"]:ISTYPE("Lexicon") AND key <> "R" AND key <> "P" AND key <> "K" AND NOT number_entry AND NOT quiet_request {
     IF "VN0123456789CE+-":CONTAINS(key) OR ch = CHAR(13) OR ch = CHAR(10) { SET ks["KEYREL"] TO TRUE. }
   }
   // A keyed load (V21 to V25) takes digits, signs, CLR, RSET and ENTR/PRO while it is active; V and N are not its keys.

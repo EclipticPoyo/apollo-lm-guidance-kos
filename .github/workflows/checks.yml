@@ -22,5 +22,5 @@ jobs:
         run: python scripts/tests/check_syntax.py
       - name: Paths (every script path resolves)
         run: python scripts/tests/check_paths.py
-      - name: Manual against the code
-        run: python scripts/tests/check_manual.py
+      - name: Pilot's pack against the code
+        run: python scripts/tests/check_pack.py

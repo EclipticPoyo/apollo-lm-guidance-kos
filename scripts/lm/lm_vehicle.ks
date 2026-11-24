@@ -23,6 +23,10 @@ RUNONCEPATH("0:/lm/descent_j/lm_j_p64.ks").
 RUNONCEPATH("0:/lm/descent_j/lm_j_p66.ks").
 RUNONCEPATH("0:/lm/descent_j/lm_j_nouns.ks").        // j_noun_registers, lm_forvel (the J profile's nouns 60, 63 and 68)
 RUNONCEPATH("0:/lm/descent/lm_p68.ks").               // P68, landing confirmation (both profiles)
+RUNONCEPATH("0:/lm/burn/lm_r02.ks").                  // R02, R03 and P51 (release 1.4); it loads lm_r60.ks, the R60 attitude manoeuvre
+RUNONCEPATH("0:/lm/burn/lm_p30.ks").                  // P30, external delta-V (release 1.4)
+RUNONCEPATH("0:/lm/burn/lm_p40.ks").                  // P40, the DPS burn (release 1.4)
+RUNONCEPATH("0:/lm/burn/lm_p41.ks").                  // P41, the RCS burn, and P47, the thrust monitor (release 1.4)
 
 RUNONCEPATH("0:/lm/lm_alarms.ks").                 // the scripted alarms (ALARMS)
 RUNONCEPATH("0:/lm/lm_cells.ks").                  // lm_cells_for, the store conversions, lm_hms_cs
@@ -31,10 +35,12 @@ GLOBAL LM_CHECK_LOG IS "0:/lm/logs/lm_check.log".        // the cross-check log 
 GLOBAL LM_VEH IS LEXICON().                         // "SITE" (lm_site_from_store), "STORE" (the erasable store), "SITE_SIG" (signature of the RLS words last seen), "LAND" (site vector), "WM" (the Moon's spin), "PIN" (map pin), "FPIN" (flight-view site vector, P64)
 
 // lm_profile_for: the software version ("A11" or "J") for a saved plan (or FALSE): the plan's own PROFILE when there is a plan (a plan wins),
-// else the PAD_PROFILE setting.
+// else the version the planner saved with its PAD (lm_profile_saved), else the default PAD_PROFILE (lm_constants.ks, no longer a pilot setting).
 FUNCTION lm_profile_for {
   PARAMETER plan.
   IF plan:ISTYPE("Lexicon") { RETURN plan_profile_of(plan). }
+  LOCAL saved IS lm_profile_saved().
+  IF saved <> "" { RETURN saved. }
   RETURN PAD_PROFILE.
 }
 
@@ -59,12 +65,12 @@ FUNCTION lm_plan_from_store {
                  "T_LAND", tland_ut, "WINDOW_MODE", P63_WINDOW_MODE, "PROFILE", profile).
 }
 
-// lm_store_from_plan: Skip simulated uplink. Load RLS and TLAND from a saved plan, as if the ground had uplinked them before the pilot started, but only
-// the ones not loaded already (an uplink or keyed load is never overwritten). Returns LEXICON("RLS", bool, "TLAND", bool, "WHY", text):
-// which were filled, and why TLAND was not when the plan's time does not fit the AGC clock.
+// lm_store_from_plan: Skip simulated uplink. Load RLS, TLAND and the DOI burn (TIG and DELVLVC, so N33 and N81 read right) from a saved plan, as if the ground
+// had uplinked them before the pilot started, but only the ones not loaded already (an uplink or keyed load is never overwritten). Returns
+// LEXICON("RLS", bool, "TLAND", bool, "BURN", bool, "WHY", text): which were filled, and why TLAND or the burn was not when a time does not fit the AGC clock.
 FUNCTION lm_store_from_plan {
   PARAMETER vault, plan, radius, clock_zero.
-  LOCAL out IS LEXICON("RLS", FALSE, "TLAND", FALSE, "WHY", "").
+  LOCAL out IS LEXICON("RLS", FALSE, "TLAND", FALSE, "BURN", FALSE, "WHY", "").
   IF NOT plan:ISTYPE("Lexicon") { RETURN out. }
   IF NOT (plan:HASKEY("SITE_LAT") AND plan:HASKEY("SITE_LNG")) { RETURN out. }
   IF NOT store_loaded(vault, "RLS") {
@@ -76,6 +82,18 @@ FUNCTION lm_store_from_plan {
   IF NOT store_loaded(vault, "TLAND") AND plan:HASKEY("T_LAND") {
     SET out["TLAND"] TO lm_store_put_tland(vault, plan["T_LAND"], clock_zero).
     IF NOT out["TLAND"] { SET out["WHY"] TO "the plan's landing time does not fit the AGC clock (before its zero or beyond 31 days)". }
+  }
+  // The DOI burn, as the PAD's one V71 block would load it: TIG (N33) and the delta-v in local vertical axes (N81) together, only when neither is loaded.
+  IF NOT (store_loaded(vault, "TIG") OR store_loaded(vault, "DELVLVC")) AND plan:HASKEY("T_DOI") AND plan:HASKEY("LV_DOI") {
+    LOCAL tig_s IS plan["T_DOI"] - clock_zero.
+    IF tig_s < 0 OR tig_s * 100 >= LM_CLOCK_LIMIT_CS {
+      IF out["WHY"] = "" { SET out["WHY"] TO "the plan's DOI time does not fit the AGC clock (before its zero or beyond 31 days)". }
+    } ELSE {
+      LOCAL lv IS plan["LV_DOI"].
+      lm_store_put_dv(vault, V(lv[0], lv[1], lv[2])).
+      lm_store_put_tig(vault, tig_s).
+      SET out["BURN"] TO TRUE.
+    }
   }
   RETURN out.
 }
@@ -151,9 +169,10 @@ FUNCTION lm_veh_nav {
   PARAMETER prog.
   IF NOT prog:ISTYPE("Lexicon") { lm_refresh_site(). }      // no programme: follow RLS in the store (an uplink may have just loaded it)
   LOCAL state IS nav_state().
+  // Away from the landing body the descent registers have nothing to show, but the DSKY keeps running (burns and coast
+  // happen over other bodies). The descent programmes refuse or go invalid by themselves (BODY_OK in guid_pass).
   IF NOT state["BODY_OK"] {
-    RETURN LEXICON("OK", FALSE, "STATE", state, "DERIVED", LEXICON("VALID", FALSE),
-                   "MSG", "Left the " + BODY_NAME + "'s sphere of influence. Stopping.").
+    RETURN LEXICON("OK", TRUE, "STATE", state, "DERIVED", LEXICON("VALID", FALSE)).
   }
   LOCAL site IS LM_VEH["SITE"].
   IF NOT site["OK"] { RETURN LEXICON("OK", TRUE, "STATE", state, "DERIVED", LEXICON("VALID", FALSE)). }
@@ -365,6 +384,104 @@ FUNCTION lm_p68_end {
 }
 FUNCTION lm_p68_sample { PARAMETER prog. }
 
+// P51, the simplified IMU orientation (lm_r02.ks): one flashing request, PRO sets LM_VEH["IMU_OK"].
+FUNCTION lm_p51_start {
+  PARAMETER prev.
+  LOCAL started IS p51_start(prev).
+  PRINT "P51 started: the IMU orientation. PRO sets it, V34 ends without setting it.".
+  RETURN started.
+}
+FUNCTION lm_p51_step { PARAMETER prog, nav, ks. RETURN p51_step(prog, nav, ks). }
+FUNCTION lm_p51_end { PARAMETER prog. p51_end(prog). }
+FUNCTION lm_p51_sample { PARAMETER prog. }
+
+// P30, external delta-V (lm_p30.ks). The state at TIG comes from the orbit prediction in the raw axes of the moment of the call (p63_predict with t0 = now);
+// the body's mu and radius go with it for the apsides. START refuses while TIG or the delta-V is not loaded, or TIG has passed. The step is given the
+// UT each cycle (for N45's time to go). The result P40 and P41 read is LM_VEH["XDELV"] (FALSE until P30 has set XDELVFLG).
+FUNCTION lm_p30_predict {
+  PARAMETER t_ut.
+  // Guard: the state is asked for 0.05 s before TIG so that a KSP maneuver node at TIG cannot make VELOCITYAT return the velocity after that
+  // node's burn (the burn would then be counted twice). 0.05 s is about 0.003 degrees of orbit, so the apsides do not change. Never before now.
+  LOCAL t_predict IS MAX(t_ut - 0.05, TIME:SECONDS).
+  LOCAL state_tig IS p63_predict(TIME:SECONDS, LM_VEH["WM"], t_predict).
+  SET state_tig["MU"] TO SHIP:BODY:MU.
+  SET state_tig["RADIUS"] TO SHIP:BODY:RADIUS.
+  RETURN state_tig.
+}
+FUNCTION lm_p30_start {
+  PARAMETER prev.
+  LOCAL started IS p30_start(prev, LM_VEH["STORE"], lm_clock_zero_ut(), LM_VEH["PROFILE"], TIME:SECONDS, lm_p30_predict@).
+  IF started["REFUSED"] = "" { PRINT "P30 started: external delta-V. PRO goes on at each display, V34 ends it (V32 shows a display again).". }
+  RETURN started.
+}
+FUNCTION lm_p30_step {
+  PARAMETER prog, nav, ks.
+  SET prog["NOW_UT"] TO nav["STATE"]["T"].
+  RETURN p30_step(prog, ks).
+}
+FUNCTION lm_p30_end { PARAMETER prog. p30_end(prog). }
+FUNCTION lm_p30_sample { PARAMETER prog. }
+
+// P40, the DPS burn (lm_p40.ks). START refuses until P30 has run (LM_VEH["XDELV"]) and while TIG is not loaded; it takes the controls. The engine is the one with the most vacuum
+// thrust (ctl_find_engine). The step is given the IMU flags and the staging flag each cycle; in the alarm 1706 phase the engine is looked for again (a re-check with PRO or V32).
+FUNCTION lm_p40_start {
+  PARAMETER prev.
+  IF KUNIVERSE:TIMEWARP:RATE > 1 { KUNIVERSE:TIMEWARP:CANCELWARP(). }
+  LOCAL eng IS ctl_find_engine().
+  LOCAL f_max_n IS 0.
+  IF eng:ISTYPE("Engine") { SET f_max_n TO eng:POSSIBLETHRUSTAT(0) * 1000. }
+  LOCAL ref_att IS LM_VEH["REF_ATT"].
+  LOCAL started IS p40_start(prev, LM_VEH["STORE"], lm_clock_zero_ut(), LM_VEH["PROFILE"], TIME:SECONDS, eng, f_max_n, LM_VEH["XDELV"], LM_VEH["WM"], ref_att["DIR"], ref_att["UP"]).
+  IF started["REFUSED"] = "" { PRINT "P40 started: the DPS burn. PRO, ENTR and V34 answer each display (V37 E 30 E first sets the burn). ENG_THR_CONT is " + ENG_THR_CONT + ".". }
+  RETURN started.
+}
+FUNCTION lm_p40_step {
+  PARAMETER prog, nav, ks.
+  SET prog["IMU_ON"] TO LM_VEH["IMU_ON"].
+  SET prog["IMU_OK"] TO LM_VEH["IMU_OK"].
+  IF LM_VEH:HASKEY("STAGED") { SET prog["STAGED"] TO LM_VEH["STAGED"]. }
+  IF prog["PHASE"] = "STAGED" {
+    LOCAL eng IS ctl_find_engine().
+    SET prog["ENGINE"] TO eng.
+    SET prog["F_MAX_N"] TO (CHOOSE eng:POSSIBLETHRUSTAT(0) * 1000 IF eng:ISTYPE("Engine") ELSE 0).
+  }
+  RETURN lm_att_lamp(p40_step(prog, nav["STATE"], nav["DERIVED"], ks), prog).
+}
+FUNCTION lm_p40_end { PARAMETER prog. p40_end(prog). }
+FUNCTION lm_p40_sample { PARAMETER prog. }
+
+// P41, the RCS burn, and P47, the thrust monitor (lm_p41.ks): the pilot burns by hand. P41 starts like P40 (P30 first); P47 needs nothing.
+FUNCTION lm_p41_start {
+  PARAMETER prev.
+  IF KUNIVERSE:TIMEWARP:RATE > 1 { KUNIVERSE:TIMEWARP:CANCELWARP(). }
+  LOCAL ref_att IS LM_VEH["REF_ATT"].
+  LOCAL started IS p41_start(prev, LM_VEH["STORE"], lm_clock_zero_ut(), LM_VEH["PROFILE"], TIME:SECONDS, ctl_find_engine(), LM_VEH["XDELV"], LM_VEH["WM"], ref_att["DIR"], ref_att["UP"]).
+  IF started["REFUSED"] = "" { PRINT "P41 started: the RCS burn. R60 first, then V16 N85 counts the velocity still to be gained; at TIG burn by hand and PRO or V34 ends.". }
+  RETURN started.
+}
+FUNCTION lm_p41_step {
+  PARAMETER prog, nav, ks.
+  SET prog["IMU_ON"] TO LM_VEH["IMU_ON"].
+  SET prog["IMU_OK"] TO LM_VEH["IMU_OK"].
+  RETURN lm_att_lamp(p41_step(prog, nav["STATE"], nav["DERIVED"], ks), prog).
+}
+FUNCTION lm_p41_end { PARAMETER prog. p41_end(prog). }
+FUNCTION lm_p41_sample { PARAMETER prog. }
+FUNCTION lm_p47_start {
+  PARAMETER prev.
+  LOCAL started IS p47_start(prev, TIME:SECONDS, LM_VEH["WM"]).
+  PRINT "P47 started: the thrust monitor. V16 N83 shows the velocity gained after about 20 s; ENTR zeroes it, PRO or V34 ends.".
+  RETURN started.
+}
+FUNCTION lm_p47_step {
+  PARAMETER prog, nav, ks.
+  SET prog["IMU_ON"] TO LM_VEH["IMU_ON"].
+  SET prog["IMU_OK"] TO LM_VEH["IMU_OK"].
+  RETURN p47_step(prog, nav["STATE"], nav["DERIVED"], ks).
+}
+FUNCTION lm_p47_end { PARAMETER prog. p47_end(prog). }
+FUNCTION lm_p47_sample { PARAMETER prog. }
+
 FUNCTION lm_p65_end { PARAMETER prog. p65_end(prog). }
 FUNCTION lm_p65_sample { PARAMETER prog. p65_sample(prog). }
 FUNCTION lm_p66_end { PARAMETER prog. j_p66_end(prog). }
@@ -456,7 +573,12 @@ FUNCTION lm_programme_table {
     "64", LEXICON("START", lm_p64_start@, "STEP", lm_p64_step@, "END", lm_p64_end@, "SAMPLE", lm_p64_sample@, "NEXT", 65, "SELECTABLE", FALSE),
     "65", LEXICON("START", lm_p65_start@, "STEP", lm_p65_step@, "END", lm_p65_end@, "SAMPLE", lm_p65_sample@, "NEXT", 68, "SELECTABLE", FALSE),
     "66", LEXICON("START", lm_p66_start@, "STEP", lm_p66_step@, "END", lm_p66_end@, "SAMPLE", lm_p66_sample@, "NEXT", 68, "SELECTABLE", FALSE),
-    "68", LEXICON("START", lm_p68_start@, "STEP", lm_p68_step@, "END", lm_p68_end@, "SAMPLE", lm_p68_sample@, "NEXT", -1, "SELECTABLE", TRUE)).
+    "68", LEXICON("START", lm_p68_start@, "STEP", lm_p68_step@, "END", lm_p68_end@, "SAMPLE", lm_p68_sample@, "NEXT", -1, "SELECTABLE", TRUE),
+    "51", LEXICON("START", lm_p51_start@, "STEP", lm_p51_step@, "END", lm_p51_end@, "SAMPLE", lm_p51_sample@, "NEXT", -1, "SELECTABLE", TRUE),
+    "30", LEXICON("START", lm_p30_start@, "STEP", lm_p30_step@, "END", lm_p30_end@, "SAMPLE", lm_p30_sample@, "NEXT", -1, "SELECTABLE", TRUE),
+    "40", LEXICON("START", lm_p40_start@, "STEP", lm_p40_step@, "END", lm_p40_end@, "SAMPLE", lm_p40_sample@, "NEXT", -1, "SELECTABLE", TRUE),
+    "41", LEXICON("START", lm_p41_start@, "STEP", lm_p41_step@, "END", lm_p41_end@, "SAMPLE", lm_p41_sample@, "NEXT", -1, "SELECTABLE", TRUE),
+    "47", LEXICON("START", lm_p47_start@, "STEP", lm_p47_step@, "END", lm_p47_end@, "SAMPLE", lm_p47_sample@, "NEXT", -1, "SELECTABLE", TRUE)).
 }
 
 // lm_vehicle_new: build the vehicle LEXICON for dsky_core.ks and set up the shared state in LM_VEH.
@@ -464,7 +586,11 @@ FUNCTION lm_vehicle_new {
   LOCAL plan IS plan_read(PLAN_PLAN_FILE).
   LOCAL profile IS lm_profile_for(plan).
   SET LM_VEH TO LEXICON("SITE", LEXICON("OK", FALSE, "LAT", 0, "LNG", 0, "ALT", 0), "LAND", V(0, 0, 0), "WM", moon_spin(), "PIN", FALSE, "FPIN", FALSE,
-      "PROFILE", profile, "LR_PERMIT", FALSE, "ALARM_SCHED", LIST(), "ALARM_T", -1, "TABLE", FALSE, "STORE", store_new(lm_cells_for(profile)), "SITE_SIG", -1, "FILLED", LEXICON()).
+      "PROFILE", profile, "LR_PERMIT", FALSE, "ALARM_SCHED", LIST(), "ALARM_T", -1, "TABLE", FALSE, "STORE", store_new(lm_cells_for(profile)), "SITE_SIG", -1, "FILLED", LEXICON(), "XDELV", FALSE,
+      "IMU_ON", TRUE, "IMU_OK", (IMU_ALIGN = "AUTO"), "REF_ATT", LEXICON("DIR", SHIP:FACING:FOREVECTOR, "UP", SHIP:FACING:TOPVECTOR)).
+  // XDELV: the P30 results P40 and P41 read (XDELVFLG up when it is a LEXICON: DELVSIN, RTIG, VTIG, UT_TIG, DELVSAB), FALSE until P30 has set it.
+  // IMU_ON: our IMU is always on. IMU_OK: its orientation is known (r02): TRUE at start with IMU_ALIGN AUTO, else only after P51. REF_ATT: the IMU reference
+  // attitude (an assumed REFSMMAT: the attitude at DSKY start) that N18's angles are measured against (r60_cdu_angles).
   // Loads kept from an earlier DSKY run (saved when it ended; the planner deletes the file on a new plan).
   store_restore(LM_VEH["STORE"], LM_STORE_FILE, profile).
   // Skip simulated uplink: a saved plan fills the store as if it had been uplinked already (never over data that is loaded). With no plan nothing is
@@ -501,7 +627,7 @@ FUNCTION lm_vehicle_new {
     "LAMPS", LEXICON("KEY_REL", "KEYREL", "ALT_LAMP", "ALT", "VEL_LAMP", "VEL", "CONTACT", "CONTACT", "ATT_HOLD", "ATTHOLD"),
     "IDLE_LAMPS", lm_idle_lamps@,
     "STICKY_PROGS", LIST(),                       // after P68 ends PROG goes to 00 as in Luminary (GOTOPOOH)
-    "END_REQUEST", LEXICON("VERB", 37, "NOUN", 99),          // the flashing V37 N99 request after a programme ends (Luminary GOP00FIX)
+    "END_REQUEST", LEXICON("VERB", 37, "NOUN", 99, "QUIET", TRUE),          // the flashing V37 N99 request after a programme ends (Luminary GOP00FIX)
     "STORE", LM_VEH["STORE"],
     "STORE_SAVE", lm_store_save@,
     "P27_OK", lm_p27_ok@,

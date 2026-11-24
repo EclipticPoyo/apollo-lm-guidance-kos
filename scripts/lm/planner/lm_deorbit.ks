@@ -78,6 +78,14 @@ FUNCTION dp_clear {
   dp_intended:CLEAR().
 }
 
+// dp_node_text: what the planner says about the nodes of a good plan: count nodes were made; keep says whether they stay on the
+// ship (setting PLAN_NODES). With keep FALSE it does not mention nodes beyond saying none were left.
+FUNCTION dp_node_text {
+  PARAMETER count, keep.
+  IF NOT keep { RETURN "No maneuver nodes left on the ship (PLAN_NODES is FALSE): fly the burns with P30 and P40.". }
+  RETURN count + " maneuver node(s) added, as a visual aid. Fly the burns with P30 and P40.".
+}
+
 // dp_fail: report a reason, remove our nodes, end the run unsuccessfully.
 FUNCTION dp_fail {
   PARAMETER reason.
@@ -338,11 +346,16 @@ FUNCTION deorbit_run {
   plan_write(PLAN_PLAN_FILE, LEXICON("SITE_LAT", site["LAT"], "SITE_LNG", site["LNG"], "SITE_ALT", site["ALT"],
       "T_MADE", t_start, "T_DOI", t_doi, "T_PDI", t_pdi, "T_LAND", t_land, "T_PC", t_pc, "WINDOW_MODE", P63_WINDOW_MODE,
       "PROFILE", PAD_PROFILE, "DV_DOI", doi["DV"]:MAG, "DV_PC", dv_pc:MAG, "LV_DOI", lv_doi, "LV_PC", lv_pc, "V_PDI", doi["V_PDI"], "ALT_PDI", geo["ALT_PDI"])).
-  dp_say("PLAN OK. " + dp_nodes:LENGTH + " maneuver node(s) added. Plan saved to " + PLAN_PLAN_FILE + "." + (CHOOSE " Report: " + DP_LOG IF LM_LOG ELSE "")).
+  // The nodes were needed for the predictions above (each burn changes the orbit the next is planned on). They are only a visual aid
+  // for the pilot (P30 and P40 never read a node), so PLAN_NODES FALSE removes them now that the plan is checked and saved.
+  LOCAL node_count IS dp_nodes:LENGTH.
+  LOCAL node_text IS dp_node_text(node_count, PLAN_NODES).
+  IF NOT PLAN_NODES { dp_clear(). }
+  dp_say("PLAN OK. " + node_text + " Plan saved to " + PLAN_PLAN_FILE + "." + (CHOOSE " Report: " + DP_LOG IF LM_LOG ELSE "")).
   LOCAL pc_text IS "no plane change".
   IF t_pc > 0 { SET pc_text TO "plane change at " + dp_met(t_pc) + ", " + ROUND(dv_pc:MAG, 1) + " m/s". }
   SET DP_RESULT TO LEXICON("DOI", dp_met_hm(t_doi), "PDI", dp_met_hm(t_pdi), "LDG", dp_met_hm(t_land), "WARN", pre_all["WARNINGS"]).
-  SET DP_SUMMARY TO LIST("PLAN OK: " + dp_nodes:LENGTH + " node(s) added. " + pc_text + ".",
+  SET DP_SUMMARY TO LIST("PLAN OK: " + dp_node_text(node_count, PLAN_NODES) + " " + pc_text + ".",
                          "DOI at " + dp_met(t_doi) + ", " + ROUND(doi["DV"]:MAG, 1) + " m/s. PDI at " + dp_met(t_pdi) + ".").
   RETURN TRUE.
 }

@@ -141,6 +141,26 @@ assert_true("V37 E 03 E over V37 N99 asks for programme 3", ks_v["PROG_REQ"] = 3
 SET ks_v["PROG_REQ"] TO -1.
 FOR key_char IN LIST("E", "0", "0", "E") { key_press(ks_v, key_char). }
 assert_true("ENTR alone over V37 N99 also waits for the programme number", ks_v["PROG_REQ"] = 0 AND NOT ks_v["OPRERR"]).
+// KEY REL: keying V37 over the standing request lights it, the V37 ENTR and the programme digits leave it out; V or N keyed during the wait light it again.
+SET ks_v["PENDING"] TO LEXICON("VERB", 37, "NOUN", 99).
+SET ks_v["KEYREL"] TO FALSE.
+key_press(ks_v, "V").
+assert_true("keying V over the standing request lights KEY REL", ks_v["KEYREL"]).
+FOR key_char IN LIST("3", "7", "E") { key_press(ks_v, key_char). }
+assert_true("the V37 ENTR puts KEY REL out", NOT ks_v["KEYREL"] AND ks_v["AWAIT_PROG"]).
+FOR key_char IN LIST("0", "0") { key_press(ks_v, key_char). }
+assert_true("the programme digits do not light KEY REL again", NOT ks_v["KEYREL"]).
+key_press(ks_v, "E").
+assert_true("the programme number's ENTR does not light it either", NOT ks_v["KEYREL"]).
+// A quiet standing request (the LM's V37 N99) never lights KEY REL, for V16 NXX or anything else; a normal one still does.
+SET ks_v["PENDING"] TO LEXICON("VERB", 37, "NOUN", 99, "QUIET", TRUE).
+SET ks_v["KEYREL"] TO FALSE.
+SET ks_v["AWAIT_PROG"] TO FALSE.
+FOR key_char IN LIST("V", "1", "6", "N", "6", "2", "E") { key_press(ks_v, key_char). }
+assert_true("keying V16 N62 E over a quiet request does not light KEY REL", NOT ks_v["KEYREL"]).
+SET ks_v["PENDING"] TO LEXICON("VERB", 6, "NOUN", 61).
+key_press(ks_v, "V").
+assert_true("keying over an ordinary request still lights KEY REL", ks_v["KEYREL"]).
 fake_vehicle:REMOVE("END_REQUEST").
 
 // 10: a lamp key in the programme's output reaches the flag the vehicle names.

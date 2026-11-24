@@ -136,10 +136,39 @@ LOCAL late_store IS store_new(cells_a).
 LOCAL plan_late IS LEXICON("SITE_LAT", 0.674, "SITE_LNG", 23.473, "SITE_ALT", -1930, "T_LAND", 50, "PROFILE", "A11").
 LOCAL filled_late IS lm_store_from_plan(late_store, plan_late, moon_r, 100000).
 assert_true("a landing time before the clock zero is not loaded and says why", filled_late["RLS"] AND NOT filled_late["TLAND"] AND filled_late["WHY"] <> "").
+// the DOI burn: TIG and DELVLVC from T_DOI and LV_DOI (clock zero 100000)
+LOCAL burn_store IS store_new(cells_a).
+LOCAL plan_burn IS LEXICON("SITE_LAT", 0.674, "SITE_LNG", 23.473, "SITE_ALT", -1930, "T_LAND", 400000, "T_DOI", 390000, "LV_DOI", LIST(-20.5, 0.3, 1.2), "PROFILE", "A11").
+LOCAL filled_burn IS lm_store_from_plan(burn_store, plan_burn, moon_r, 100000).
+assert_true("the plan fills the DOI burn (TIG and DELVLVC)", filled_burn["BURN"] AND store_loaded(burn_store, "TIG") AND store_loaded(burn_store, "DELVLVC")).
+assert_near("loaded TIG is T_DOI minus the clock zero", lm_store_get_tig(burn_store), 290000, 0.01).
+LOCAL burn_dv IS lm_store_get_dv(burn_store).
+assert_near("loaded delta-v X", burn_dv:X, -20.5, 0.01).
+assert_near("loaded delta-v Y", burn_dv:Y, 0.3, 0.01).
+assert_near("loaded delta-v Z", burn_dv:Z, 1.2, 0.01).
+LOCAL burn_again IS lm_store_from_plan(burn_store, LEXICON("SITE_LAT", 0.674, "SITE_LNG", 23.473, "SITE_ALT", -1930, "T_DOI", 395000, "LV_DOI", LIST(1, 2, 3)), moon_r, 100000).
+assert_true("a loaded burn is not overwritten", NOT burn_again["BURN"] AND ABS(lm_store_get_tig(burn_store) - 290000) < 0.01).
+LOCAL burn_late IS lm_store_from_plan(store_new(cells_a), LEXICON("SITE_LAT", 0.674, "SITE_LNG", 23.473, "SITE_ALT", -1930, "T_DOI", 50, "LV_DOI", LIST(1, 2, 3)), moon_r, 100000).
+assert_true("a DOI time before the clock zero is not loaded and says why", NOT burn_late["BURN"] AND burn_late["WHY"] <> "").
 LOCAL filled_none IS lm_store_from_plan(store_new(cells_a), FALSE, moon_r, 100000).
 assert_true("no plan loads nothing", NOT filled_none["RLS"]).
 assert_true("a plan with PROFILE J selects J", lm_profile_for(LEXICON("PROFILE", "J")) = "J").
-assert_true("no plan uses the PAD_PROFILE setting", lm_profile_for(FALSE) = PAD_PROFILE).
+// ---- the version the planner saves with its PAD (profile.txt) reaches the DSKY when there is no plan ----------------------------
+LOCAL had_profile IS lm_profile_saved().
+lm_profile_clear().
+assert_true("no plan and no profile file: the PAD_PROFILE default", lm_profile_for(FALSE) = PAD_PROFILE AND lm_profile_saved() = "").
+lm_profile_save("J").
+assert_true("a saved J reaches the DSKY with no plan", lm_profile_saved() = "J" AND lm_profile_for(FALSE) = "J").
+lm_profile_save("A11").
+assert_true("a saved A11 reaches the DSKY with no plan", lm_profile_for(FALSE) = "A11").
+lm_profile_save("J").
+assert_true("a plan's own PROFILE wins over the file", lm_profile_for(LEXICON("PROFILE", "A11")) = "A11").
+lm_profile_clear().
+LOG "garbage" TO LM_PROFILE_FILE.
+assert_true("a bad file is ignored", lm_profile_saved() = "" AND lm_profile_for(FALSE) = PAD_PROFILE).
+lm_profile_clear().
+assert_true("clearing removes the file", NOT EXISTS(LM_PROFILE_FILE)).
+IF had_profile <> "" { lm_profile_save(had_profile). }
 
 // ---- the clock zero: the planner's saved zero survives the undock that restarts MISSIONTIME -----------------------------------
 LOCAL had_clock IS EXISTS(LM_CLOCK_FILE).

@@ -1,6 +1,6 @@
 # Roadmap
 
-Where the project is going. 1.0, 1.1, 1.2, 1.3 and 1.3.1 are released; everything else is planned and may change.
+Where the project is going. 1.0, 1.1, 1.2, 1.3 and 1.3.1 are released; 1.4 is built and flown; everything else is planned and may change.
 
 Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 
@@ -13,12 +13,12 @@ Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 | **1.2** | J-class pads | Luminary 210 pad loads (Apollo 15 to 17), the logic changes in 210's P63 to P66 (no P65), DSKY digits drawn as pictures (no font to install) | ✅ |
 | **1.3** | Uplink and loads | The way data really reached the AGC: the update program (P27, V71/V72 uplink), the keyed load verbs (V21 to V25), and a planner that prints a PAD of what Mission Control would uplink (the landing site, the landing time and the DOI burn) and sends it to the DSKY as a simulated uplink; a box skips the uplink. Real Luminary addresses and scaling. | ✅ |
 | **1.3.1** | Landing aids | Program alarms and an alarm facility in the DSKY core, flashing requests with KEY REL, the landing radar nouns and verbs, the flashing displays Luminary has in the descent (including the J-class ones), P66 back to P65, P68 landing confirmation. A fuel display and a MASTER ALARM lamp are not planned | ✅ |
-| **1.4** | Burn programmes | P30 and P40 to P47 general burns, external delta-V, RCS burns; the AGC then flies the burns itself, starting with the DOI, and the KSP maneuver nodes are retired (a plane-change burn is the command module's, so it waits for 2.0). Includes the attitude control below if the research works | 📝 |
+| **1.4** | Burn programmes | P30 and P40 to P47 general burns, external delta-V, RCS burns; the AGC then flies the burns itself, starting with the DOI, and the KSP maneuver nodes are retired (a plane-change burn is the command module's, so it waits for 2.0). The attitude control below is not part of it | 🚧 Built, awaiting KSP flights |
 | **1.5** | Ascent | Ascent guidance, P12 liftoff from the surface | 📝 |
 | **1.6** | Aborts | P70 and P71, abort stage, abort triggers during descent | 📝 |
-| **1.7** | Rendezvous I | Target handling, conic solvers, CSI and CDH | 📝 |
+| **1.7** | Rendezvous I | Target handling, conic solvers (including the Lambert aim-point solution that P40 and P41 run when P30 has not set the external delta-V flag), CSI and CDH | 📝 |
 | **1.8** | Rendezvous II | TPI, TPM, terminal phase, docking hand-off | 📝 |
-| **1.9** | Multi-craft DSKY | A DSKY on each craft (the LM, later the command module), each running its own computer's profile: lamps, programme list, verb/noun tables, name, version | 📝 |
+| **1.9** | Multi-craft DSKY | A DSKY on each craft (the LM, later the command module), each running its own computer's profile: lamps, programme list, verb/noun tables, name, version. The settings move into one file for the whole project, not just the LM | 📝 |
 
 ## Phase 2: the full mission (2.x)
 
@@ -37,7 +37,7 @@ Work that is being researched before it gets a place in a release. If it works i
 
 | Item | What it is | Status | Possible release |
 |---|---|---|---|
-| **Attitude control** | The kOS steering stays (an own RCS autopilot was tried and dropped: kOS steering works under time warp and on any craft). Added on top of it: a small panel with the rate-of-descent clicker and the attitude-mode switch, and P66 attitude control by the pilot through kOS steering (a custom SAS, with AG1 or Shift / Ctrl as the keyboard keys) instead of KSP's SAS | 📝 Planned | 1.4 |
+| **Attitude control** | The kOS steering stays (an own RCS autopilot was tried and dropped: kOS steering works under time warp and on any craft). Added on top of it: a small panel with the rate-of-descent clicker and the attitude-mode switch, and P66 attitude control by the pilot through kOS steering (a custom SAS, with AG1 or Shift / Ctrl as the keyboard keys) instead of KSP's SAS | 📝 Planned | not yet placed |
 
 ## Order and dependencies
 

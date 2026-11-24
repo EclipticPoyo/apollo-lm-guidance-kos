@@ -57,6 +57,26 @@ FUNCTION lm_cells_for {
 GLOBAL LM_CLOCK_LIMIT_CS IS 268435456.
 GLOBAL LM_CLOCK_FILE IS "0:/lm/clock.txt".
 
+// The software version ("A11" or "J") the planner's menu chose. The planner saves it with the PAD (the ground knows which version the LM carries) and the
+// DSKY reads it when there is no plan file (uplink mode deletes the plan). Skip simulated uplink clears it: the plan carries PROFILE itself.
+GLOBAL LM_PROFILE_FILE IS "0:/lm/profile.txt".
+
+// lm_profile_save / lm_profile_clear / lm_profile_saved: the file above. lm_profile_saved gives "A11", "J", or "" when there is no good file.
+FUNCTION lm_profile_clear {
+  IF EXISTS(LM_PROFILE_FILE) { DELETEPATH(LM_PROFILE_FILE). }
+}
+FUNCTION lm_profile_save {
+  PARAMETER profile.
+  lm_profile_clear().
+  LOG profile TO LM_PROFILE_FILE.
+}
+FUNCTION lm_profile_saved {
+  IF NOT EXISTS(LM_PROFILE_FILE) { RETURN "". }
+  LOCAL text IS OPEN(LM_PROFILE_FILE):READALL:STRING:TRIM:TOUPPER.
+  IF text = "A11" OR text = "J" { RETURN text. }
+  RETURN "".
+}
+
 // The erasable store is kept in this file when the DSKY ends (V34), so a restart finds the loads (RLS, TLAND, burn) still there, as the
 // computer's erasable memory stayed. The planner deletes it when it makes a new plan. The tag is the profile (the cell tables differ).
 GLOBAL LM_STORE_FILE IS "0:/lm/store.txt".

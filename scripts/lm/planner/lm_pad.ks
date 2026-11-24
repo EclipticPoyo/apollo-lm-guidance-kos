@@ -157,6 +157,11 @@ FUNCTION pad_build {
     lines:ADD("").
     lines:ADD("PC: a CSM burn, flown from its node; not loaded in the LM").
   }
+  // How the loaded DOI is flown (release 1.4): P30 checks the loaded burn, P40 flies it. MAN is the Timeline Book's DPS procedure.
+  lines:ADD("").
+  lines:ADD("FLY THE DOI with P30 then P40: V37 E 30 E (PRO four times), V37 E 40 E").
+  lines:ADD("  MAN throttle: ENG_THR_CONT = MAN in agc_config.txt, V50 N25 asks for checklist 203 (ENTR);").
+  lines:ADD("  minimum throttle for 15 s after ignition, then the lever (Shift, Ctrl) sets it").
 
   LOCAL all_keys IS LIST().
   FOR key_name IN rls_keys { all_keys:ADD(key_name). }
@@ -166,15 +171,6 @@ FUNCTION pad_build {
   SET out["UPLINK_KEYS"] TO all_keys.
   SET out["LINES"] TO lines.
   RETURN out.
-}
-
-// pad_profile_note: "" when the planner's software version (menu_profile) is the one the DSKY will use (config_profile, from
-// lm_config.txt: with no plan file the DSKY takes its version from there), else a sentence saying what to set. A PAD made for one version
-// has that version's cell addresses, so keying it into a DSKY running the other would write the wrong cells.
-FUNCTION pad_profile_note {
-  PARAMETER menu_profile, config_profile.
-  IF menu_profile = config_profile { RETURN "". }
-  RETURN "The DSKY takes its version from lm_config.txt (now " + config_profile + "): set PAD_PROFILE = " + menu_profile + " there, or this PAD's addresses will not match.".
 }
 
 // pad_write: write the PAD lines to a file (the old file is deleted first, LOG appends).

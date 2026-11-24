@@ -3,6 +3,35 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
+## Unreleased (1.4, burn programmes)
+
+The computer now flies its own burns, starting with the DOI, on one shared burn engine. The DOI, a P41 trim and the P63 landing (as a regression) were flown in KSP and passed; the engine timings are the Apollo values and needed no tuning.
+
+### The manual is now the Pilot's Pack
+- **`docs/PACK.pdf` replaces `docs/MANUAL.md`**: a short pack in the style of the Apollo checklists and handbooks (a landing card, an overview, reference tables for verbs, nouns, alarms, settings and loads, checklists from start-up to touchdown, and a short appendix of differences from the real LM). Written as Markdown in `docs/pack/` and built by `make_pack.py` (A4 PDF through Edge or Chrome, and the web page for GitHub Pages); `check_pack.py` replaces `check_manual.py` and also checks every verb, noun, programme and setting the pack names against the code. `make_site.py` and `make_manual_pdf.py` are gone, and the wiki is one landing page that links to the pack.
+
+### Added
+- **P30, external delta-V** (`lm/burn/lm_p30.ks`): checks a burn from the loaded time of ignition and delta-v (N33, N81) and shows the orbit after it (N42) and the time to ignition (N45). Fires nothing.
+- **P40, the descent-engine burn** (`lm/burn/lm_p40.ks`): R60 attitude turn, checklist request, countdown, ullage, engine prompt, ignition, cut-off from a timed task, flashing N40 and N85. The ENG THR CONT switch is the `ENG_THR_CONT` setting: `AUTO` (minimum thrust at ignition, full thrust 26 s later on a long burn) or `MAN` (minimum for 15 s, then the pilot's lever). Alarms 1703 (ignition time slipped) and 1706 (descent stage gone).
+- **P41, an RCS burn, and P47, a thrust monitor** (`lm/burn/lm_p41.ks`): N85 shows the velocity to be gained along the ship's axes; N83 the velocity gained since P47 started.
+- **P51** (`IMU_ALIGN` `REQUIRED` makes the burns wait for it; the default `AUTO` needs nothing), verb 50 prompts, nouns N18, N25, N40, N42, N45, N83 and N85.
+- **The burn engine** `lm/burn/lm_burnbaby.ks`: one state machine (Luminary's BURNBABY) driven by a table per programme. P63 (both profiles) now runs on it too; the old sequence is kept as a frozen copy in `test_burnbaby.ks` and the pad tests compare the two step by step. The J-class P63 still calls `j_seq_*`, now thin wrappers that give the table `J_ZOOMTIME`.
+- **Settings:** `ENG_THR_CONT`, `IMU_ALIGN` and `PLAN_NODES` (the planner leaves its maneuver nodes as a visual aid, or removes them once the plan is saved). The PAD says to fly the DOI with P30 then P40.
+- Pad tests `test_burn`, `test_burnbaby`, `test_burnctl`, `test_p30`, `test_p40`, `test_p41`; `reference_burn.py`. The pack has the burn checklists.
+
+### Departures from Apollo (documented in the pack, appendix A)
+- The state at ignition comes from KSP's orbit prediction, not an integrator; the delta-v gained is measured from the velocity less gravity, not from accelerometers; there is no finite-burn correction.
+- The IMU is aligned from the start; the N45 middle gimbal angle is an assumed reference; the 10 percent level is this lander's minimum throttle (about 18 percent of full thrust); a raised throttle lever fires the RCS after the engine runs, so it is released at cut-off.
+
+### Changed
+- **The burn programmes' delta-V no longer drifts with the Moon's spin.** The raw axes turn with the Moon, and the servicer pass differenced velocities taken in two different axes, so the spin showed up as a steady change along the radius (about 0.3 m/s a minute in a 60 nmi orbit: the third register of N85 kept growing). The start of each pass is now turned to the axes of the end of the pass first.
+- **P41 counts down to ignition in the terminal** (`TIG IN m:ss`), since its display shows N85 and goes blank before TIG; it says when TIG has passed.
+- **The terminal is cleared when a programme ends**, so nothing from the burn or the descent is left to garble what follows.
+- **On `ENG THR CONT = MAN` the throttle lever drives the descent engine directly** from ignition (the program only raises a lever that is below the engine's minimum), and the lever is zeroed at cut-off.
+- **`PAD_PROFILE` is no longer a setting.** The software version is the planner's PAD menu. A saved plan carries it, and in uplink mode the planner saves it in `0:/lm/profile.txt` with the PAD, where the DSKY reads it at start; the planner's mismatch warning is gone. An old `PAD_PROFILE` line in a settings file is skipped with a warning. **Skip simulated uplink** now also loads the DOI burn (N33 and N81) into the DSKY's store, so P30 and P40 work from the saved plan.
+- **The DSKY runs over any body.** It no longer refuses to start away from the Moon, and no longer stops when the ship leaves the Moon's sphere of influence (a whole mission needs it in Earth orbit and on the way). The landing programmes and the planner still refuse anywhere but `BODY_NAME`.
+- **One settings file for the whole project:** `agc_config.txt` at the top of `Ships/Script/` (next to `dsky.ks` and `plan.ks`), with `[LM]` and `[CSM]` sections (the CSM has none yet). A `[COMMON]` section holds the settings that do the same job for every computer, written once: `LOG` (the logging switch; `LM_LOG` still works as the old name and as the LM's own override), `DSKY_START`, `IMU_ALIGN` and `ALARMS`; the rest stay under `[LM]`. The same settings as before otherwise. An old `lm/lm_config.txt` is still read first, and a setting in `agc_config.txt` wins over it; the zip no longer ships `lm_config.txt`. Installing over an edited `agc_config.txt` replaces it, as `lm_config.txt` was before. The reader is `core/agc_settings.ks`.
+
 ## 1.3.2 (2026-11-22, ROD click keys)
 
 A patch release for a report that, with SAS on, ROD clicks did not take P65 to P66 (the reporter's throttle keys did nothing). The clicks now have a second input, the diagnostics say what a dropped click was, and `rod.log` records every click.

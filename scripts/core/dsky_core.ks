@@ -120,6 +120,16 @@ FUNCTION core_status_draw {
   SET crun["STATUS_ROWS"] TO count.
 }
 
+// core_terminal_clear: wipe the terminal and forget the status readout and the message area. Called when a programme has ended, so nothing from the burn or the
+// descent (live rows, a wrapped message, a scrolled screen) is left to garble what follows; the messages of that cycle are printed afterwards on the clean screen.
+FUNCTION core_terminal_clear {
+  PARAMETER crun.
+  CLEARSCREEN.
+  SET crun["STATUS_ROWS"] TO 0.
+  SET crun["STATUS_PROG"] TO "".
+  SET crun["MSGS"] TO LIST().
+}
+
 // core_new: a fresh run state, nothing running.
 FUNCTION core_new {
   PARAMETER vehicle.
@@ -250,6 +260,7 @@ FUNCTION core_step {
   LOCAL prog_text IS crun["IDLE_TEXT"].
   LOCAL msg IS "".
   LOCAL status_lines IS LIST().
+  LOCAL ended_now IS FALSE.          // a programme ended this cycle: the caller clears the terminal
   IF crun["PROG"]:ISTYPE("Lexicon") {
     LOCAL entry IS crun["ENTRY"].
     LOCAL out IS entry["STEP"]:CALL(crun["PROG"], nav, ks).
@@ -278,6 +289,7 @@ FUNCTION core_step {
     }
     SET prog_text TO "" + out["PROG_NO"].
     IF out["ENDED"] {
+      SET ended_now TO TRUE.
       core_end(crun, vehicle).
       IF vehicle["STICKY_PROGS"]:CONTAINS(out["PROG_NO"]) { SET crun["IDLE_TEXT"] TO "" + out["PROG_NO"]. }
       // Luminary GOTOPOOH (PRO or V34 ended the programme): major mode 00 and a standing flashing request, V37 N99 (GOP00FIX: CAF V37N99, GOFLASH, all
@@ -312,7 +324,7 @@ FUNCTION core_step {
   SET derived["ALARM_CODES"] TO ks["ALARM"]["CODES"].      // for N09
   IF load_active(ks) OR p27_active(ks) { SET flags["FLASH"] TO TRUE. }    // VERB and NOUN flash while a keyed load or an update waits for data
   SET flags["UPLINK"] TO p27_active(ks) AND ks["P27"]["ACTY"].               // UPLINK ACTY: the ground is sending (see dsky_p27.ks)
-  RETURN LEXICON("FLAGS", flags, "PROG_TEXT", prog_text, "MSG", msg, "STATUS", status_lines).
+  RETURN LEXICON("FLAGS", flags, "PROG_TEXT", prog_text, "MSG", msg, "STATUS", status_lines, "ENDED", ended_now).
 }
 
 // core_run: the DSKY loop. ui is the window from gui_fill (made at the top level of the entry script). Each cycle:
@@ -358,6 +370,7 @@ FUNCTION core_run {
       }
       LOCAL step_res IS core_step(crun, vehicle, nav, ks).
       core_status_draw(crun, step_res["STATUS"], step_res["PROG_TEXT"]).          // first, so a clear of the screen does not wipe this cycle's message
+      IF step_res["ENDED"] { core_terminal_clear(crun). }          // the programme is done: a clean terminal, then this cycle's messages (including "P.. ended")
       core_message(crun, step_res["MSG"]).
       vehicle["HOOK"]:CALL(crun["PROG"], nav).
       LOCAL flags IS step_res["FLAGS"].

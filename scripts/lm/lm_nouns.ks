@@ -5,12 +5,12 @@
 RUNONCEPATH("0:/core/dsky_alarm.ks").         // alarm_text (N09)
 RUNONCEPATH("0:/lm/lm_cells.ks").          // the store's cells and conversions (N33 and N81 read it)
 
-GLOBAL LM_NOUNS IS LIST(60, 61, 62, 63, 64, 68, 33, 81, 9, 66, 67, 43, 92, 69).   // N60 first: it is the noun shown at start (keys_new uses the first)
+GLOBAL LM_NOUNS IS LIST(60, 61, 62, 63, 64, 68, 33, 81, 9, 66, 67, 43, 92, 69, 18, 25, 42, 45, 40, 85, 83).   // N60 first: it is the noun shown at start (keys_new uses the first)
 GLOBAL LM_VERBS IS LIST(5, 6, 16, 21, 22, 23, 24, 25, 32, 33, 34, 35, 57, 58, 77, 37, 71, 72).   // 06 display, 16 monitor (both just show the noun here), 21 to 25 keyed loads (dsky_load.ks), 33 proceed (verifies a P27 update), 71 and 72 the update programme P27 (dsky_p27.ks; V70 and V73 are not implemented), 34 terminate (as Luminary VBTERM, it answers a request only: it abandons an active load or update, and ends P63 at its V99 enable prompt; anywhere else it does nothing; the DSKY itself ends from the window's X), 37 change programme
 // The nouns the keyed loaders can load (V21 to V25): N33 time of ignition (hours, minutes, seconds in hundredths) and N81 delta-v
 // in local vertical axes (tenths of ft/s). Both are five digits per register. The DSKY core reads this through the vehicle's "LOADS".
 GLOBAL LM_LOADS IS LEXICON("33", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5)), "81", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5)), "69", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5))).
-GLOBAL LM_PROGS IS LIST(0, 63, 68).           // programmes V37 can select: P00 (none), P63 and P68 (only once down). P64 is reached only by the handover from P63, P65 by the handover from P64 and P66 from P65 (V37 ENTR 64, 65 or 66 lights OPR ERR)
+GLOBAL LM_PROGS IS LIST(0, 30, 40, 41, 47, 51, 63, 68).        // programmes V37 can select: P00 (none), P63 and P68 (only once down). P64 is reached only by the handover from P63, P65 by the handover from P64 and P66 from P65 (V37 ENTR 64, 65 or 66 lights OPR ERR)
 
 // noun_registers_store: N33 (time of ignition: hours, minutes, seconds in hundredths) and N81 (delta-v in local vertical
 // axes, tenths of ft/s) from the erasable store (LM_VEH["STORE"]); zeros when the store does not exist or the cell is not loaded.
@@ -35,6 +35,64 @@ FUNCTION noun_registers_store {
   LOCAL dv IS V(0, 0, 0).
   IF vault:ISTYPE("Lexicon") { SET dv TO lm_store_get_dv(vault). }
   RETURN LIST(fmt_reg(ms_to_fps(dv:X), 1), fmt_reg(ms_to_fps(dv:Y), 1), fmt_reg(ms_to_fps(dv:Z), 1)).
+}
+
+// N18 (release 1.4, R60): the roll, pitch and yaw angles of the commanded burn attitude, degrees to 0.01 (derived["N18"], from R60 through the programme's EXTRA;
+// zeros outside it). N25 (a checklist code, whole octal number: P51's 00051, P40AUTO's 00203): R1 (derived["N25"], else zero), the sign cell blank as N09's;
+// R2 and R3 blank.
+FUNCTION noun_registers_r60 {
+  PARAMETER noun_no, derived.
+  IF noun_no = 25 {
+    LOCAL code_no IS 0.
+    IF derived:HASKEY("N25") { SET code_no TO derived["N25"]. }
+    RETURN LIST(" " + zero_pad(ROUND(code_no), 5), NA, NA).
+  }
+  LOCAL angles IS LIST(0, 0, 0).
+  IF derived:HASKEY("N18") { SET angles TO derived["N18"]. }
+  RETURN LIST(fmt_reg(angles[0], 2), fmt_reg(angles[1], 2), fmt_reg(angles[2], 2)).
+}
+
+// N42 and N45 (release 1.4, P30; Luminary P30_P37.agc, P34-35_P74-75.agc): from P30's EXTRA keys (derived["P30_APO"] and so on), zeros outside P30.
+//   N42 R1 apogee altitude, R2 perigee altitude (nautical miles, 0.1), R3 delta-V magnitude (ft/s, 0.1)
+//   N45 R1 marks (whole number: always 0, no marks exist here), R2 time to go to ignition (MM SS), R3 middle gimbal angle (degrees, 0.01)
+FUNCTION noun_registers_p30 {
+  PARAMETER noun_no, derived.
+  LOCAL apo_m IS 0.
+  LOCAL peri_m IS 0.
+  LOCAL dv_ms IS 0.
+  LOCAL ttogo_s IS 0.
+  LOCAL mga_deg IS 0.
+  IF derived:HASKEY("P30_APO") {
+    SET apo_m TO derived["P30_APO"].
+    SET peri_m TO derived["P30_PERI"].
+    SET dv_ms TO derived["P30_DV"].
+    SET ttogo_s TO derived["P30_TTOGO"].
+    SET mga_deg TO derived["P30_MGA"].
+  }
+  IF noun_no = 42 { RETURN LIST(fmt_reg(m_to_nm(apo_m), 1), fmt_reg(m_to_nm(peri_m), 1), fmt_reg(ms_to_fps(dv_ms), 1)). }
+  RETURN LIST(fmt_reg(0, 0), fmt_minsec(ttogo_s), fmt_reg(mga_deg, 2)).
+}
+
+// N40 and N85 (release 1.4, P40; Luminary P40-P47.agc): from P40's EXTRA keys, zeros outside it.
+//   N40 R1 time to go as MM SS, negative before the event (Luminary TIME2 - TIG: counts up to zero at ignition, then to cutoff), R2 |VG| ft/s (0.1), R3 delta-V gained ft/s (0.1)
+//   N85 R1 to R3 VG in body axes X, Y, Z, ft/s (0.1): the pilot trims these to zero by hand after the burn
+FUNCTION noun_registers_p40 {
+  PARAMETER noun_no, derived.
+  IF noun_no = 85 OR noun_no = 83 {
+    LOCAL vg_axes IS LIST(0, 0, 0).
+    IF noun_no = 85 AND derived:HASKEY("P40_VGB") { SET vg_axes TO derived["P40_VGB"]. }
+    IF noun_no = 83 AND derived:HASKEY("P47_DVB") { SET vg_axes TO derived["P47_DVB"]. }
+    RETURN LIST(fmt_reg(ms_to_fps(vg_axes[0]), 1), fmt_reg(ms_to_fps(vg_axes[1]), 1), fmt_reg(ms_to_fps(vg_axes[2]), 1)).
+  }
+  LOCAL ttogo_s IS 0.
+  LOCAL vg_ms IS 0.
+  LOCAL dv_ms IS 0.
+  IF derived:HASKEY("VGDISP") {
+    SET ttogo_s TO derived["TTOGO"].
+    SET vg_ms TO derived["VGDISP"].
+    SET dv_ms TO derived["DVTOTAL"].
+  }
+  RETURN LIST(fmt_minsec(-ttogo_s), fmt_reg(ms_to_fps(vg_ms), 1), fmt_reg(ms_to_fps(dv_ms), 1)).
 }
 
 // noun_registers: the three register texts for a noun, from the derived lexicon (nav_derived).
@@ -62,6 +120,9 @@ FUNCTION noun_registers {
     IF derived:HASKEY("ALARM_CODES") { SET slots TO derived["ALARM_CODES"]. }
     RETURN LIST(" " + alarm_text(slots[0]), " " + alarm_text(slots[1]), " " + alarm_text(slots[2])).
   }
+  IF noun_no = 18 OR noun_no = 25 { RETURN noun_registers_r60(noun_no, derived). }
+  IF noun_no = 42 OR noun_no = 45 { RETURN noun_registers_p30(noun_no, derived). }
+  IF noun_no = 40 OR noun_no = 85 OR noun_no = 83 { RETURN noun_registers_p40(noun_no, derived). }
   // N43: latitude and longitude in degrees (0.01) and altitude in nautical miles (0.1), the landing position P68 stores. Zeros outside P68.
   IF noun_no = 43 {
     IF derived:HASKEY("P68_LAT") { RETURN LIST(fmt_reg(derived["P68_LAT"], 2), fmt_reg(derived["P68_LNG"], 2), fmt_reg(m_to_nm(derived["P68_ALT"]), 1)). }
