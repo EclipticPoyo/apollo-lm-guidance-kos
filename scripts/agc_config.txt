@@ -18,7 +18,7 @@ IMU_ALIGN       = AUTO       // AUTO or REQUIRED: REQUIRED means run P51 before 
 
 [LM]
 P63_WINDOW_MODE = UP         // UP or KEEP: UP turns the window to face the site, KEEP holds the roll
-P63_WARP_LEAD_S = 60         // 0 or more: seconds before ignition at which the P63 warp stops
+P63_WARP_LEAD_S = 60         // 0 or more: seconds before ignition or lift-off at which a warp stops (P63, P40, P41, P12)
 BODY_NAME       = Moon       // a body name: the body you land on (the DSKY runs over any body)
 P64_PITCH_SIGN  = 1          // 1 or -1: flip if a P64 redesignation key moves the aim point wrongly
 P64_YAW_SIGN    = -1         // 1 or -1: the same, for the yaw keys

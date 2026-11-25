@@ -13,13 +13,13 @@
 // Departures:
 //   * The engine is never lit by these programmes. At TIG the throttle lock is dropped (ctl_release_throttle_lock) so that with RCS on a raised lever fires the RCS (research section 16);
 //     the translation keys need nothing from the programme (the steering lock does not touch them). The steering lock stays until the programme ends.
-//   * The velocity gained is measured as in P40 (the change in velocity less gravity, p40_pass), so any translation counts, RCS or engine.
+//   * The velocity gained is measured as in P40 (the change in velocity less gravity, servicer_pass in lm_servicer.ks), so any translation counts, RCS or engine.
 //   * The deadband is the project's coast deadband (db_step), not Luminary's 0.3 degree minimum; the lock stays on from TIG.
 //   * N85 shows VG in the ship's axes (X nose, Y right, Z window side); N83 the velocity gained in the same axes. A V37 start while P30 has not run is refused (design call 5).
 //   * No N86, N81 or N40 monitor is shown in P41 (V16 N85 only; the pilot can key the others).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
-RUNONCEPATH("0:/lm/burn/lm_p40.ks").            // p40_pass, p40_live, p40_attitude, p40_command, p40_r60_cycle, p40_show, p40_out, p40_facing, and what it loads
+RUNONCEPATH("0:/lm/burn/lm_p40.ks").            // p40_attitude, p40_command, p40_r60_cycle, p40_show, p40_out, p40_facing, and what it loads
 
 // ---- P41 ----
 
@@ -67,14 +67,14 @@ FUNCTION p41_check {
 // p41_vg_body: VG in the ship's axes now (S41.1): LIST of three, m/s.
 FUNCTION p41_vg_body {
   PARAMETER prog, now_ut.
-  LOCAL body_vec IS s41_1(p40_live(prog, prog["VG"], now_ut), p40_facing()).
+  LOCAL body_vec IS s41_1(servicer_live(prog, prog["VG"], now_ut), p40_facing()).
   RETURN LIST(body_vec:X, body_vec:Y, body_vec:Z).
 }
 
 // p41_servicer: the servicer passes from the end of COAST on: VG brought down by the delta-V the pilot has made (any thrust), the delta-V gained counted.
 FUNCTION p41_servicer {
   PARAMETER prog, state, now_ut.
-  LOCAL pass_data IS p40_pass(prog, state, now_ut, FALSE).
+  LOCAL pass_data IS servicer_pass(prog, state, now_ut, FALSE).
   IF pass_data:ISTYPE("Lexicon") {
     SET prog["VG"] TO prog["VG"] - pass_data["DELVREF"].
     SET prog["DV"] TO prog["DV"] + pass_data["DELVREF"]:MAG.
@@ -203,7 +203,7 @@ FUNCTION p47_step {
     }
   }
   IF NOT prog["ENDED"] {
-    LOCAL pass_data IS p40_pass(prog, state, now_ut, FALSE).
+    LOCAL pass_data IS servicer_pass(prog, state, now_ut, FALSE).
     IF pass_data:ISTYPE("Lexicon") { SET prog["DVCUM"] TO prog["DVCUM"] + pass_data["DELVREF"]. }
     IF prog["PHASE"] = "WAIT" AND now_ut >= prog["START"] + TIG_SLIP_MIN_S {
       SET prog["PHASE"] TO "SHOW".
@@ -222,7 +222,7 @@ FUNCTION p47_step {
       }
     }
   }
-  LOCAL body_vec IS s41_1(p40_live(prog, prog["DVCUM"], now_ut), p40_facing()).
+  LOCAL body_vec IS s41_1(servicer_live(prog, prog["DVCUM"], now_ut), p40_facing()).
   SET out["EXTRA"] TO LEXICON("P47_DVB", LIST(body_vec:X, body_vec:Y, body_vec:Z)).
   SET out["MSG"] TO msg.
   SET out["ENDED"] TO prog["ENDED"].

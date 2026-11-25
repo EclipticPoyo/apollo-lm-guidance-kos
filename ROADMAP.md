@@ -1,6 +1,6 @@
 # Roadmap
 
-Where the project is going. 1.0, 1.1, 1.2, 1.3 and 1.3.1 are released; 1.4 is built and flown; everything else is planned and may change.
+Where the project is going. 1.0 to 1.5 are released (with the 1.3.1 and 1.3.2 patches); everything else is planned and may change.
 
 Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 
@@ -13,8 +13,8 @@ Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 | **1.2** | J-class pads | Luminary 210 pad loads (Apollo 15 to 17), the logic changes in 210's P63 to P66 (no P65), DSKY digits drawn as pictures (no font to install) | ✅ |
 | **1.3** | Uplink and loads | The way data really reached the AGC: the update program (P27, V71/V72 uplink), the keyed load verbs (V21 to V25), and a planner that prints a PAD of what Mission Control would uplink (the landing site, the landing time and the DOI burn) and sends it to the DSKY as a simulated uplink; a box skips the uplink. Real Luminary addresses and scaling. | ✅ |
 | **1.3.1** | Landing aids | Program alarms and an alarm facility in the DSKY core, flashing requests with KEY REL, the landing radar nouns and verbs, the flashing displays Luminary has in the descent (including the J-class ones), P66 back to P65, P68 landing confirmation. A fuel display and a MASTER ALARM lamp are not planned | ✅ |
-| **1.4** | Burn programmes | P30 and P40 to P47 general burns, external delta-V, RCS burns; the AGC then flies the burns itself, starting with the DOI, and the KSP maneuver nodes are retired (a plane-change burn is the command module's, so it waits for 2.0). The attitude control below is not part of it | 🚧 Built, awaiting KSP flights |
-| **1.5** | Ascent | Ascent guidance, P12 liftoff from the surface | 📝 |
+| **1.4** | Burn programmes | P30 and P40 to P47 general burns, external delta-V, RCS burns; the AGC then flies the burns itself, starting with the DOI, and the KSP maneuver nodes are retired (a plane-change burn is the command module's, so it waits for 2.0). The attitude control below is not part of it | ✅ |
+| **1.5** | Ascent | P12 from the surface to lunar orbit with Luminary's ascent guidance, staging by the computer, an ascent page in the planner (lift-off time and PAD) and the V82 orbit display | ✅ |
 | **1.6** | Aborts | P70 and P71, abort stage, abort triggers during descent | 📝 |
 | **1.7** | Rendezvous I | Target handling, conic solvers (including the Lambert aim-point solution that P40 and P41 run when P30 has not set the external delta-V flag), CSI and CDH | 📝 |
 | **1.8** | Rendezvous II | TPI, TPM, terminal phase, docking hand-off | 📝 |
@@ -61,7 +61,7 @@ flowchart TD
     v22 --> v23["2.3 Full mission"]
     classDef done fill:#d4edda,stroke:#2e7d32,color:#111111
     classDef research fill:#fff3cd,stroke:#b8860b,color:#111111,stroke-dasharray:4 3
-    class v10,v11,v12,v13,v131 done
+    class v10,v11,v12,v13,v131,v14,v15 done
     class att research
 ```
 
@@ -69,7 +69,7 @@ Green: released. Yellow, dashed: research, not yet a release. A dashed arrow mea
 
 1.3.1 (landing aids) comes before the burn programmes because it is small and still part of the landing, and its alarm facility is used by the burn programmes; it has no dependency on them (the alarm facility lives in the DSKY core). It is a patch release, so the next number is 1.4.
 
-`RUN plan.` opens the deorbit planner only. When the second planner arrives (ascent, 1.5), it becomes one planner window with a menu fed by a table, like the DSKY's programme table, and the saved plan is split into one file per planner.
+From 1.5 `RUN plan.` opens one planner window with a menu (Deorbit and Ascent), and each page saves its own plan file.
 
 The 1.1 DSKY core is designed from one vehicle, the LM. Its data tables (nouns, verbs, lamps, programmes) and the fixed LM panel will need some rework at 1.9, when a second vehicle shows what really differs.
 

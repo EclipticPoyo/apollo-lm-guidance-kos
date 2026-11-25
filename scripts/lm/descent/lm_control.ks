@@ -240,11 +240,13 @@ FUNCTION radar_step {
 // rod_new: REF the lever value a click is measured from, LAST the lever at the last sample, HELD 0 (armed) or the direction
 // of the click being held, QUIET_SINCE the time the lever last became still (-1 = not still), CLICKS the waiting clicks.
 // ---- the thrust monitor (Luminary DVMON and COMFAIL, V97) -----------------------------------------------------------------------------------
-// Every DVMON_PERIOD_S the acceleration gained since the last check is compared with DVMON_ACCEL_MS2. Enough resets the count to 1; too little
+// Every DVMON_PERIOD_S the acceleration gained since the last check is compared with the monitor's threshold MIN (DVMON_ACCEL_MS2 for the descent
+// engine; the ascent passes its own, Luminary loading DVTHRUSH per programme). Enough resets the count to 1; too little
 // counts it down, and a low check with the count already zero is the failure: 5 low checks before any thrust has been seen (count starts at 4), 2 after.
 // dvmon_step(mon, dv_total, now) takes the delta-v gained since ignition (m/s) and the UT; mon["FAILED"] says the V97 display is due.
 FUNCTION dvmon_new {
-  RETURN LEXICON("COUNT", 4, "FAILED", FALSE, "T0", -1, "DV0", 0).
+  PARAMETER min_accel IS DVMON_ACCEL_MS2.
+  RETURN LEXICON("COUNT", 4, "FAILED", FALSE, "T0", -1, "DV0", 0, "MIN", min_accel).
 }
 FUNCTION dvmon_step {
   PARAMETER mon, dv_total, now.
@@ -258,7 +260,7 @@ FUNCTION dvmon_step {
   LOCAL accel IS (dv_total - mon["DV0"]) / (now - mon["T0"]).
   SET mon["T0"] TO now.
   SET mon["DV0"] TO dv_total.
-  IF accel >= DVMON_ACCEL_MS2 { SET mon["COUNT"] TO 1. }
+  IF accel >= mon["MIN"] { SET mon["COUNT"] TO 1. }
   ELSE IF mon["COUNT"] <= 0 { SET mon["FAILED"] TO TRUE. }
   ELSE { SET mon["COUNT"] TO mon["COUNT"] - 1. }
 }
@@ -435,6 +437,8 @@ GLOBAL CTL_THR_LOCKED IS FALSE.    // the programme holds the throttle (LOCK THR
 GLOBAL CTL_DRY IS FALSE.
 GLOBAL CTL_DRY_STATUS IS "FLYING".   // what ctl_status returns on the pad (tests set it to "LANDED")
 GLOBAL CTL_DRY_LEVER IS 0.5.         // what ctl_pilot_throttle returns on the pad (tests set it to move the lever)
+GLOBAL CTL_DRY_STAGES IS 0.          // how often ctl_stage_ascent was called on the pad (tests read it)
+GLOBAL CTL_DRY_FORE IS TRUE.         // on the pad: FALSE between ctl_rcs_fore_off and ctl_rcs_fore_restore (tests read it)
 
 // ctl_roll_for_window: the extra roll (degrees about the thrust axis) that puts the crew window face (WINDOW_AXIS in
 // lm_constants.ks) toward the roll reference instead of the ship's "top". "TOP" needs none, "BOTTOM" a half turn.
@@ -695,6 +699,135 @@ FUNCTION ctl_find_engine {
     }
   }
   RETURN best.
+}
+
+// ctl_find_ascent_engine (release 1.5): the ascent engine: of the engines that are never decoupled (Part:DECOUPLEDIN below 0), the one with the most
+// vacuum thrust; 0 when there is none. ctl_find_engine (most thrust) finds the descent engine and must not be used for the ascent.
+FUNCTION ctl_find_ascent_engine {
+  LOCAL eng_list IS LIST().
+  LIST ENGINES IN eng_list.
+  LOCAL best IS 0.
+  LOCAL best_thrust IS 0.
+  FOR eng IN eng_list {
+    IF eng:DECOUPLEDIN < 0 {
+      LOCAL thrust_kn IS eng:POSSIBLETHRUSTAT(0).
+      IF thrust_kn > best_thrust {
+        SET best TO eng.
+        SET best_thrust TO thrust_kn.
+      }
+    }
+  }
+  RETURN best.
+}
+
+// ---- Ascent control layer (release 1.5): staging and ascent steering ----------------------------------------------------------
+// Probed in KSP (J craft, from the surface; research-1.5-ascent.md section 10a): shutting the descent engine down, the decoupler's
+// event and the ascent engine's ACTIVATE in one tick separate the stages, and kOS steering on RCS alone holds the ascent stage.
+
+// ctl_core_stays: this kOS processor is never decoupled, so it goes up with the ascent stage.
+FUNCTION ctl_core_stays {
+  RETURN CORE:PART:DECOUPLEDIN < 0.
+}
+
+// ctl_find_decoupler: the LM decoupler's separate event as LEXICON MODULE, EVENT, or FALSE: a part whose name contains "LEMDecoupler"
+// (ROC-LEMDecouplerBDB on both craft), a module containing "Decouple" (ModuleDecouple), an event containing "decouple" and not "staging".
+FUNCTION ctl_find_decoupler {
+  FOR prt IN SHIP:PARTS {
+    IF prt:NAME:CONTAINS("LEMDecoupler") {
+      FOR module_name IN prt:MODULES {
+        IF module_name:CONTAINS("Decouple") {
+          LOCAL mdl IS prt:GETMODULE(module_name).
+          FOR event_name IN mdl:ALLEVENTNAMES {
+            IF event_name:CONTAINS("decouple") AND NOT event_name:CONTAINS("staging") {
+              RETURN LEXICON("MODULE", mdl, "EVENT", event_name).
+            }
+          }
+        }
+      }
+    }
+  }
+  RETURN FALSE.
+}
+
+// ctl_stage_ascent: at ignition: shut down the engines that will be left behind, activate the ascent engine, and a fraction of a second later fire
+// the decoupler's event. Returns "", or why it failed (for the first two reasons nothing has been touched). With no event the stage list is pressed
+// instead until the ascent engine is lit, at most ASC_STAGE_PRESSES times (the H craft needs two: decoupler, then engine); that takes a few
+// ticks. The throttle is the caller's (ctl_ascent_start). On the pad (CTL_DRY) it is only counted.
+// Departure from Apollo: the crew's ABORT STAGE and ENGINE ARM ASCENT presses are not made.
+FUNCTION ctl_stage_ascent {
+  PARAMETER asc_eng.
+  IF CTL_DRY {
+    SET CTL_DRY_STAGES TO CTL_DRY_STAGES + 1.
+    RETURN "".
+  }
+  IF NOT asc_eng:ISTYPE("Engine") { RETURN "no ascent engine found". }
+  IF NOT ctl_core_stays() { RETURN "this kOS processor would be left on the descent stage". }
+  LOCAL decoupler IS ctl_find_decoupler().
+  LOCAL eng_list IS LIST().
+  LIST ENGINES IN eng_list.
+  FOR eng IN eng_list { IF eng:DECOUPLEDIN >= 0 { eng:SHUTDOWN(). } }
+  IF decoupler:ISTYPE("Lexicon") {
+    // Lit first, still attached, and separated once the thrust has built up, so the ascent stage does not drop back while the engine spools up.
+    // With no thrust after ASC_LIGHT_MAX_S the stages separate anyway (V97 then shows).
+    asc_eng:ACTIVATE().
+    LOCAL give_up IS TIME:SECONDS + ASC_LIGHT_MAX_S.
+    WAIT UNTIL asc_eng:THRUST >= ASC_LIGHT_FRAC * asc_eng:POSSIBLETHRUSTAT(0) OR TIME:SECONDS >= give_up.
+    decoupler["MODULE"]:DOEVENT(decoupler["EVENT"]).
+    RETURN "".
+  }
+  LOCAL lit_eng IS asc_eng.
+  LOCAL presses IS 0.
+  UNTIL lit_eng:IGNITION OR presses >= ASC_STAGE_PRESSES {
+    WAIT UNTIL STAGE:READY.
+    STAGE.
+    SET presses TO presses + 1.
+    LOCAL found IS ctl_find_ascent_engine().            // looked up again: the ship has just changed
+    IF found:ISTYPE("Engine") { SET lit_eng TO found. }
+  }
+  IF NOT lit_eng:IGNITION { RETURN "the ascent engine is not lit after staging". }
+  RETURN "".
+}
+
+// ctl_ascent_start: take control for the ascent: ctl_start, then the ascent stage's steering tuning in place of the descent's, and the
+// throttle command at 1 (the ascent engine is not throttled). sas_was_on: SAS (ATT HOLD) was on before the call (ctl_start turns it off),
+// so the attitude is handed back at once. Nothing on the pad (CTL_DRY).
+FUNCTION ctl_ascent_start {
+  PARAMETER sas_was_on.
+  IF CTL_DRY { RETURN. }
+  ctl_start().
+  STEERINGMANAGER:RESETTODEFAULT().
+  SET STEERINGMANAGER:MAXSTOPPINGTIME TO STEERINGMANAGER:MAXSTOPPINGTIME * ASC_STEER_STOP_MULT.
+  SET STEERINGMANAGER:PITCHTS TO STEERINGMANAGER:PITCHTS * ASC_STEER_TS_MULT.
+  SET STEERINGMANAGER:YAWTS TO STEERINGMANAGER:YAWTS * ASC_STEER_TS_MULT.
+  SET STEERINGMANAGER:ROLLTS TO STEERINGMANAGER:ROLLTS * ASC_STEER_TS_MULT.
+  SET STEERINGMANAGER:TORQUEEPSILONMAX TO STEERINGMANAGER:TORQUEEPSILONMAX * ASC_STEER_EPS_MULT.
+  SET STEERINGMANAGER:TORQUEEPSILONMIN TO STEERINGMANAGER:TORQUEEPSILONMIN * ASC_STEER_EPS_MULT.
+  SET CTL_THR TO 1.
+  IF sas_was_on { ctl_hold(). }
+}
+
+// ctl_rcs_fore_off: stop the main throttle firing the RCS forward (RCS:FOREBYTHROTTLE, kOS docs) on every thruster part that has it on, and return
+// those parts for ctl_rcs_fore_restore. Seen in flight: with the ascent engine out and the throttle full, the RCS pushed forward on ascent
+// propellant. The probe of 1.4 (research 16) did not prove this setting is the only cause. On the pad only CTL_DRY_FORE changes.
+FUNCTION ctl_rcs_fore_off {
+  LOCAL changed IS LIST().
+  IF CTL_DRY { SET CTL_DRY_FORE TO FALSE. RETURN changed. }
+  LOCAL rcs_list IS LIST().
+  LIST RCS IN rcs_list.
+  FOR thruster IN rcs_list {
+    IF thruster:FOREBYTHROTTLE {
+      SET thruster:FOREBYTHROTTLE TO FALSE.
+      changed:ADD(thruster).
+    }
+  }
+  RETURN changed.
+}
+
+// ctl_rcs_fore_restore: put the setting back on the parts ctl_rcs_fore_off changed.
+FUNCTION ctl_rcs_fore_restore {
+  PARAMETER changed.
+  IF CTL_DRY { SET CTL_DRY_FORE TO TRUE. RETURN. }
+  FOR thruster IN changed { SET thruster:FOREBYTHROTTLE TO TRUE. }
 }
 
 // ctl_engine_on: switch the engine on (Engine:ACTIVATE). It then burns at whatever the throttle lock says; the ignition

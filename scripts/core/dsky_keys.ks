@@ -28,6 +28,7 @@ RUNONCEPATH("0:/core/dsky_p27.ks").        // the update programme V71, V72, V33
 // and goes out when the request ends or the pilot presses KEY REL, which puts the request (else "PROG_VN", the verb and noun the programme last set,
 // else nothing) back on the display. "RECYCLE" (V32), "TERMINATE" (V34 with a request pending) and "ENTER" (any ENTR) are TRUE for one cycle for the
 // programme to read; PRO is "PRO", cleared by the programme (V33 sets it too).
+// "EXT" is FALSE or an extended-verb display a vehicle's verb action has asked for (see dsky_core.ks).
 FUNCTION keys_new {
   PARAMETER nouns, verbs, progs, start_vn IS LIST(), nonoun IS LIST().
   LOCAL first_noun IS 0.
@@ -39,7 +40,8 @@ FUNCTION keys_new {
                  "AWAIT_PROG", FALSE, "PBUF", "", "PROG_REQ", -1, "VERB_BEFORE", start_verb,
                  "NOUNS", nouns, "VERBS", verbs, "PROGS", progs,
                  "LOAD", load_new(), "P27", p27_new(), "VEHICLE", FALSE, "PROGRAM", FALSE, "QUIT", FALSE, "ALARM", alarm_new(),
-                 "PENDING", FALSE, "KEYREL", FALSE, "PROG_VN", LIST(-1, -1), "RECYCLE", FALSE, "TERMINATE", FALSE, "ENTER", FALSE, "NONOUN", nonoun, "LAMPTEST_UNTIL", -1).
+                 "PENDING", FALSE, "KEYREL", FALSE, "PROG_VN", LIST(-1, -1), "RECYCLE", FALSE, "TERMINATE", FALSE, "ENTER", FALSE, "NONOUN", nonoun, "LAMPTEST_UNTIL", -1,
+                 "EXT", FALSE).
 }
 
 // quit_step: the DSKY window's close cross. state is "IDLE" (cross showing), "ASK" (the End DSKY? question showing) or "QUIT"

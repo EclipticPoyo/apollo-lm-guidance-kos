@@ -1,12 +1,14 @@
 # Apollo LM Guidance System
 
-An Apollo Lunar Module-inspired guidance computer for Kerbal Space Program, written in KerboScript (kOS). It plans the descent, flies the DOI and other burns (P30, P40, P41, P47) and flies the powered descent and landing (P63 braking, P64 approach, P65 automatic landing, P66 rate of descent) with a DSKY-style display.
+An Apollo Lunar Module-inspired guidance computer for Kerbal Space Program, written in KerboScript (kOS). It plans the descent, flies the DOI and other burns (P30, P40, P41, P47), flies the powered descent and landing (P63 braking, P64 approach, P65 automatic landing, P66 rate of descent) and flies the ascent back to lunar orbit (P12), with a DSKY-style display.
 
 **Not guaranteed:** it was only tested on one Realism Overhaul LM, in that setup. It has not been tested on any other lander and is not guaranteed to work at all.
 
 **Status:** flown and confirmed in KSP on that lander: planning, P63 braking, P64 approach with redesignation (both window modes), P65 automatic landing, P66 rate of descent and touchdown, with the Apollo 11 profile; and planning, P63, P64, P66 and touchdown with the J-class profile.
 
 **Release 1.4 (burn programmes: P30, P40, P41, P47)** passes its pad tests, and the DOI burn, an RCS trim and a P63 landing (as a regression) were flown and confirmed in KSP.
+
+**Release 1.5 (ascent: P12, the planner's lift-off time and PAD, V82)** was flown in KSP from the surface to lunar orbit. It reaches the insertion targets; whether the lift-off time leads to a rendezvous cannot be tested until the rendezvous programmes exist.
 
 ## Dependencies
 
@@ -48,6 +50,8 @@ Pick a site, press PLAN, then SEND (this writes the data Mission Control would u
 ```
 RUN dsky.
 ```
+
+After landing, to go back to orbit: close the DSKY, target the CSM, `RUN plan.`, choose *Ascent*, press PLAN, then `RUN dsky.` and `V37 E 12 E`.
 
 ## How to fly it
 

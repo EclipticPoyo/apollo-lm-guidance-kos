@@ -8,7 +8,7 @@
 // The ECADR the uplink (V71, V72) names is bank * 256 + (OFFSET - 768), see store_ecadr in core/dsky_store.ks.
 // Addresses are from the Virtual AGC listings (ibiblio.org/apollo/listings/Luminary099 and Luminary210, ERASABLE_ASSIGNMENTS);
 // scales from ERASABLE_ASSIGNMENTS.agc, R30.agc (RLS B-27 m), PINBALL_NOUN_TABLES.agc (N33 time, N81 VEL3).
-// Only the cells 1.3 uses are here. The ascent loads (RDOTD, ZDOTD, XRANGE) are added with P12 in 1.4, once their scales are checked.
+// Only the cells the scripts use are here. The ascent loads (release 1.5, N76) are ZDOTD and RDOTD (2^7 m/cs) and XRANGE (2^29 m, P12.agc).
 // One cell per line in exactly this form: tests/reference_loads.py reads this file with a regular expression.
 
 RUNONCEPATH("0:/core/dsky_store.ks").       // dp_encode, dp_decode, store_put_all
@@ -18,12 +18,18 @@ LM_CELLS_099:ADD("RLS", LEXICON("BANK", 4, "OFFSET", 786, "WORDS", 6, "SCALE", 2
 LM_CELLS_099:ADD("TLAND", LEXICON("BANK", 5, "OFFSET", 768, "WORDS", 2, "SCALE", 28, "LABEL", "nominal time of landing, centiseconds")).
 LM_CELLS_099:ADD("TIG", LEXICON("BANK", 7, "OFFSET", 801, "WORDS", 2, "SCALE", 28, "LABEL", "time of ignition N33, centiseconds")).
 LM_CELLS_099:ADD("DELVLVC", LEXICON("BANK", 7, "OFFSET", 795, "WORDS", 6, "SCALE", 7, "LABEL", "delta-v local vertical N81, metres per centisecond")).
+LM_CELLS_099:ADD("ZDOTD", LEXICON("BANK", 4, "OFFSET", 958, "WORDS", 2, "SCALE", 7, "LABEL", "ascent horizontal speed wanted N76, metres per centisecond")).
+LM_CELLS_099:ADD("RDOTD", LEXICON("BANK", 4, "OFFSET", 954, "WORDS", 2, "SCALE", 7, "LABEL", "ascent radial speed wanted N76, metres per centisecond")).
+LM_CELLS_099:ADD("XRANGE", LEXICON("BANK", 7, "OFFSET", 930, "WORDS", 2, "SCALE", 29, "LABEL", "ascent cross-range N76, metres")).
 
 GLOBAL LM_CELLS_210 IS LEXICON().
 LM_CELLS_210:ADD("RLS", LEXICON("BANK", 4, "OFFSET", 784, "WORDS", 6, "SCALE", 27, "LABEL", "landing site vector, Moon-fixed, metres")).
 LM_CELLS_210:ADD("TLAND", LEXICON("BANK", 4, "OFFSET", 790, "WORDS", 2, "SCALE", 28, "LABEL", "nominal time of landing, centiseconds")).
 LM_CELLS_210:ADD("TIG", LEXICON("BANK", 7, "OFFSET", 801, "WORDS", 2, "SCALE", 28, "LABEL", "time of ignition N33, centiseconds")).
 LM_CELLS_210:ADD("DELVLVC", LEXICON("BANK", 7, "OFFSET", 795, "WORDS", 6, "SCALE", 7, "LABEL", "delta-v local vertical N81, metres per centisecond")).
+LM_CELLS_210:ADD("ZDOTD", LEXICON("BANK", 4, "OFFSET", 951, "WORDS", 2, "SCALE", 7, "LABEL", "ascent horizontal speed wanted N76, metres per centisecond")).
+LM_CELLS_210:ADD("RDOTD", LEXICON("BANK", 4, "OFFSET", 947, "WORDS", 2, "SCALE", 7, "LABEL", "ascent radial speed wanted N76, metres per centisecond")).
+LM_CELLS_210:ADD("XRANGE", LEXICON("BANK", 7, "OFFSET", 930, "WORDS", 2, "SCALE", 29, "LABEL", "ascent cross-range N76, metres")).
 LM_CELLS_210:ADD("DLAND", LEXICON("BANK", 5, "OFFSET", 921, "WORDS", 6, "SCALE", 24, "LABEL", "landing site correction N69, guidance axes, metres (210 only)")).
 
 // The update program's buffer addresses, which P27 shows in R3 while it asks for data (UPDATE_PROGRAM.agc: UPBUFF + the number of items
@@ -240,6 +246,28 @@ FUNCTION lm_store_get_dland {
   LOCAL values IS lm_store_get_dp_list(vault, "DLAND").
   IF values:LENGTH < 3 { RETURN V(0, 0, 0). }
   RETURN V(values[0], values[1], values[2]).
+}
+
+// lm_store_put_asc: the ascent targets of N76 from horizontal and radial speed (m/s) and cross-range (m).
+FUNCTION lm_store_put_asc {
+  PARAMETER vault, zdotd_ms, rdotd_ms, xrange_m.
+  LOCAL ok_z IS lm_store_put_dp_list(vault, "ZDOTD", LIST(zdotd_ms / 100)).
+  LOCAL ok_r IS lm_store_put_dp_list(vault, "RDOTD", LIST(rdotd_ms / 100)).
+  LOCAL ok_x IS lm_store_put_dp_list(vault, "XRANGE", LIST(xrange_m)).
+  RETURN ok_z AND ok_r AND ok_x.
+}
+
+// lm_store_get_asc: LEXICON("ZDOTD", m/s, "RDOTD", m/s, "XRANGE", m); a value that is not loaded is zero.
+FUNCTION lm_store_get_asc {
+  PARAMETER vault.
+  LOCAL z_list IS lm_store_get_dp_list(vault, "ZDOTD").
+  LOCAL r_list IS lm_store_get_dp_list(vault, "RDOTD").
+  LOCAL x_list IS lm_store_get_dp_list(vault, "XRANGE").
+  LOCAL out IS LEXICON("ZDOTD", 0, "RDOTD", 0, "XRANGE", 0).
+  IF z_list:LENGTH > 0 { SET out["ZDOTD"] TO z_list[0] * 100. }
+  IF r_list:LENGTH > 0 { SET out["RDOTD"] TO r_list[0] * 100. }
+  IF x_list:LENGTH > 0 { SET out["XRANGE"] TO x_list[0]. }
+  RETURN out.
 }
 
 // lm_store_put_dv: the delta-v (N81, local vertical axes) from a vector in metres per second.

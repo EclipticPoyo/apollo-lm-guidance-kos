@@ -21,6 +21,12 @@ assert_near("210 RLS ECADR is 2020 octal (1040)", store_ecadr(cells_j, "RLS"), 1
 assert_near("099 TLAND ECADR is 2400 octal (1280)", store_ecadr(cells_a, "TLAND"), 1280, 0).
 assert_near("210 DELVLVC ECADR is 3433 octal (1819), as in the GSOP update address table 2.1.6", store_ecadr(cells_j, "DELVLVC"), 1819, 0).
 assert_near("210 UPSVFLAG-style cross check: TLAND follows RLS by six words (2026 octal, 1046)", store_ecadr(cells_j, "TLAND"), 1046, 0).
+assert_near("099 ZDOTD ECADR is 2276 octal", store_ecadr(cells_a, "ZDOTD"), 1214, 0).
+assert_near("099 RDOTD ECADR is 2272 octal", store_ecadr(cells_a, "RDOTD"), 1210, 0).
+assert_near("099 XRANGE ECADR is 3642 octal", store_ecadr(cells_a, "XRANGE"), 1954, 0).
+assert_near("210 ZDOTD ECADR is 2267 octal", store_ecadr(cells_j, "ZDOTD"), 1207, 0).
+assert_near("210 RDOTD ECADR is 2263 octal", store_ecadr(cells_j, "RDOTD"), 1203, 0).
+assert_near("210 XRANGE ECADR is 3642 octal", store_ecadr(cells_j, "XRANGE"), 1954, 0).
 assert_true("lm_cells_for J gives the 210 table", cells_j["TLAND"]["BANK"] = 4).
 assert_true("lm_cells_for A11 gives the 099 table", cells_a["TLAND"]["BANK"] = 5).
 
@@ -100,6 +106,18 @@ assert_near("TIG reads back to within 0.01 s", lm_store_get_tig(st), 299000, 0.0
 lm_store_put_dv(st, V(-30, 1.5, -0.25)).
 LOCAL dv_back IS lm_store_get_dv(st).
 assert_vec("DELVLVC reads back to within 0.001 m/s", dv_back, V(-30, 1.5, -0.25), 0.001).
+
+// ---- the ascent loads (N76) ---------------------------------------------------------------------------------------------
+LOCAL asc_empty IS lm_store_get_asc(store_new(cells_a)).
+assert_true("ascent loads are zero when nothing is loaded", asc_empty["ZDOTD"] = 0 AND asc_empty["RDOTD"] = 0 AND asc_empty["XRANGE"] = 0).
+FOR asc_cells IN LIST(cells_a, cells_j) {
+  LOCAL asc_vault IS store_new(asc_cells).
+  assert_true("the ascent loads are stored", lm_store_put_asc(asc_vault, 1686.9, 9.81, -3148.4)).
+  LOCAL asc_back IS lm_store_get_asc(asc_vault).
+  assert_near("ZDOTD reads back", asc_back["ZDOTD"], 1686.9, 0.001).
+  assert_near("RDOTD reads back", asc_back["RDOTD"], 9.81, 0.001).
+  assert_near("XRANGE reads back", asc_back["XRANGE"], -3148.4, 4).
+}
 
 // ---- 210 table selects different addresses ------------------------------------------------------------------------------
 LOCAL st_j IS store_new(cells_j).

@@ -8,6 +8,7 @@ RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/tests/test_lib.ks").
 RUNONCEPATH("0:/core/dsky_core.ks").
 RUNONCEPATH("0:/lm/lm_vehicle.ks").
+RUNONCEPATH("0:/lm/burn/lm_servicer.ks").
 
 test_begin("0:/lm/logs/test_p40.log").
 SET CTL_DRY TO TRUE.
@@ -110,18 +111,18 @@ assert_true("a good start is not refused", d_start(23.1)["REFUSED"] = "").
 // ---- the frames: P30's vectors are turned to the live axes by the Moon's spin ----
 LOCAL pspin IS d_start(23.1).
 SET pspin["WM"] TO V(0, 2.66e-6, 0).
-LOCAL spun IS p40_live(pspin, V(1, 0, 0), 1100 + 3600).
+LOCAL spun IS servicer_live(pspin, V(1, 0, 0), 1100 + 3600).
 assert_near("an hour of the Moon's spin turns the vector 0.5487 degrees", VANG(spun, V(1, 0, 0)), 2.66e-6 * 3600 * 180 / CONSTANT:PI, 1e-4).
-assert_vec("and p40_to0 turns it back", p40_to0(pspin, spun, 1100 + 3600), V(1, 0, 0), 1e-9).
+assert_vec("and servicer_to0 turns it back", servicer_to0(pspin, spun, 1100 + 3600), V(1, 0, 0), 1e-9).
 
 // ---- the servicer pass does not see the Moon's spin as a velocity change (the raw axes turn with the Moon) ----
 LOCAL ppass IS d_start(23.1).
 SET ppass["WM"] TO V(0, 2.66e-6, 0).
 LOCAL v_inertial IS V(0, 0, 1630).         // a ship drifting at constant inertial velocity, no gravity (MU 0): nothing is gained
-LOCAL pass_state IS LEXICON("V", p40_live(ppass, v_inertial, 3000), "R", V(1850000, 0, 0), "MU", 0).
-p40_pass(ppass, pass_state, 3000, FALSE).
-SET pass_state["V"] TO p40_live(ppass, v_inertial, 3002).
-LOCAL pass_data IS p40_pass(ppass, pass_state, 3002, FALSE).
+LOCAL pass_state IS LEXICON("V", servicer_live(ppass, v_inertial, 3000), "R", V(1850000, 0, 0), "MU", 0).
+servicer_pass(ppass, pass_state, 3000, FALSE).
+SET pass_state["V"] TO servicer_live(ppass, v_inertial, 3002).
+LOCAL pass_data IS servicer_pass(ppass, pass_state, 3002, FALSE).
 assert_true("the pass closes after 2 s", pass_data:ISTYPE("Lexicon")).
 assert_near("a ship drifting inertially gains nothing, whatever the Moon's spin", pass_data["DELVREF"]:MAG, 0, 1e-6).
 

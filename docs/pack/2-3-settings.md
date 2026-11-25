@@ -15,7 +15,7 @@ One text file, `agc_config.txt`, in `Ships/Script/`. Edit a value, save, restart
 | P63_WINDOW_MODE | UP | UP: window faces the site. KEEP: keeps roll. |
 | ROD_KEYS | BOTH | BOTH, HN or SHIFTCTRL. |
 | P64_PITCH_SIGN<br>P64_YAW_SIGN<br>P66_ROD_SIGN | 1, -1, 1 | Flip if a key moves the wrong way. |
-| P63_WARP_LEAD_S | 60 | Seconds before ignition at which the P63 warp stops. |
+| P63_WARP_LEAD_S | 60 | Seconds before ignition at which a warp stops (P63, P40, P41, P12). |
 | BODY_NAME | Moon | The body you land on. |
 | DSKY_START | BLANK | N60: start on the descent monitor `V16 N60`. |
 | ALARMS | OFF | A11, or your own list as code@seconds. |

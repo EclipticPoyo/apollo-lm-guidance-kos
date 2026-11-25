@@ -37,7 +37,12 @@ Each register is a sign and five digits with no decimal point. Scale the digits 
 | N81 | Delta-v X, 0.1 ft/s | Y | Z (local vertical) |
 | N83 | P47 gained X | Y | Z, 0.1 ft/s |
 | N85 | Still to gain X (nose) | Y (right) | Z (window), 0.1 ft/s |
+| == Ascent and orbit | | | |
+| N44 | Apolune, 0.1 nm | Perilune, 0.1 nm | Time of free fall, MM SS |
+| N74 | Time from ignition, MM SS | Yaw after the rise, 0.01 deg | Pitch after the rise, 0.01 deg |
+| N76 | Horizontal speed wanted, 0.1 ft/s | Radial speed wanted, 0.1 ft/s | Cross-range, 0.1 nm |
+| N94 | Still to gain along the thrust axis, 0.1 ft/s | Altitude rate, 0.1 ft/s | Height, ft |
 | == Alarms | | | |
 | N09 | Code 1, octal | Code 2 | Code 3 |
 
-N66 and N67 come from the simulated radar and read zero above 12 km. (J) marks J-class only. In J-class, N60 R1 is the forward speed (along the way the window faces), N63 R1 is radar height minus calculated height (ft), and N68 R1 is downrange (0.1 nm) with R3 the speed over the surface (0.1 ft/s). Load N69 with `V25 N69 E`; P63 adds it to the site once at start, then clears it.
+N66 and N67 come from the simulated radar and read zero above 12 km. (J) marks J-class only. In J-class, N60 R1 is the forward speed (along the way the window faces), N63 R1 is radar height minus calculated height (ft), and N68 R1 is downrange (0.1 nm) with R3 the speed over the surface (0.1 ft/s). Load N69 with `V25 N69 E`; P63 adds it to the site once at start, then clears it. In P12 heights are above the landing site, N74 angles run from 0 to 359.99 and N63 R1 is the speed in orbit (Apollo 11). N44 heights are above the landing site.
