@@ -27,6 +27,7 @@ import pathlib
 import re
 import json
 import shutil
+import urllib.parse
 import subprocess
 import sys
 import tempfile
@@ -270,6 +271,15 @@ THEME_BODY = ("<script>(function(){var b=document.getElementById('theme'),r=docu
               "r.setAttribute('data-theme',t);try{localStorage.setItem('pack-theme',t)}catch(e){}label()})})()</script>")
 
 
+# The browser tab icon: a DSKY-style "63" (P63, braking) in green seven-segment strokes on a dark tile, as an SVG in the page head
+# (no extra file, so the page stays self-contained). Not used in the PDF.
+_FAV_SEG = ("M5.5 7H14M5.5 7V16M5.5 16H14M5.5 16V25M5.5 25H14M14 16V25"        # the 6
+            "M18.5 7H27M27 7V16M18.5 16H27M27 16V25M18.5 25H27")             # the 3
+FAVICON_SVG = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='5' fill='#26272A'/>"
+               f"<path d='{_FAV_SEG}' fill='none' stroke='#3DDC97' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+FAVICON = "data:image/svg+xml," + urllib.parse.quote(FAVICON_SVG, safe="/:=' ")
+
+
 def build_html(pages, sheets):
     css = embed_css((PACK / "pack.css").read_text(encoding="utf-8"))
     if sheets:
@@ -278,6 +288,7 @@ def build_html(pages, sheets):
     return ("<!doctype html><html lang=\"en-GB\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             "<title>LM Guidance Computer: Pilot's Pack</title>"
+            f"<link rel=\"icon\" type=\"image/svg+xml\" href=\"{FAVICON}\">"
             f"<style>{css}</style>{'' if sheets else THEME_HEAD}</head><body{' class=\"sheets\"' if sheets else ''}><div class=\"wrap\">{'' if sheets else TOPBAR}{embed_images(body)}</div>"
             + (f"<script>{FIT}</script>" if sheets else THEME_BODY) + "</body></html>")
 
