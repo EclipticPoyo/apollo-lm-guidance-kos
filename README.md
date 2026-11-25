@@ -35,7 +35,7 @@ It was only tested with these installed together.
 1. Copy the `core`, `lm` and `shared` folders from `scripts` into `<KSP>/Ships/Script/`, so kOS sees them as `0:/core/`, `0:/lm/` and `0:/shared/`.
 2. Create two one-line stubs in `<KSP>/Ships/Script/`: `dsky.ks` containing `RUNPATH("0:/core/dsky.ks").` and `plan.ks` containing `RUNPATH("0:/lm/planner/lm_plan_ui.ks").`
 
-**Test craft:** the `craft/` folder in the repository has the two Realism Overhaul landers the program was flown on, `H Class.craft` and `J Class.craft` (KSP 1.12.5). Copy them to `<KSP>/saves/<your save>/Ships/VAB/`. They need the mods under Dependencies and may need part changes with other mod versions.
+**Test craft:** the `craft/` folder in the repository has the two Realism Overhaul landers the program was flown on, `H Class.craft` and `J Class.craft` (KSP 1.12.5). The folder also has two command and service modules, `CSM Block II.craft` and `CSM J-Class.craft`, for the orbiting CSM the ascent needs. Copy the files to `<KSP>/saves/<your save>/Ships/VAB/`. They need the mods under Dependencies and may need part changes with other mod versions.
 
 ## Run
 
