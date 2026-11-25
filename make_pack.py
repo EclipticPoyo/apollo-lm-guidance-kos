@@ -253,8 +253,17 @@ FIT = """
 """
 
 
-TOPBAR = ('<p class="topbar"><a href="PACK.pdf">Download as PDF (A4, print it)</a> &middot; '
-          '<a href="https://github.com/EclipticPoyo/apollo-lm-guidance-kos">Source code</a></p>')
+TOPBAR = ('<p class="topbar"><a href="PACK.pdf">Download as PDF (A4, print it)</a> <a href="https://github.com/EclipticPoyo/apollo-lm-guidance-kos">Source code</a> '
+          '<button type="button" id="theme" aria-label="Switch between light and dark mode">Dark mode</button></p>')
+# The theme switch (web page only; the PDF build leaves it out, so the PDF is always light). It follows the system setting until the
+# reader clicks the button, then remembers the choice in the browser.
+THEME_HEAD = ("<script>(function(){var t;try{t=localStorage.getItem('pack-theme')}catch(e){}"
+              "if(!t)t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';"
+              "document.documentElement.setAttribute('data-theme',t)})()</script>")
+THEME_BODY = ("<script>(function(){var b=document.getElementById('theme'),r=document.documentElement;"
+              "function label(){b.textContent=r.getAttribute('data-theme')=='dark'?'Light mode':'Dark mode'}label();"
+              "b.addEventListener('click',function(){var t=r.getAttribute('data-theme')=='dark'?'light':'dark';"
+              "r.setAttribute('data-theme',t);try{localStorage.setItem('pack-theme',t)}catch(e){}label()})})()</script>")
 
 
 def build_html(pages, sheets):
@@ -265,8 +274,8 @@ def build_html(pages, sheets):
     return ("<!doctype html><html lang=\"en-GB\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
             "<title>LM Guidance Computer: Pilot's Pack</title>"
-            f"<style>{css}</style></head><body{' class=\"sheets\"' if sheets else ''}><div class=\"wrap\">{'' if sheets else TOPBAR}{embed_images(body)}</div>"
-            + (f"<script>{FIT}</script>" if sheets else "") + "</body></html>")
+            f"<style>{css}</style>{'' if sheets else THEME_HEAD}</head><body{' class=\"sheets\"' if sheets else ''}><div class=\"wrap\">{'' if sheets else TOPBAR}{embed_images(body)}</div>"
+            + (f"<script>{FIT}</script>" if sheets else THEME_BODY) + "</body></html>")
 
 
 def find_browser():
