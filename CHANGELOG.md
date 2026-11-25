@@ -24,6 +24,7 @@ The computer now flies its own burns, starting with the DOI, on one shared burn 
 - The IMU is aligned from the start; the N45 middle gimbal angle is an assumed reference; the 10 percent level is this lander's minimum throttle (about 18 percent of full thrust); a raised throttle lever fires the RCS after the engine runs, so it is released at cut-off.
 
 ### Changed
+- **A shorter Shift or Ctrl tap now counts as a ROD click** (`ROD_LEVER_STEP` 0.004 to 0.001), for keyboards that register a very short modifier-key press weakly. H and N are unchanged and work on any keyboard.
 - **The burn programmes' delta-V no longer drifts with the Moon's spin.** The raw axes turn with the Moon, and the servicer pass differenced velocities taken in two different axes, so the spin showed up as a steady change along the radius (about 0.3 m/s a minute in a 60 nmi orbit: the third register of N85 kept growing). The start of each pass is now turned to the axes of the end of the pass first.
 - **P41 counts down to ignition in the terminal** (`TIG IN m:ss`), since its display shows N85 and goes blank before TIG; it says when TIG has passed.
 - **The terminal is cleared when a programme ends**, so nothing from the burn or the descent is left to garble what follows.

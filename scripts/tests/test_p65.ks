@@ -197,10 +197,15 @@ assert_near("rod: then a tap down: -1", rod_take(rd_a), -1, 0).
 SET rd_a TO rod_new().
 SET rd_t TO 0.
 FROM { LOCAL i IS 0. } UNTIL i >= 50 STEP { SET i TO i + 1. } DO {
-  rod_sample(rd_a, 0.5 + MOD(i, 2) * 0.002, rd_t).               // noise of 0.002 between samples, under ROD_LEVER_STEP (0.004)
+  rod_sample(rd_a, 0.5 + MOD(i, 2) * 0.0005, rd_t).              // noise of 0.0005 between samples, under ROD_LEVER_STEP (0.001)
   SET rd_t TO rd_t + 0.02.
 }
 assert_near("rod: noise under the step makes no click", rod_take(rd_a), 0, 0).
+
+SET rd_a TO rod_new().
+rod_sample(rd_a, 0.5, 0).
+rod_sample(rd_a, 0.502, 0.02).                                  // a very short tap: the lever only moved 0.002, a fifth of a normal frame of key-down
+assert_near("rod: a very short tap (0.002) still makes a click", rod_take(rd_a), 1, 0).
 
 SET rd_a TO rod_new().
 SET rd_t TO rod_ramp(rd_a, 0.5, 0.01, 6, 0).

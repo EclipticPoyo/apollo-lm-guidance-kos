@@ -30,7 +30,7 @@ v: V06 N64 FL
 - | W / S, A / D | Move the aim point, if you want
 band: LANDING | 3-5
 - | P65 | Starts by itself. Settles to 3 ft/s down
-- | H / N | P66, if you want to set the rate (SAS on)
+- | H / N (or Shift / Ctrl) | P66, if you want to set the rate (SAS on)
 v: CONTACT lamp, engine cuts off
 - | PRO | Ends P68. Position stored
 ```

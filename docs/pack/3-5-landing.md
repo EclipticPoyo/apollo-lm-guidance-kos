@@ -10,9 +10,9 @@ band: AUTOMATIC LANDING | P65
 v: V06 N60. Terminal shows descent rate in m/s
 band: RATE OF DESCENT | P66  /  optional
 - | SAS | On
-- | H | Slower, 1 ft/s a tap. First tap starts P66
-- | N | Faster, 1 ft/s a tap
-n: Shift and Ctrl do the same. Tap, do not hold: H and N also fire the RCS
+- | H or SHIFT | Slower, 1 ft/s a tap. First tap starts P66
+- | N or CTRL | Faster, 1 ft/s a tap
+n: Either pair works: if one does not register on your keyboard, use the other. Tap, do not hold: H and N also fire the RCS
 - | FLY ATTITUDE | Yourself
 if: TAP IN AUTO (SAS OFF)
   - | Ignored. Terminal says so
