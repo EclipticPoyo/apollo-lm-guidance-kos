@@ -133,3 +133,4 @@ body.sheets .sheet .page{box-shadow:none;margin:0}
 
 .topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.topbar a{color:var(--ink)}
 .topbar button{font:700 .8rem var(--sans);letter-spacing:.05em;text-transform:uppercase;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);padding:3px 10px;cursor:pointer}
+.topbar button svg{vertical-align:-2px;margin-right:2px}

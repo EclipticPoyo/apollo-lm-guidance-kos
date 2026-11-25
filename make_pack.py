@@ -25,6 +25,7 @@ import base64
 import html
 import pathlib
 import re
+import json
 import shutil
 import subprocess
 import sys
@@ -260,8 +261,11 @@ TOPBAR = ('<p class="topbar"><a href="PACK.pdf">Download as PDF (A4, print it)</
 THEME_HEAD = ("<script>(function(){var t;try{t=localStorage.getItem('pack-theme')}catch(e){}"
               "if(!t)t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';"
               "document.documentElement.setAttribute('data-theme',t)})()</script>")
-THEME_BODY = ("<script>(function(){var b=document.getElementById('theme'),r=document.documentElement;"
-              "function label(){b.textContent=r.getAttribute('data-theme')=='dark'?'Light mode':'Dark mode'}label();"
+_MOON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M13 10.2A6 6 0 0 1 5.8 3 6 6 0 1 0 13 10.2z" fill="currentColor"/></svg>'
+_SUN = ('<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="3.2" fill="currentColor"/>'
+        '<path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>')
+THEME_BODY = ("<script>(function(){var b=document.getElementById('theme'),r=document.documentElement,MOON=" + json.dumps(_MOON) + ",SUN=" + json.dumps(_SUN) + ";"
+              "function label(){var d=r.getAttribute('data-theme')=='dark';b.innerHTML=(d?SUN:MOON)+' '+(d?'Light mode':'Dark mode')}label();"
               "b.addEventListener('click',function(){var t=r.getAttribute('data-theme')=='dark'?'light':'dark';"
               "r.setAttribute('data-theme',t);try{localStorage.setItem('pack-theme',t)}catch(e){}label()})})()</script>")
 
