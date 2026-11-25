@@ -271,12 +271,13 @@ THEME_BODY = ("<script>(function(){var b=document.getElementById('theme'),r=docu
               "r.setAttribute('data-theme',t);try{localStorage.setItem('pack-theme',t)}catch(e){}label()})})()</script>")
 
 
-# The browser tab icon: a DSKY-style "63" (P63, braking) in green seven-segment strokes on a dark tile, as an SVG in the page head
-# (no extra file, so the page stays self-contained). Not used in the PDF.
-_FAV_SEG = ("M5.5 7H14M5.5 7V16M5.5 16H14M5.5 16V25M5.5 25H14M14 16V25"        # the 6
-            "M18.5 7H27M27 7V16M18.5 16H27M27 16V25M18.5 25H27")             # the 3
+# The browser tab icon: a small Lunar Module (ascent stage with its green window, descent stage, engine bell and four legs, two shown) in
+# off-white on a dark tile, as an SVG in the page head (no extra file, so the page stays self-contained). Not used in the PDF.
 FAVICON_SVG = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='5' fill='#26272A'/>"
-               f"<path d='{_FAV_SEG}' fill='none' stroke='#3DDC97' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+               "<g fill='#E8E8E4'><path d='M11 5h10l2 3v6H9V8z'/><path d='M7 15h18l-2 6H9z'/><path d='M13.5 21h5l1.5 3h-8z'/></g>"
+               "<path d='M9 20L5 27M23 20L27 27' stroke='#E8E8E4' stroke-width='1.8' stroke-linecap='round'/>"
+               "<path d='M2.5 27.5h5M24.5 27.5h5' stroke='#E8E8E4' stroke-width='2' stroke-linecap='round'/>"
+               "<rect x='13' y='8' width='6' height='3.5' rx='1' fill='#3DDC97'/></svg>")
 FAVICON = "data:image/svg+xml," + urllib.parse.quote(FAVICON_SVG, safe="/:=' ")
 
 
