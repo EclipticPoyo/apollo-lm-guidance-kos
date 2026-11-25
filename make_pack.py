@@ -271,13 +271,17 @@ THEME_BODY = ("<script>(function(){var b=document.getElementById('theme'),r=docu
               "r.setAttribute('data-theme',t);try{localStorage.setItem('pack-theme',t)}catch(e){}label()})})()</script>")
 
 
-# The browser tab icon: a small Lunar Module (ascent stage with its green window, descent stage, engine bell and four legs, two shown) in
-# off-white on a dark tile, as an SVG in the page head (no extra file, so the page stays self-contained). Not used in the PDF.
+# The browser tab icon: a small Apollo Lunar Module on a dark tile: the white ascent stage with its two triangular windows and the radar
+# dish, the gold-foil descent stage, the engine bell, and four splayed legs with round footpads. An SVG in the page head (no extra file, so
+# the page stays self-contained). Not used in the PDF.
 FAVICON_SVG = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='5' fill='#26272A'/>"
-               "<g fill='#E8E8E4'><path d='M11 5h10l2 3v6H9V8z'/><path d='M7 15h18l-2 6H9z'/><path d='M13.5 21h5l1.5 3h-8z'/></g>"
-               "<path d='M9 20L5 27M23 20L27 27' stroke='#E8E8E4' stroke-width='1.8' stroke-linecap='round'/>"
-               "<path d='M2.5 27.5h5M24.5 27.5h5' stroke='#E8E8E4' stroke-width='2' stroke-linecap='round'/>"
-               "<rect x='13' y='8' width='6' height='3.5' rx='1' fill='#3DDC97'/></svg>")
+               "<path d='M8 21L3.5 27.5M24 21L28.5 27.5M12 21.5L10 27.5M20 21.5L22 27.5' stroke='#C9C9C4' stroke-width='1.5' stroke-linecap='round'/>"
+               "<g fill='#C9C9C4'><circle cx='3.2' cy='28' r='1.9'/><circle cx='28.8' cy='28' r='1.9'/><circle cx='9.8' cy='28' r='1.5'/><circle cx='22.2' cy='28' r='1.5'/></g>"
+               "<path d='M14 22h4l1.4 3h-6.8z' fill='#8A8A86'/>"
+               "<path d='M7 16.5h18l1.5 2v3H5.5v-3z' fill='#E0B13E'/><path d='M5.5 19.5h21' stroke='#B88A1E' stroke-width='.9'/>"
+               "<path d='M11 7h10l3.2 3v6.5H7.8V10z' fill='#E8E8E4'/>"
+               "<path d='M10.6 9.2h4.6L12.4 13z M21.4 9.2h-4.6L19.6 13z' fill='#26272A'/>"
+               "<path d='M16 7V5' stroke='#E8E8E4' stroke-width='1.1'/><path d='M12.8 4.2a3.4 1.6 0 0 1 6.4 0z' fill='#E8E8E4'/></svg>")
 FAVICON = "data:image/svg+xml," + urllib.parse.quote(FAVICON_SVG, safe="/:=' ")
 
 
