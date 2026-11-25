@@ -3,7 +3,7 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
-## Unreleased (1.4, burn programmes)
+## 1.4 (2026-11-25, burn programmes)
 
 The computer now flies its own burns, starting with the DOI, on one shared burn engine. The DOI, a P41 trim and the P63 landing (as a regression) were flown in KSP and passed; the engine timings are the Apollo values and needed no tuning.
 
