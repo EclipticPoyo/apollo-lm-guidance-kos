@@ -6,7 +6,7 @@ An Apollo Lunar Module-inspired guidance computer for Kerbal Space Program, writ
 
 **Status:** flown and confirmed in KSP on that lander: planning, P63 braking, P64 approach with redesignation (both window modes), P65 automatic landing, P66 rate of descent and touchdown, with the Apollo 11 profile; and planning, P63, P64, P66 and touchdown with the J-class profile.
 
-**Release 1.4 (burn programmes: P30, P40, P41, P47)** passes its pad tests in KSP; its flights (the DOI, the RCS trim and a P63 regression) are still to be done.
+**Release 1.4 (burn programmes: P30, P40, P41, P47)** passes its pad tests, and the DOI burn, an RCS trim and a P63 landing (as a regression) were flown and confirmed in KSP.
 
 ## Dependencies
 
@@ -59,7 +59,7 @@ I wrote this with Claude (Anthropic's AI) in Claude Code. I decided what to buil
 
 ## More
 
-- The DSKY digits are drawn from the Zerlina font by Eugene Dorr (from his "dsky-fonts" collection, SIL Open Font License 1.1; licence in `lm/images/Zerlina-OFL.txt`)
+- The DSKY digits (and the register values in the Pilot's Pack) are drawn from the Zerlina font by Eugene Dorr (from his "dsky-fonts" collection, SIL Open Font License 1.1; licence in `lm/images/Zerlina-OFL.txt`)
 - [Roadmap](https://github.com/EclipticPoyo/apollo-lm-guidance-kos/blob/main/ROADMAP.md)
 - [Development notes and pad tests](docs/DEVELOPMENT.md)
 - Based on the [Apollo Lunar Surface Journal](https://www.ibiblio.org/apollo/) and the Luminary 099 source in [chrislgarry/apollo-11](https://github.com/chrislgarry/apollo-11); [kOS documentation](https://ksp-kos.github.io/KOS_DOC/)
