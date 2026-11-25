@@ -10,9 +10,6 @@ RUNONCEPATH("0:/shared/lm_frame.ks").
 RUNONCEPATH("0:/lm/descent_j/lm_j_guidance.ks").
 RUNONCEPATH("0:/lm/descent_j/lm_j_ignition.ks").
 RUNONCEPATH("0:/lm/descent/lm_control.ks").
-RUNONCEPATH("0:/lm/descent_j/lm_j_p64.ks").          // j_redes_los (loaded here so that this test also runs on its own)
-RUNONCEPATH("0:/lm/descent_j/lm_j_p66.ks").          // j_p66_ms_text, j_p66_hz_due
-RUNONCEPATH("0:/core/dsky_display.ks").              // zero_pad, which j_p66_ms_text calls
 RUNONCEPATH("0:/tests/test_lib.ks").
 
 test_begin("0:/lm/logs/test_j.log").
@@ -176,7 +173,7 @@ assert_true("and no 'switch SAS on' message", NOT jt_out["MSG"]:CONTAINS("SWITCH
 // ---- the vehicle: programme table and profile (lm_vehicle.ks) -----------------------------------------------------------------------
 RUNONCEPATH("0:/lm/lm_vehicle.ks").
 LOCAL jt_veh IS lm_vehicle_new().
-LOCAL jt_is_j IS lm_profile_for(plan_read(PLAN_PLAN_FILE)) = "J".          // plan, else the version saved with the PAD, else the default
+LOCAL jt_is_j IS plan_profile_of(plan_read(PLAN_PLAN_FILE)) = "J".
 assert_true("vehicle: P64 hands over to P66 for J, P65 otherwise", jt_veh["PROGRAMMES"]["64"]["NEXT"] = (CHOOSE 66 IF jt_is_j ELSE 65)).
 assert_true("vehicle: P66 is in the table and not selectable by V37", jt_veh["PROGRAMMES"]["66"]["SELECTABLE"] = FALSE).
 assert_true("vehicle: P66 hands over to P68", jt_veh["PROGRAMMES"]["66"]["NEXT"] = 68).

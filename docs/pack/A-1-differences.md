@@ -26,13 +26,5 @@ The computer recreates what the crew saw and did, using KSP data. Only the diffe
 | Uplink | A stream of key presses read from a file, with no hardware error checking. V70, V73 and state-vector loads are not implemented. |
 | Clock | Zero is the vessel's mission time zero, saved in clock.txt. |
 | Plane change | The CSM's burn. The PAD only notes it. |
-| == Ascent | |
-| CSM | The KSP vessel named in the ascent plan, else the target, read when P12 starts. Nothing is uplinked, and a later change of target has no effect. |
-| Start and staging | P12 starts only when landed, because it stages the ship. It separates and lights by itself: no ABORT STAGE or ENGINE ARM presses. It also stores where the ship stands as the landing site (the real P12 only read it). |
-| Guidance | Run every computer cycle (the real LM: every 2 s). Delta-v is KSP's velocity change less gravity. No abort guidance system. |
-| Attitude | kOS steering with any RCS jet (the real ascent used the +X jets). A released turn about the thrust axis is held a moment further on. The throttle does not fire the RCS until cut-off. |
-| Lift-off time | The planner simulates the ascent and applies the rendezvous plans that were flown. In test flights the CSM ended about a quarter degree further ahead than planned. |
-| Warp | KSP time warp up to the count-down. |
-| V82 | This vehicle only, and no time to perilune. |
 | == J-class | | |
 | P66 | Leaves out alarm 1466 and the engine-arm test. PRO or V32 stand in for the arm switch. |

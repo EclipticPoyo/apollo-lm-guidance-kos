@@ -3,29 +3,6 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
-## 1.5 (2026-11-25, ascent)
-
-From the landing site back to lunar orbit with the DSKY. P12 was flown in KSP with both software profiles in the planner; the logged ascents reached the insertion targets within 1 m/s and 8 m, and left the CSM 0.24 to 0.29 degrees further ahead than planned.
-
-### Added
-- **P12, the powered ascent** (`lm/ascent/lm_p12.ks`), on the shared burn engine: flashing N33 (lift-off time) and N76 (targets), the N74 countdown, the V99 N74 engine prompt, then separation and ignition by the computer, vertical rise, pitch-over, timed cut-off and an RCS trim on N85. SAS is the AUTO / ATT HOLD switch, as in the descent; the roll keys turn the ship about its thrust axis. Alarm 1703 moves a lift-off that is too close; V97 shows an engine with no thrust and can relight it. kOS warps to 60 s before lift-off. P12 takes the landing site from where the ship stands, so a craft that never ran P68 can start it.
-- **Ascent guidance** ported from Luminary 210 (`lm/ascent/lm_ascent_guid.ks`): pure functions used by P12, the planner and the pad tests, with the Luminary 099 differences chosen by the software profile (rise exit, N63 or N94, engine tail-off).
-- **Ascent page in the planner**: with the CSM targeted, the lift-off time for the rendezvous plan that was flown (coelliptic for Apollo 11, short rendezvous for J-class), the next opportunity, and an ascent PAD with the N33 and N76 keys. Warnings for an unflown CSM orbit, cross-range over 8 nm and short propellant. *Skip simulated uplink* lets P12 load the PAD's values from the saved plan (`lm/ascent.json`).
-- **V82**, the orbit display: flashing `V16 N44` with apolune, perilune and time of free fall, over P00 or any programme.
-- Nouns N44, N74, N76 (loadable with V25) and N94; the N76 cells at their Luminary addresses.
-- Pack: the ascent checklists (3.7, 3.8), the ascent departures and glossary.
-- Pad tests `test_ascent`, `test_ascent_plan`, `test_p12`, `test_v82`; `reference_ascent.py`; the ascent probes.
-
-### Departures from Apollo (documented in the pack, appendix A)
-- The CSM is a KSP vessel; nothing is uplinked for the ascent. P12 starts only when landed.
-- Guidance runs every computer cycle; delta-v is the velocity change less gravity; kOS steering flies the attitude with any RCS jet; the computer separates and lights without the crew's switch presses; the throttle does not fire the RCS from separation to cut-off.
-- V82 covers this vehicle only and has no time to perilune.
-
-### Changed
-- The planner window is titled *LM planner* and has a menu with a *Deorbit* and an *Ascent* page. A new deorbit plan removes the old ascent plan.
-- The servicer's delta-V pass moved from P40 to `lm/burn/lm_servicer.ks` (no change in behaviour).
-- Pad tests `test_core` and `test_j` no longer depend on the saved software profile or on running after other tests.
-
 ## 1.4 (2026-11-25, burn programmes)
 
 The computer now flies its own burns, starting with the DOI, on one shared burn engine. The DOI, a P41 trim and the P63 landing (as a regression) were flown in KSP and passed; the engine timings are the Apollo values and needed no tuning.

@@ -275,29 +275,6 @@ assert_true("retime: state cleared", bbr["IGN_T"] = -1 AND NOT bbr["ARMED"] AND 
 assert_near("retime: time to go counts to the new TIG", after_r["TTOGO"], 995, 1e-9).
 assert_true("retime: ullage off and no ENGINE_OFF", NOT after_r["ULLAGE"] AND NOT after_r["ENGINE_OFF"]).
 
-// ---- P12 table (release 1.5), TIG 1000 ---------------------------------------------------------------------------
-LOCAL t12bb IS bb_table_p12("A11").
-assert_true("P12 table keys", t12bb["NAME"] = "P12" AND t12bb["PROMPT"] AND t12bb["ENTR_AT_PROMPT"] = "GOPOST" AND t12bb["ZOOM"] = "NONE" AND t12bb["ULLAGE_ON"] = FALSE).
-assert_true("P12 table nouns", t12bb["COUNT_VN"] = "V06N74" AND t12bb["PROMPT_VN"] = "V99N74" AND t12bb["BURN_VN"] = "").
-assert_true("P12 table timings are the common ones", t12bb["BLANK_START"] = t40["BLANK_START"] AND t12bb["BLANK_END"] = t40["BLANK_END"] AND t12bb["PROMPT_AT"] = -5).
-LOCAL bb12 IS bb_new(t12bb, 1000).
-LOCAL ull12 IS FALSE.
-LOCAL zoom12 IS FALSE.
-LOCAL now12 IS 950.
-UNTIL now12 > 1040 {
-  LOCAL out12 IS bb_step(bb12, now12, now12 = 997, FALSE, FALSE).
-  IF out12["ULLAGE"] { SET ull12 TO TRUE. }
-  IF out12["ZOOM"] { SET zoom12 TO TRUE. }
-  SET now12 TO now12 + 0.25.
-}
-assert_true("P12 never has ullage or a throttle-up", NOT ull12 AND NOT zoom12).
-assert_near("P12 PRO at 997 lights at TIG", bb12["IGN_T"], 1000, 1e-9).
-// The P40 and P63 tables are unchanged by the P12 table.
-LOCAL t40u IS bb_table_p40("A11").
-assert_true("P40 table unchanged", t40u["NAME"] = "P40" AND t40u["ULLAGE_ON"] = -7.5 AND t40u["COUNT_VN"] = "V06N40" AND t40u["PROMPT_VN"] = "V99N40" AND t40u["BURN_VN"] = "V06N40" AND t40u["ZOOM"] = "FROM_IGNITION" AND t40u["ENTR_AT_PROMPT"] = "GOPOST" AND t40u["PROMPT_AT"] = -5 AND t40u["BLANK_START"] = -34.9 AND t40u["BLANK_END"] = -29.9).
-LOCAL t63u IS bb_table_p63("A11").
-assert_true("P63 table unchanged", t63u["NAME"] = "P63" AND t63u["ULLAGE_ON"] = -30 + ULLAGE_START_AFTER_TIG30 AND t63u["COUNT_VN"] = "V06N62" AND t63u["PROMPT_VN"] = "V99N62" AND t63u["BURN_VN"] = "V06N63" AND t63u["ZOOM"] = "FROM_NOMINAL_TIG" AND t63u["ENTR_AT_PROMPT"] = "REDISPLAY" AND t63u["PROMPT_AT"] = -5 AND t63u["BLANK_START"] = -35 AND t63u["BLANK_END"] = -30).
-
 // ---- resp_read ---------------------------------------------------------------------------------------------------
 FUNCTION make_ks {
   PARAMETER pro_f, enter_f, recycle_f, term_f.

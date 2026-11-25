@@ -4,7 +4,7 @@ section: Contents
 ---
 <div class="cover"><p class="t1">LM Guidance<br>Computer</p><p class="t2">PILOT'S PACK</p></div>
 
-An Apollo Lunar Module guidance computer for Kerbal Space Program, written in kOS for Realism Overhaul on Sol. It recreates what the LM crew saw and did, with the descent guidance ported from Luminary 099 (Apollo 11) and Luminary 210 (J-class, Apollo 15 to 17), and the ascent guidance from Luminary 210. It does not emulate AGC hardware.
+An Apollo Lunar Module guidance computer for Kerbal Space Program, written in kOS for Realism Overhaul on Sol. It recreates what the LM crew saw and did, with the descent guidance ported from Luminary 099 (Apollo 11) and Luminary 210 (J-class, Apollo 15 to 17). It does not emulate AGC hardware.
 
 > CAUTION: Developed and flown on one lander in one set-up (Sol with Mirage, Realism Overhaul, kOS 1.6.0.1). Nothing else has been tested. Fly at your own risk.
 
@@ -14,9 +14,8 @@ An Apollo Lunar Module guidance computer for Kerbal Space Program, written in kO
 | Section | Title | Page |
 |---|---|---|
 | | Landing card | 0-2 |
-| | Ascent card | 0-3 |
 | 1 | System | 1-1 |
-| 2 | Reference: verbs, alarms, nouns, settings, loads, update, refusals | 2-1 |
+| 2 | Reference: verbs, nouns, settings, loads, update | 2-1 |
 | 3 | Checklists | 3-1 |
 | 4 | If something goes wrong | 4-1 |
 | A | Differences from the real LM, glossary | A-1 |

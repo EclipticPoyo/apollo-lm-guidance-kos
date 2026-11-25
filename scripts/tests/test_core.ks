@@ -210,9 +210,8 @@ SET LM_STORE_FILE TO "0:/lm/logs/test_core_no_store.txt".
 IF EXISTS(LM_STORE_FILE) { DELETEPATH(LM_STORE_FILE). }
 LOCAL lmv IS lm_vehicle_new().
 SET LM_STORE_FILE TO real_store_file.
-// The programme set and the version come from the saved plan's PROFILE, with no plan from the version saved with the PAD (profile.txt), else the
-// default (lm_profile_for).
-LOCAL veh_j IS lm_profile_for(plan_read(PLAN_PLAN_FILE)) = "J".
+// Release 1.2: the saved plan's PROFILE ("A11" or "J"; none = A11) picks the programme set and the version.
+LOCAL veh_j IS plan_profile_of(plan_read(PLAN_PLAN_FILE)) = "J".
 assert_true("LM vehicle: version follows the plan profile",
             lmv["VERSION"] = (CHOOSE "LUMINARY210" IF veh_j ELSE "LUMINARY099") AND LM_VEH["PROFILE"] = (CHOOSE "J" IF veh_j ELSE "A11")).
 assert_true("LM vehicle: only P63 is selectable by V37",

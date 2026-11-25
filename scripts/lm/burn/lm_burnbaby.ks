@@ -85,21 +85,6 @@ FUNCTION bb_table_p63 {
   RETURN tbl.
 }
 
-// bb_table_p12: P12TABLE (099 BBB:74-87: VN 0674, no ullage; release 1.5, the ascent): the N74 countdown and V99 N74 prompt, ENTR = GOPOST (to the trim displays, no ignition), no
-// ullage (the ascent engine lights on the surface, its propellant settled by gravity) and no throttle-up. BURN_VN is empty: P12 shows N63 (099) or
-// N94 (210) itself at ignition. The other times are the common ones.
-FUNCTION bb_table_p12 {
-  PARAMETER profile.
-  LOCAL tbl IS bb_table_base("P12", profile).
-  SET tbl["ULLAGE_ON"] TO FALSE.
-  SET tbl["COUNT_VN"] TO "V06N74".
-  SET tbl["PROMPT_VN"] TO "V99N74".
-  SET tbl["BURN_VN"] TO "".
-  SET tbl["ENTR_AT_PROMPT"] TO "GOPOST".
-  SET tbl["ZOOM"] TO "NONE".
-  RETURN tbl.
-}
-
 // bb_new: a new sequence for the table and the ignition time tig (UT). The lexicon is the state: ARMED (PRO pressed in the
 // prompt), IGN_T (UT of ignition, -1 until lit), ZOOMED, ENDED, NOTHROTL (S40.13's no-throttle-up flag), CUT_UT (the timed
 // cutoff, -1 none); TIGGED (P41 TIG reached), GOPOSTED (ENTR skipped the burn), CUT_DONE (the cutoff has fired).

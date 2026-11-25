@@ -173,36 +173,4 @@ LOCAL n81_regs IS noun_registers(81, LEXICON("VALID", FALSE)).
 assert_true("N81 registers show the tenths of ft/s", n81_regs[0] = "-00984" AND n81_regs[1] = "+00000" AND n81_regs[2] = "+00025").
 assert_true("an unknown noun has no load", lm_load_commit(60, LIST(1), LIST(1)) <> "").
 
-// ---- N76, the ascent targets (release 1.5): horizontal and radial speed in tenths of ft/s, cross-range in tenths of nm ----------
-SET ks TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
-SET ks["VEHICLE"] TO LEXICON("LOADS", LM_LOADS, "LOAD_COMMIT", lm_load_commit@).
-ld_type_keys(ks, "V25N76E+55349E+00322E+00017E").
-assert_true("V25 N76 is accepted", NOT ks["OPRERR"] AND NOT load_active(ks)).
-LOCAL n76_loaded IS lm_store_get_asc(lm_vault).
-assert_near("N76 R1 is 5534.9 ft/s", n76_loaded["ZDOTD"], 5534.9 * 0.3048, 0.001).
-assert_near("N76 R2 is 32.2 ft/s", n76_loaded["RDOTD"], 32.2 * 0.3048, 0.001).
-assert_near("N76 R3 is 1.7 nm", n76_loaded["XRANGE"], 1.7 * 1852, 4).
-LOCAL n76_regs IS noun_registers(76, LEXICON("VALID", FALSE)).
-assert_true("N76 registers show the keyed values", n76_regs[0] = "+55349" AND n76_regs[1] = "+00322" AND n76_regs[2] = "+00017").
-ld_type_keys(ks, "V22N76E-00050E").
-SET n76_regs TO noun_registers(76, LEXICON("VALID", FALSE)).
-assert_true("V22 N76 changes only R2", n76_regs[0] = "+55349" AND n76_regs[1] = "-00050" AND n76_regs[2] = "+00017").
-
-// ---- the ascent and orbit nouns 74, 94 and 44 --------------------------------------------------------------------------------
-LOCAL n74_regs IS noun_registers(74, LEXICON("VALID", FALSE, "TTOGO", 125, "P12_YAW", 359.99, "P12_PITCH", 310)).
-assert_true("N74 is time from ignition, yaw and pitch", n74_regs[0] = "-02 05" AND n74_regs[1] = "+35999" AND n74_regs[2] = "+31000").
-SET n74_regs TO noun_registers(74, LEXICON("VALID", FALSE)).
-assert_true("N74 shows zeros outside P12", n74_regs[0] = "+00 00" AND n74_regs[1] = "+00000").
-// A valid navigation state always carries VHORIZ, ABVEL, HDOT and HCALC (lm_nav.ks), and noun_registers reads all four.
-LOCAL n94_nav IS LEXICON("VALID", TRUE, "P40_VGB", LIST(100, 0, 0), "VHORIZ", 0, "ABVEL", 0, "HDOT", 10, "HCALC", 1000).
-LOCAL n94_regs IS noun_registers(94, n94_nav).
-assert_true("N94 is VG body X, altitude rate, altitude", n94_regs[0] = "+03281" AND n94_regs[1] = "+00328" AND n94_regs[2] = "+03281").
-assert_true("J shows the same N94", j_noun_registers(94, n94_nav)[0] = "+03281").
-assert_true("N94 with no navigation is blank", noun_registers(94, LEXICON("VALID", FALSE))[0] = NA).
-LOCAL n44_regs IS noun_registers(44, LEXICON("VALID", FALSE, "N44", LIST(83340, -1000000, -1))).
-assert_true("N44 is apolune, perilune and -59 59 for no free-fall time", n44_regs[0] = "+00450" AND n44_regs[1] = "-05400" AND n44_regs[2] = "-59 59").
-SET n44_regs TO noun_registers(44, LEXICON("VALID", FALSE, "N44", LIST(111120, 27780, 754))).
-assert_true("N44 shows the free-fall time counting down", n44_regs[2] = "-12 34").
-assert_true("N44 shows zeros before V82", noun_registers(44, LEXICON("VALID", FALSE))[1] = "+00000").
-
 test_end().

@@ -149,7 +149,7 @@ WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "ten": 
 # (what, page file, regex with one group that captures the pack's number, value the code gives)
 NUMBERS = [
     ("P63 hands over to P64 below this time to go (TENDBRAK)", "3-3-p63.md", r"time to go under (\d+) s", C["TENDBRAK"]),
-    ("J-class P64 hands over to P66 below this time to go (J_TENDAPPR)", "1-4-profile.md", r"P64 hands to P66 under (\d+) s to go", C["J_TENDAPPR"]),
+    ("J-class P64 hands over to P66 below this time to go (J_TENDAPPR)", "1-3-flight.md", r"P64 hands to P66 under (\d+) s to go", C["J_TENDAPPR"]),
     ("V97 acceleration limit (DVMON_ACCEL_MS2)", "3-3-p63.md", r"under ([\d.]+) m/s2", C["DVMON_ACCEL_MS2"]),
     ("V97 re-ignition delay (DVMON_RETRY_S)", "3-3-p63.md", r"relight in (\d+) s", C["DVMON_RETRY_S"]),
     ("engine cut-off delay after contact (P66_CUTOFF_DELAY_S)", "3-5-landing.md", r"Cuts off (a quarter) second later", C["P66_CUTOFF_DELAY_S"]),
@@ -166,23 +166,6 @@ NUMBERS = [
     ("J-class redesignation click in degrees (J_ELEACH_RAD)", "3-4-p64.md", r"each click is (\d+) deg", round(C["J_ELEACH_RAD"] * DEG)),
     ("redesignation window closes at this time to go in s (TCGFAPPR + P64_REDES_CLOSE_S)", "3-4-p64.md", r"TTG (\d+) S \| WINDOW", C["TCGFAPPR"] + C["P64_REDES_CLOSE_S"]),
     ("uplink keys a second (1 / UPLINK_KEY_PERIOD_S)", "2-4-loads.md", r"at (five) a second", round(1 / C["UPLINK_KEY_PERIOD_S"])),
-    ("first ascent lift-off at least this far ahead, minutes (ASC_LEAD_S)", "3-7-ascent.md", r"at least (\d+) minutes ahead", C["ASC_LEAD_S"] / 60),
-    ("planner's furthest site from the CSM plane, deg (ASC_PLANE_MAX_DEG)", "3-7-ascent.md", r"more than (\d+) deg from the CSM", C["ASC_PLANE_MAX_DEG"]),
-    ("lowest flown CSM altitude, nm (ASC_CSM_MIN_NM)", "3-7-ascent.md", r"CSM outside (\d+) to", C["ASC_CSM_MIN_NM"]),
-    ("highest flown CSM altitude, nm (ASC_CSM_MAX_NM)", "3-7-ascent.md", r"CSM outside \d+ to (\d+) nm", C["ASC_CSM_MAX_NM"]),
-    ("CSM eccentricity warning, nm (ASC_CSM_ECC_NM)", "3-7-ascent.md", r"perilune over (\d+) nm apart", C["ASC_CSM_ECC_NM"]),
-    ("PAD cross-range limit, nm (ASC_XRANGE_PAD_M)", "3-7-ascent.md", r"Cross-range over (\d+) nm", C["ASC_XRANGE_PAD_M"] / 1852),
-    ("ascent warp stops before lift-off in s (P63_WARP_LEAD_S)", "3-7-ascent.md", r"Warps to T-(\d+) s", C["P63_WARP_LEAD_S"]),
-    ("P12 lift-off too close, s (ASC_SPOT_MIN_S)", "3-7-ascent.md", r"less than (\d+) s away", C["ASC_SPOT_MIN_S"]),
-    ("P12 moved lift-off, s ahead (ASC_SPOT_AHEAD_S)", "3-7-ascent.md", r"moves it to about (\d+) s ahead", C["ASC_SPOT_AHEAD_S"]),
-    ("vertical rise ends at, ft/s (ASC_RISE_RDOT)", "3-8-ascent-flight.md", r"Vertical rise to (\d+) ft/s", C["ASC_RISE_RDOT"] / FT),
-    ("windows toward the surface, s (ASC_XOVR_S)", "3-8-ascent-flight.md", r"face the surface for (\d+) s", C["ASC_XOVR_S"]),
-    ("timed ascent cut-off, s to go (ASC_T_CUT)", "3-8-ascent-flight.md", r"TTG 0:0(\d) \| COMPUTER", C["ASC_T_CUT"]),
-    ("ascent V97 re-ignition delay (DVMON_RETRY_S)", "3-8-ascent-flight.md", r"new ignition in (\d+) s", C["DVMON_RETRY_S"]),
-    ("insertion height, ft (ASC_HINJECT_M)", "3-8-ascent-flight.md", r"insertion at (\d+),000 ft", round(C["ASC_HINJECT_M"] / FT / 1000)),
-    ("Apollo 11 apolune below the CSM, nm (ASC_APO_BELOW_A11_M)", "3-8-ascent-flight.md", r"apolune (\d+) nm \(Apollo 11\)", C["ASC_APO_BELOW_A11_M"] / 1852),
-    ("J apolune below the CSM, nm (ASC_APO_BELOW_J_M)", "3-8-ascent-flight.md", r"or (\d+) nm \(J-class\)", C["ASC_APO_BELOW_J_M"] / 1852),
-    ("free-fall time limit, ft (TFF_LIMIT_M)", "A-3-glossary-ascent.md", r"comes down to (\d+),000 ft", round(C["TFF_LIMIT_M"] / FT / 1000)),
 ]
 for what, fname, pattern, want in NUMBERS:
     checked += 1

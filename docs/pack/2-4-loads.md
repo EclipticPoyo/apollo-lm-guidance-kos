@@ -17,7 +17,6 @@ The PAD loads three things with V71 blocks: the site (`RLS`), the landing time (
 |---|---|
 | `V25 N33 E` | Load N33 (burn time) R1 to R3. `V21` to `V23` load one register, `V24` loads R1 and R2 |
 | `V25 N81 E` | Load N81 (delta-v) |
-| `V25 N76 E` | Load N76 (ascent targets, from the ascent PAD) |
 | `V25 N69 E` | J-class only: landing site correction |
 
 For each register key a sign (required), all five digits and [[ENTR]]: `+00025`. The load is stored after the last [[ENTR]] and the display goes to `V16` on that noun.
@@ -25,4 +24,3 @@ For each register key a sign (required), all five digits and [[ENTR]]: `+00025`.
 - Fewer than five digits is OPR ERR and the load waits. [[PRO]] leaves a register as it was. [[CLR]] drops what you keyed.
 - `V34E` abandons the load. [[RSET]] leaves it running.
 - N33: `+00083 +00003 +02000` is 83 h 03 min 20.00 s from the clock zero. N81 is in tenths of ft/s along local vertical axes (X along the track, Y opposite the orbit normal, Z down).
-- N76: `+55349 +00322 -00012` is 5534.9 ft/s horizontal, 32.2 ft/s radial and 1.2 nm of cross-range. The ascent PAD is keyed, as the crew did; there is no ascent uplink.

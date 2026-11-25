@@ -30,7 +30,6 @@ RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/lm/lm_cells.ks").               // store_loaded, lm_store_get_tig
 RUNONCEPATH("0:/lm/planner/lm_plan.ks").        // plan_spin_rotate
 RUNONCEPATH("0:/lm/descent/lm_control.ks").
-RUNONCEPATH("0:/lm/burn/lm_servicer.ks").       // servicer_pass, servicer_live, servicer_to0
 RUNONCEPATH("0:/lm/burn/lm_burn_s.ks").         // s40_1, s40_2_3, s40_13, s40_8_pass, s41_1, p41spot
 RUNONCEPATH("0:/lm/burn/lm_burnbaby.ks").       // bb_*, resp_read
 RUNONCEPATH("0:/lm/burn/lm_r60.ks").            // r60_*, lm_entr_on_request
@@ -69,6 +68,16 @@ FUNCTION p40_show {
   PARAMETER out, verb_no, noun_no.
   SET out["SET_VERB"] TO verb_no.
   SET out["SET_NOUN"] TO noun_no.
+}
+
+// Frame 0 and the live axes (see the header): a vector in the axes of prog["T0"] turned to the axes of now_ut, and back.
+FUNCTION p40_live {
+  PARAMETER prog, vec0, now_ut.
+  RETURN plan_spin_rotate(vec0, prog["WM"], -(now_ut - prog["T0"])).
+}
+FUNCTION p40_to0 {
+  PARAMETER prog, vec_live, now_ut.
+  RETURN plan_spin_rotate(vec_live, prog["WM"], now_ut - prog["T0"]).
 }
 
 // p40_stage_ok: the descent stage is still there: an engine of at least STAGED_THRUST_N in a vacuum and no staging flag. f_max_n is that engine's thrust, N.
@@ -162,16 +171,42 @@ FUNCTION p40_attitude {
   RETURN msg.
 }
 
+// p40_pass: the servicer pass. Once BURN_PASS_S has gone since the last one, returns LEXICON("DELVREF", the delta-V gained in the pass (frame 0), "SPAN", seconds) and starts the next
+// pass; otherwise FALSE. The first call only starts the first pass. The measured delta-V is the change in velocity less gravity at the middle of the pass (what the accelerometers read).
+// force closes the pass now however short (the cycle ignition happens: the delta-V from the last pass boundary to ignition, the ullage's, is counted and the first pass with thrust starts at ignition).
+FUNCTION p40_pass {
+  PARAMETER prog, state, now_ut, force.
+  IF prog["PASS_T0"] < 0 {
+    SET prog["PASS_T0"] TO now_ut.
+    SET prog["PASS_V0"] TO state["V"].
+    SET prog["PASS_R0"] TO state["R"].
+    RETURN FALSE.
+  }
+  LOCAL span_s IS now_ut - prog["PASS_T0"].
+  IF span_s <= 0 OR (span_s < BURN_PASS_S AND NOT force) { RETURN FALSE. }
+  // The raw axes turn with the Moon, so the velocity and position at the start of the pass are in the axes of that moment: turn them to the axes of now before differencing, or
+  // the Moon's spin shows up as a velocity change (omega x V x span, about 0.01 m/s per 2 s pass in a 60 nmi orbit, along the radius: it made N85 drift steadily).
+  LOCAL v_start IS plan_spin_rotate(prog["PASS_V0"], prog["WM"], -(now_ut - prog["PASS_T0"])).
+  LOCAL r_start IS plan_spin_rotate(prog["PASS_R0"], prog["WM"], -(now_ut - prog["PASS_T0"])).
+  LOCAL r_mid IS (r_start + state["R"]) / 2.
+  LOCAL grav_vec IS r_mid * (-state["MU"] / (r_mid:MAG ^ 3)).
+  LOCAL delv_live IS (state["V"] - v_start) - grav_vec * span_s.
+  SET prog["PASS_T0"] TO now_ut.
+  SET prog["PASS_V0"] TO state["V"].
+  SET prog["PASS_R0"] TO state["R"].
+  RETURN LEXICON("DELVREF", p40_to0(prog, delv_live, now_ut), "SPAN", span_s).
+}
+
 // p40_command: the attitude the steering follows (frame 0 turned to the live axes). Before ignition the burn attitude (once R60 has turned there, or the engine is lit); from ignition the
 // direction of VG while the steering is on (S40.8), then held. Nothing is commanded until CMD_BURN (the ship holds the attitude P40 started in).
 FUNCTION p40_command {
   PARAMETER prog, now_ut.
   IF NOT prog["CMD_BURN"] { RETURN. }
   IF prog["IGN_T"] < 0 {
-    SET prog["CMD_DIR"] TO servicer_live(prog, prog["AXES"]["X"], now_ut).
-    SET prog["CMD_UP"] TO servicer_live(prog, prog["AXES"]["Z"], now_ut).
+    SET prog["CMD_DIR"] TO p40_live(prog, prog["AXES"]["X"], now_ut).
+    SET prog["CMD_UP"] TO p40_live(prog, prog["AXES"]["Z"], now_ut).
   } ELSE IF prog["STEER"] AND prog["VG"]:MAG > 0 {
-    SET prog["CMD_DIR"] TO servicer_live(prog, prog["VG"], now_ut):NORMALIZED.
+    SET prog["CMD_DIR"] TO p40_live(prog, prog["VG"], now_ut):NORMALIZED.
   }
   ctl_set_command(prog["CMD_DIR"], prog["CMD_UP"], prog["THR"]).
 }
@@ -260,7 +295,7 @@ FUNCTION p40_burn {
   }
   // The servicer: passes from the end of COAST on (ullage delta-V counts), VG brought up to date, DV (N40 R3) and, from ignition, the steering and the timed cutoff.
   IF sq["STATE"] <> "COAST" AND NOT bb["CUT_DONE"] {
-    LOCAL pass_data IS servicer_pass(prog, state, now_ut, FALSE).
+    LOCAL pass_data IS p40_pass(prog, state, now_ut, FALSE).
     IF pass_data:ISTYPE("Lexicon") {
       SET prog["DV"] TO prog["DV"] + pass_data["DELVREF"]:MAG.
       IF NOT prog["ENGINE_LIT"] {
@@ -281,7 +316,7 @@ FUNCTION p40_burn {
   }
   // ---- ignition ----
   IF sq["ENGINE_ON"] AND NOT prog["ENGINE_LIT"] {
-    LOCAL ign_pass IS servicer_pass(prog, state, now_ut, TRUE).          // the ullage's delta-V up to ignition
+    LOCAL ign_pass IS p40_pass(prog, state, now_ut, TRUE).          // the ullage's delta-V up to ignition
     IF ign_pass:ISTYPE("Lexicon") {
       SET prog["VG"] TO prog["VG"] - ign_pass["DELVREF"].
       SET prog["DV"] TO prog["DV"] + ign_pass["DELVREF"]:MAG.
@@ -293,8 +328,8 @@ FUNCTION p40_burn {
     SET prog["CMD_BURN"] TO TRUE.
     IF prog["VG"]:MAG > 0 {
       // The engine steers to the burn attitude from ignition even when R60 was skipped (FINDCDUW): VG's direction, the roll reference from S40.2,3.
-      SET prog["CMD_DIR"] TO servicer_live(prog, prog["VG"], now_ut):NORMALIZED.
-      SET prog["CMD_UP"] TO servicer_live(prog, prog["AXES"]["Z"], now_ut).
+      SET prog["CMD_DIR"] TO p40_live(prog, prog["VG"], now_ut):NORMALIZED.
+      SET prog["CMD_UP"] TO p40_live(prog, prog["AXES"]["Z"], now_ut).
     }
     SET prog["TGO"] TO prog["BURN_S"].
     SET prog["TGO_AT"] TO now_ut.
@@ -380,7 +415,7 @@ FUNCTION p40_after {
   LOCAL noun_no IS 40.
   IF prog["PHASE"] = "TRIM" { SET noun_no TO 85. }
   IF prog["IGN_T"] >= 0 {
-    LOCAL pass_data IS servicer_pass(prog, state, now_ut, FALSE).
+    LOCAL pass_data IS p40_pass(prog, state, now_ut, FALSE).
     IF pass_data:ISTYPE("Lexicon") {
       SET prog["VG"] TO prog["VG"] - pass_data["DELVREF"].
       SET prog["DV"] TO prog["DV"] + pass_data["DELVREF"]:MAG.
@@ -486,7 +521,7 @@ FUNCTION p40_step {
   // ---- the values the nouns show ----
   LOCAL vg_body IS LIST(0, 0, 0).
   IF prog["PHASE"] = "TRIM" {
-    LOCAL vg_live IS servicer_live(prog, prog["VG"], now_ut).
+    LOCAL vg_live IS p40_live(prog, prog["VG"], now_ut).
     LOCAL body_vec IS s41_1(vg_live, p40_facing()).
     SET vg_body TO LIST(body_vec:X, body_vec:Y, body_vec:Z).
   }

@@ -114,38 +114,6 @@ FUNCTION p30_apsides {
   RETURN LEXICON("APO_M", apo_m, "PERI_M", MIN(cap_m, semi_p / (1 + ecc) - radius)).
 }
 
-// s30_tff: the time of free fall (Luminary CALCTFF, R30.agc): seconds until the path next comes DOWN through limit_radius, or -1 when it never does
-// (perigee at or above it, or no closed orbit) or the ship is already below it. Two-body: the time between the two true anomalies by Kepler's equation.
-FUNCTION s30_tff {
-  PARAMETER r_vec, v_vec, mu, limit_radius.
-  LOCAL r_mag IS r_vec:MAG.
-  IF r_mag < limit_radius { RETURN -1. }
-  LOCAL energy IS v_vec:SQRMAGNITUDE / 2 - mu / r_mag.
-  IF energy >= 0 { RETURN -1. }
-  LOCAL semi_p IS VCRS(r_vec, v_vec):SQRMAGNITUDE / mu.
-  LOCAL semi_a IS -mu / (2 * energy).
-  LOCAL ecc IS SQRT(MAX(0, 1 - semi_p / semi_a)).
-  IF ecc < 1e-9 OR semi_a * (1 - ecc) >= limit_radius { RETURN -1. }
-  // True anomaly now (rising from perigee: 0 to 180) and at the descending crossing of the limit radius (180 to 360), degrees.
-  LOCAL nu_now IS ARCCOS(MAX(-1, MIN(1, (semi_p / r_mag - 1) / ecc))).
-  IF VDOT(r_vec, v_vec) < 0 { SET nu_now TO 360 - nu_now. }
-  LOCAL nu_cross IS 360 - ARCCOS(MAX(-1, MIN(1, (semi_p / limit_radius - 1) / ecc))).
-  LOCAL mean_rate IS SQRT(mu / semi_a ^ 3).                // radians per second
-  LOCAL gap_rad IS s30_mean_anomaly(nu_cross, ecc) - s30_mean_anomaly(nu_now, ecc).
-  LOCAL two_pi IS 2 * CONSTANT:PI.
-  IF gap_rad < 0 { SET gap_rad TO gap_rad + two_pi. }
-  RETURN gap_rad / mean_rate.
-}
-
-// s30_mean_anomaly: the mean anomaly (radians, -pi to pi) at true anomaly nu_deg on an ellipse of eccentricity ecc.
-FUNCTION s30_mean_anomaly {
-  PARAMETER nu_deg, ecc.
-  LOCAL ecc_deg IS 2 * ARCTAN2(SQRT(1 - ecc) * SIN(nu_deg / 2), SQRT(1 + ecc) * COS(nu_deg / 2)).
-  IF ecc_deg > 180 { SET ecc_deg TO ecc_deg - 360. }
-  IF ecc_deg < -180 { SET ecc_deg TO ecc_deg + 360. }
-  RETURN ecc_deg * CONSTANT:DEGTORAD - ecc * SIN(ecc_deg).
-}
-
 // p30_mga: the middle gimbal angle shown by N45 R3, degrees (Luminary GET+MGA, P34-35_P74-75.agc:1406-1415): arcsin of the unit thrust
 // direction dotted with the reference Y axis; a negative angle has one revolution added (two HALFREV adds). We have no gimbals: the
 // caller passes an assumed reference Y axis (design call 4).

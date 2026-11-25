@@ -39,15 +39,6 @@
 // alarm codes to raise this cycle; each is raised and the display restarted, as after a software restart, see core_restart_display).
 // Delegates are called with :CALL(...), the documented way to call a delegate held in a lexicon.
 //
-// Extended-verb display (as Luminary's extended verbs): a verb action may set ks["EXT"] TO LEXICON("VERB", v, "NOUN", n, "STEP", delegate (nav) ->
-// LEXICON merged into derived). While it is up:
-//   * it sees the pilot's answers first: PRO (also V33) or V34 ends it, V32 leaves it (STEP runs every cycle, so it is recomputed); PRO, RECYCLE,
-//     TERMINATE and ENTER are cleared before the programme's step;
-//   * its verb and noun are shown on its first cycle and are the pending (flashing) request. The programme keeps running: its SET_VERB goes only to
-//     PROG_VN, its REQUEST is held and its BLANK and FLASH are ignored; alarms, lamps, status lines and handovers work as normal;
-//   * when it ends, the programme's request, else the standing idle request, else PROG_VN, else the verb and noun shown before it, come back;
-//   * a programme that ends meanwhile leaves it up; V37 clears it.
-//
 // The run state (core_new) is a LEXICON: "PROG" (the running programme or FALSE), "ENTRY" (its table entry or FALSE),
 // "IDLE_TEXT" (what PROG shows with nothing running), "STATUS_ROWS" (how many status rows are drawn now), "STATUS_PROG" (the PROG text shown with them).
 // Needs dsky_keys.ks, dsky_display.ks (zero_pad) and, for core_run, a GUI with gui_poll / gui_update (the vehicle's window file).
@@ -183,7 +174,6 @@ FUNCTION core_request {
     }
   }
   LOCAL msg IS "".
-  SET ks["EXT"] TO FALSE.                     // a V37 selection ends an extended-verb display
   SET crun["IDLE_TEXT"] TO "00".
   SET crun["IDLE_REQUEST"] TO FALSE.          // a V37 selection answers the standing request (see core_step)
   IF crun["PROG"]:ISTYPE("Lexicon") {
@@ -254,26 +244,6 @@ FUNCTION core_scripted_alarms {
   RETURN due:LENGTH.
 }
 
-// core_ext_begin: the extended-verb display's turn before the programme's step (see the header). Shows it on its first cycle (keeping the display it
-// covers), takes the pilot's answers and clears them. Returns TRUE when it ended this cycle (ks["EXT"] is then FALSE).
-FUNCTION core_ext_begin {
-  PARAMETER ks.
-  LOCAL ext IS ks["EXT"].
-  IF NOT ext:HASKEY("BEFORE") {
-    SET ext["BEFORE"] TO LIST(ks["VERB"], ks["NOUN"]).
-    SET ks["VERB"] TO ext["VERB"].
-    SET ks["NOUN"] TO ext["NOUN"].
-    SET ks["KEYREL"] TO FALSE.
-  }
-  LOCAL ending IS ks["PRO"] OR ks["TERMINATE"].
-  SET ks["PRO"] TO FALSE.
-  SET ks["TERMINATE"] TO FALSE.
-  SET ks["RECYCLE"] TO FALSE.
-  SET ks["ENTER"] TO FALSE.
-  IF ending { SET ks["EXT"] TO FALSE. }
-  RETURN ending.
-}
-
 // core_step: one cycle of the running programme (or of the idle display). Runs the STEP, applies its display requests
 // to the key state ks and the derived values, maps its lamp outputs through the vehicle's LAMPS, and handles its end
 // or handover. Returns LEXICON("FLAGS", the flags lexicon for the display, "PROG_TEXT", PROG text, "MSG", text,
@@ -291,16 +261,10 @@ FUNCTION core_step {
   LOCAL msg IS "".
   LOCAL status_lines IS LIST().
   LOCAL ended_now IS FALSE.          // a programme ended this cycle: the caller clears the terminal
-  LOCAL ext_before IS LIST().        // the display under an extended-verb display that ended this cycle
-  IF ks["EXT"]:ISTYPE("Lexicon") {
-    LOCAL ext IS ks["EXT"].
-    IF core_ext_begin(ks) { SET ext_before TO ext["BEFORE"]. }
-  }
-  LOCAL ext_up IS ks["EXT"]:ISTYPE("Lexicon").
   IF crun["PROG"]:ISTYPE("Lexicon") {
     LOCAL entry IS crun["ENTRY"].
     LOCAL out IS entry["STEP"]:CALL(crun["PROG"], nav, ks).
-    IF out["SET_VERB"] >= 0 AND NOT ext_up {
+    IF out["SET_VERB"] >= 0 {
       SET ks["VERB"] TO out["SET_VERB"].
       SET ks["NOUN"] TO out["SET_NOUN"].
     }
@@ -318,11 +282,9 @@ FUNCTION core_step {
     // slot, not all three; the source would repeat it, a documented departure).
     IF out["ALARM"] > 0 AND out["ALARM"] <> crun["LAST_ALARM"] { alarm_raise(ks["ALARM"], out["ALARM"]). }
     SET crun["LAST_ALARM"] TO out["ALARM"].
-    IF NOT ext_up {
-      SET flags["BLANK"] TO out["BLANK"].
-      SET flags["FLASH"] TO out["FLASH"].
-    }
-    IF ks["PENDING"]:ISTYPE("Lexicon") AND NOT ext_up {
+    SET flags["BLANK"] TO out["BLANK"].
+    SET flags["FLASH"] TO out["FLASH"].
+    IF ks["PENDING"]:ISTYPE("Lexicon") {
       IF ks["VERB"] = ks["PENDING"]["VERB"] AND ks["NOUN"] = ks["PENDING"]["NOUN"] AND ks["MODE"] = "" AND NOT ks["AWAIT_PROG"] { SET flags["FLASH"] TO TRUE. }
     }
     SET prog_text TO "" + out["PROG_NO"].
@@ -334,11 +296,9 @@ FUNCTION core_step {
       // three returns post it again) until the pilot keys the next V37. The vehicle names it (END_REQUEST).
       IF vehicle:HASKEY("END_REQUEST") {
         SET crun["IDLE_REQUEST"] TO vehicle["END_REQUEST"].
-        IF NOT ext_up {
-          SET ks["PENDING"] TO crun["IDLE_REQUEST"].
-          key_rel_press(ks).                 // shows it: verb and noun from the request, typed digits dropped
-          SET flags["FLASH"] TO TRUE.
-        }
+        SET ks["PENDING"] TO crun["IDLE_REQUEST"].
+        key_rel_press(ks).                 // shows it: verb and noun from the request, typed digits dropped
+        SET flags["FLASH"] TO TRUE.
       }
       SET msg TO core_join(msg, "P" + out["PROG_NO"] + " ended. The controls are yours.").
     } ELSE IF out["HANDOVER"] {
@@ -352,20 +312,6 @@ FUNCTION core_step {
     }
     SET ks["PROG_VN"] TO LIST(-1, -1).
     SET crun["LAST_ALARM"] TO 0.
-  }
-  IF ext_up {
-    // The extended-verb display is the request on the DSKY: whatever the programme asked for waits (it asks again every cycle).
-    LOCAL ext_now IS ks["EXT"].
-    SET ks["PENDING"] TO LEXICON("VERB", ext_now["VERB"], "NOUN", ext_now["NOUN"]).
-    SET flags["FLASH"] TO ks["VERB"] = ext_now["VERB"] AND ks["NOUN"] = ext_now["NOUN"] AND ks["MODE"] = "" AND NOT ks["AWAIT_PROG"].
-    LOCAL ext_values IS ext_now["STEP"]:CALL(nav).
-    FOR ext_key IN ext_values:KEYS { SET derived[ext_key] TO ext_values[ext_key]. }
-  } ELSE IF ext_before:LENGTH = 2 {
-    // It ended this cycle: give the display back (key_rel_press shows the request, else the programme's verb and noun, else what is set here).
-    SET ks["VERB"] TO ext_before[0].
-    SET ks["NOUN"] TO ext_before[1].
-    key_rel_press(ks).
-    IF ks["PENDING"]:ISTYPE("Lexicon") { SET flags["FLASH"] TO TRUE. }
   }
   // KEY REL: the lamp the pilot's keying over a request lit, with the programme's own KEY_REL (when the vehicle maps it); out with the request.
   IF NOT ks["PENDING"]:ISTYPE("Lexicon") { SET ks["KEYREL"] TO FALSE. }

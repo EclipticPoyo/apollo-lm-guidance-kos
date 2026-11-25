@@ -27,7 +27,6 @@ v: PROG 68, V06 N43 FL (lat, lon, height)
 n: V34E ends it too. V32E shows N43 again
 v: PROG 00, V37 N99 FL
 - | X IN WINDOW | YES. Ends the computer
-n: To leave the Moon again: 3.7
 ```
 
 > NOTE: Early P66: with SAS on and the engine at full throttle, a ROD tap in P63 or P64 starts P66 as soon as P65 would. PRO or ENTR in P65 or P66 drops the steering target until you change the attitude mode.

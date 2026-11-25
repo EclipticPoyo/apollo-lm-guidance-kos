@@ -27,7 +27,6 @@ RUNONCEPATH("0:/lm/burn/lm_r02.ks").                  // R02, R03 and P51 (relea
 RUNONCEPATH("0:/lm/burn/lm_p30.ks").                  // P30, external delta-V (release 1.4)
 RUNONCEPATH("0:/lm/burn/lm_p40.ks").                  // P40, the DPS burn (release 1.4)
 RUNONCEPATH("0:/lm/burn/lm_p41.ks").                  // P41, the RCS burn, and P47, the thrust monitor (release 1.4)
-RUNONCEPATH("0:/lm/ascent/lm_p12.ks").                // P12, the powered ascent (release 1.5)
 
 RUNONCEPATH("0:/lm/lm_alarms.ks").                 // the scripted alarms (ALARMS)
 RUNONCEPATH("0:/lm/lm_cells.ks").                  // lm_cells_for, the store conversions, lm_hms_cs
@@ -35,6 +34,15 @@ RUNONCEPATH("0:/lm/lm_cells.ks").                  // lm_cells_for, the store co
 GLOBAL LM_CHECK_LOG IS "0:/lm/logs/lm_check.log".        // the cross-check log (LM_LOG only)
 GLOBAL LM_VEH IS LEXICON().                         // "SITE" (lm_site_from_store), "STORE" (the erasable store), "SITE_SIG" (signature of the RLS words last seen), "LAND" (site vector), "WM" (the Moon's spin), "PIN" (map pin), "FPIN" (flight-view site vector, P64)
 
+// lm_profile_for: the software version ("A11" or "J") for a saved plan (or FALSE): the plan's own PROFILE when there is a plan (a plan wins),
+// else the version the planner saved with its PAD (lm_profile_saved), else the default PAD_PROFILE (lm_constants.ks, no longer a pilot setting).
+FUNCTION lm_profile_for {
+  PARAMETER plan.
+  IF plan:ISTYPE("Lexicon") { RETURN plan_profile_of(plan). }
+  LOCAL saved IS lm_profile_saved().
+  IF saved <> "" { RETURN saved. }
+  RETURN PAD_PROFILE.
+}
 
 // lm_site_from_store: the landing site out of the store's RLS as LEXICON("OK", bool, "LAT", .., "LNG", .., "ALT", ..). OK is FALSE until
 // RLS has been loaded (by uplink, by key, or from the plan with Skip simulated uplink ticked). radius is the body radius (m).
@@ -141,35 +149,6 @@ FUNCTION lm_verb_58 {
 }
 FUNCTION lm_verb_accept {
   PARAMETER ks.
-  RETURN TRUE.
-}
-
-// ---- V82, the orbit display (release 1.5) ---------------------------------------------------------------------------
-// Luminary V82 / R30: flashing V16 N44 for this vehicle: apolune and perilune above the landing-site radius and the time of free fall. It is an
-// extended-verb display (dsky_core.ks), so it runs over P00 or any programme; PRO or V34 ends it. Departures: no V04 N06 choice of the other vehicle,
-// no N32 (time to perilune); the site radius is |RLS| when it is loaded, else the body's radius.
-
-// lm_v82_values: LIST(apolune altitude m, perilune altitude m, free-fall seconds or -1) for a state from the Moon's centre.
-FUNCTION lm_v82_values {
-  PARAMETER r_vec, v_vec, mu, site_radius.
-  LOCAL orbit_now IS p30_apsides(r_vec, v_vec, V(0, 0, 0), mu, site_radius).
-  RETURN LIST(orbit_now["APO_M"], orbit_now["PERI_M"], s30_tff(r_vec, v_vec, mu, site_radius + TFF_LIMIT_M)).
-}
-
-// lm_v82_step: the extended display's STEP: the N44 values from this cycle's navigation state.
-FUNCTION lm_v82_step {
-  PARAMETER nav.
-  LOCAL state IS nav["STATE"].
-  LOCAL site_radius IS SHIP:BODY:RADIUS.
-  IF store_loaded(LM_VEH["STORE"], "RLS") { SET site_radius TO lm_store_get_rls(LM_VEH["STORE"]):MAG. }
-  RETURN LEXICON("N44", lm_v82_values(state["R"], state["V"], state["MU"], site_radius)).
-}
-
-// lm_verb_82: V82 E. Refused (OPR ERR) while a keyed load or an update waits for data.
-FUNCTION lm_verb_82 {
-  PARAMETER ks.
-  IF load_active(ks) OR p27_active(ks) { RETURN FALSE. }
-  IF NOT ks["EXT"]:ISTYPE("Lexicon") { SET ks["EXT"] TO LEXICON("VERB", 16, "NOUN", 44, "STEP", lm_v82_step@). }
   RETURN TRUE.
 }
 
@@ -376,11 +355,6 @@ FUNCTION lm_p64_sample {
   PARAMETER prog.
   IF LM_VEH["PROFILE"] = "J" { j_p64_sample(prog). } ELSE { p64_sample(prog). }
 }
-// lm_put_ship_site: where the ship stands (latitude, longitude, height above the body's radius) into RLS. P68 at touchdown, and P12 at its start.
-FUNCTION lm_put_ship_site {
-  PARAMETER lat, lng, height.
-  lm_store_put_rls(LM_VEH["STORE"], lm_site_to_rls(lat, lng, height, SHIP:BODY:RADIUS)).
-}
 // P68 (landing confirmation), both profiles. START: after P65 or J's P66 (prev is their lexicon, which keeps its keys so the END can give the
 // controls back) the ship is down; selected by V37 from P00 it refuses unless the ship is LANDED or SPLASHED. The true position comes from the
 // ship and is stored as RLS (Luminary stores it too), so the next P63 and the planner-free DSKY start from where the ship really is.
@@ -399,7 +373,7 @@ FUNCTION lm_p68_start {
   // controls are still given back in full by the END).
   IF prev:ISTYPE("Lexicon") { ctl_steer_release(). }
   SET LM_VEH["LANDED_POS"] TO LEXICON("LAT", geo:LAT, "LNG", geo:LNG, "ALT", height).
-  lm_put_ship_site(geo:LAT, geo:LNG, height).
+  lm_store_put_rls(LM_VEH["STORE"], lm_site_to_rls(geo:LAT, geo:LNG, height, SHIP:BODY:RADIUS)).
   PRINT "P68 started: landing confirmed. PRO or V34 ends it (V32 shows N43 again).".
   RETURN prog.
 }
@@ -508,64 +482,6 @@ FUNCTION lm_p47_step {
 FUNCTION lm_p47_end { PARAMETER prog. p47_end(prog). }
 FUNCTION lm_p47_sample { PARAMETER prog. }
 
-// P12, the ascent (lm/ascent/lm_p12.ks). The CSM is the vessel named in the saved ascent plan (so a later target change does not move it); with no
-// plan, the targeted vessel. FALSE when it is missing or not in orbit round the Moon.
-FUNCTION lm_p12_csm {
-  PARAMETER plan.
-  LOCAL csm_ves IS FALSE.
-  LOCAL wanted IS "".
-  IF plan:ISTYPE("Lexicon") { IF plan:HASKEY("CSM") { SET wanted TO plan["CSM"]. } }
-  IF wanted <> "" {
-    LOCAL all_targets IS LIST().
-    LIST TARGETS IN all_targets.
-    FOR one_target IN all_targets { IF one_target:NAME = wanted { SET csm_ves TO one_target. } }
-  } ELSE IF HASTARGET {
-    IF TARGET:ISTYPE("Vessel") { SET csm_ves TO TARGET. }
-  }
-  IF NOT csm_ves:ISTYPE("Vessel") { RETURN FALSE. }
-  IF csm_ves:BODY:NAME <> BODY_NAME OR csm_ves:STATUS <> "ORBITING" { RETURN FALSE. }
-  RETURN csm_ves.
-}
-FUNCTION lm_p12_start {
-  PARAMETER prev.
-  IF KUNIVERSE:TIMEWARP:RATE > 1 { KUNIVERSE:TIMEWARP:CANCELWARP(). }
-  // On the surface the ship itself is the landing site, so RLS is stored from it: no P68 needed, and no old site from another flight. A departure
-  // (Luminary P12 only reads RLS), at the user's request.
-  IF ctl_status() = "LANDED" {
-    LOCAL geo IS SHIP:GEOPOSITION.
-    lm_put_ship_site(geo:LAT, geo:LNG, SHIP:ALTITUDE).
-    PRINT "P12: landing site taken from the ship's position.".
-  }
-  lm_refresh_site().          // the nouns need the site: no cycle without a programme runs between V37 and P12 to pick up the new RLS
-  LOCAL plan IS plan_read(ASC_PLAN_FILE).
-  LOCAL csm_ves IS lm_p12_csm(plan).
-  LOCAL craft IS LEXICON("STATUS", ctl_status(), "ENGINE", ctl_find_ascent_engine(), "CORE_STAYS", ctl_core_stays(), "CSM", FALSE, "PLAN", plan).
-  IF csm_ves:ISTYPE("Vessel") {
-    SET craft["CSM"] TO LEXICON("NAME", csm_ves:NAME, "R", csm_ves:POSITION - SHIP:BODY:POSITION, "V", csm_ves:VELOCITY:ORBIT).
-  }
-  LOCAL started IS p12_start(prev, LM_VEH["STORE"], lm_clock_zero_ut(), LM_VEH["PROFILE"], TIME:SECONDS, craft, LM_VEH["WM"]).
-  IF started["REFUSED"] = "" {
-    SET LM_VEH["CSM"] TO csm_ves.          // for the log's CSM angle
-    PRINT "P12 started: the ascent, to " + craft["CSM"]["NAME"] + ". V06 N33 is the lift-off time, V06 N76 the targets; PRO goes on, V34 ends.".
-  }
-  RETURN started.
-}
-// Once the stages have separated the vehicle is marked staged (the descent programmes refuse it) and the landed position is dropped (N43, CONTACT).
-FUNCTION lm_p12_step {
-  PARAMETER prog, nav, ks.
-  SET prog["IMU_ON"] TO LM_VEH["IMU_ON"].
-  SET prog["IMU_OK"] TO LM_VEH["IMU_OK"].
-  IF LM_VEH:HASKEY("CSM") { SET prog["CSM_NOW"] TO LM_VEH["CSM"]:POSITION - SHIP:BODY:POSITION. }
-  LOCAL out IS p12_step(prog, nav["STATE"], nav["DERIVED"], ks).
-  IF prog["STAGED_DONE"] {
-    SET LM_VEH["STAGED"] TO TRUE.
-    IF LM_VEH:HASKEY("LANDED_POS") { LM_VEH:REMOVE("LANDED_POS"). }
-  }
-  RETURN lm_att_lamp(out, prog).
-}
-FUNCTION lm_p12_end { PARAMETER prog. p12_end(prog). }
-FUNCTION lm_p12_sample { PARAMETER prog. p12_cut_check(prog, TIME:SECONDS). }
-
 FUNCTION lm_p65_end { PARAMETER prog. p65_end(prog). }
 FUNCTION lm_p65_sample { PARAMETER prog. p65_sample(prog). }
 FUNCTION lm_p66_end { PARAMETER prog. j_p66_end(prog). }
@@ -575,7 +491,7 @@ FUNCTION lm_p66_sample { PARAMETER prog. j_p66_sample(prog). }
 
 // lm_load_commit: the DSKY core's LOAD_COMMIT: the registers a keyed load V21 to V25 gave data to (comps, 1 to 3) and the signed
 // integers keyed, as shown on the display. N33: hours, minutes, hundredths of seconds of the ignition time. N81: tenths of ft/s of
-// the delta-v in local vertical axes (N69 and N76 below). A register not loaded keeps the stored value. Returns "" or the reason it refused.
+// the delta-v in local vertical axes. A register not loaded keeps the stored value. Returns "" or the reason it refused.
 FUNCTION lm_load_commit {
   PARAMETER noun_no, comps, values.
   LOCAL vault IS LM_VEH["STORE"].
@@ -606,14 +522,6 @@ FUNCTION lm_load_commit {
     LOCAL feet IS LIST(ROUND(m_to_ft(corr:Z)), ROUND(m_to_ft(corr:Y)), ROUND(m_to_ft(corr:X))).
     FROM { LOCAL i IS 0. } UNTIL i >= comps:LENGTH STEP { SET i TO i + 1. } DO { SET feet[comps[i] - 1] TO values[i]. }
     lm_store_put_dland(vault, V(feet[2] / FT_PER_M, feet[1] / FT_PER_M, feet[0] / FT_PER_M)).
-    RETURN "".
-  }
-  IF noun_no = 76 {
-    // N76 (ascent targets): R1 horizontal and R2 radial speed in tenths of ft/s, R3 cross-range in tenths of nm. A register not loaded keeps its value.
-    LOCAL asc IS lm_store_get_asc(vault).
-    LOCAL asc_tenths IS LIST(ROUND(ms_to_fps(asc["ZDOTD"]) * 10), ROUND(ms_to_fps(asc["RDOTD"]) * 10), ROUND(m_to_nm(asc["XRANGE"]) * 10)).
-    FROM { LOCAL i IS 0. } UNTIL i >= comps:LENGTH STEP { SET i TO i + 1. } DO { SET asc_tenths[comps[i] - 1] TO values[i]. }
-    lm_store_put_asc(vault, asc_tenths[0] / 10 / FT_PER_M, asc_tenths[1] / 10 / FT_PER_M, asc_tenths[2] / 10 * M_PER_NM).
     RETURN "".
   }
   RETURN "noun " + noun_no + " has no load".
@@ -661,7 +569,6 @@ FUNCTION lm_verbs_for {
 // hands over (65, or 66 for J). P65 and P66 hand over to P68 at contact.
 FUNCTION lm_programme_table {
   RETURN LEXICON(
-    "12", LEXICON("START", lm_p12_start@, "STEP", lm_p12_step@, "END", lm_p12_end@, "SAMPLE", lm_p12_sample@, "NEXT", -1, "SELECTABLE", TRUE),
     "63", LEXICON("START", lm_p63_start@, "STEP", lm_p63_step@, "END", lm_p63_end@, "SAMPLE", lm_p63_sample@, "NEXT", 64, "SELECTABLE", TRUE),
     "64", LEXICON("START", lm_p64_start@, "STEP", lm_p64_step@, "END", lm_p64_end@, "SAMPLE", lm_p64_sample@, "NEXT", 65, "SELECTABLE", FALSE),
     "65", LEXICON("START", lm_p65_start@, "STEP", lm_p65_step@, "END", lm_p65_end@, "SAMPLE", lm_p65_sample@, "NEXT", 68, "SELECTABLE", FALSE),
@@ -711,8 +618,8 @@ FUNCTION lm_vehicle_new {
     "VERSION", (CHOOSE "LUMINARY210" IF LM_VEH["PROFILE"] = "J" ELSE "LUMINARY099"),
     "NOUNS", LM_NOUNS, "VERBS", lm_verbs_for(LM_VEH["PROFILE"]), "PROGS", LM_PROGS,
     "ALARM_SOURCE", lm_alarm_source@,
-    "NO_NOUN_VERBS", LIST(57, 58, 59, 60, 77, 82),
-    "VERB_ACTIONS", LEXICON("57", lm_verb_57@, "58", lm_verb_58@, "77", lm_verb_accept@, "59", lm_verb_accept@, "60", lm_verb_accept@, "82", lm_verb_82@),
+    "NO_NOUN_VERBS", LIST(57, 58, 59, 60, 77),
+    "VERB_ACTIONS", LEXICON("57", lm_verb_57@, "58", lm_verb_58@, "77", lm_verb_accept@, "59", lm_verb_accept@, "60", lm_verb_accept@),
     "START_VN", (CHOOSE LIST(16, 60) IF DSKY_START = "N60" ELSE LIST(-1, -1)),
     "NOUN_REGS", lm_noun_registers@,
     "NAV", lm_veh_nav@,

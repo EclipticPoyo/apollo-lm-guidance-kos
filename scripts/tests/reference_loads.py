@@ -205,7 +205,7 @@ def check(name, cond):
 def selftest():
     check("ecadr E4,1422 = 2022 octal", ecadr(4, 0o1422) == 0o2022)
     check("ecadr UPSVFLAG E3,1501 = 1501 octal", ecadr(3, 0o1501) == 0o1501)
-    check("cells parsed", set(LM_CELLS) == {"099", "210"} and len(LM_CELLS["099"]) == 7)
+    check("cells parsed", set(LM_CELLS) == {"099", "210"} and len(LM_CELLS["099"]) == 4)
     check("099 RLS ecadr 2022", ecadr(LM_CELLS["099"]["RLS"]["BANK"], LM_CELLS["099"]["RLS"]["OFFSET"]) == 0o2022)
     check("210 RLS ecadr 2020", ecadr(LM_CELLS["210"]["RLS"]["BANK"], LM_CELLS["210"]["RLS"]["OFFSET"]) == 0o2020)
     check("099 TLAND ecadr 2400", ecadr(5, 768) == 0o2400)
@@ -213,12 +213,6 @@ def selftest():
     c210 = LM_CELLS["210"]
     check("210 DELVLVC (DELVSLV) ecadr 3433 as in the GSOP table", ecadr(c210["DELVLVC"]["BANK"], c210["DELVLVC"]["OFFSET"]) == 0o3433)
     check("210 TLAND follows RLS by six words", ecadr(c210["TLAND"]["BANK"], c210["TLAND"]["OFFSET"]) == 0o2020 + 6)
-    # the ascent loads (release 1.5), addresses from the assembled ERASABLE_ASSIGNMENTS listings
-    for ver, zd, rd, xr in (("099", 0o2276, 0o2272, 0o3642), ("210", 0o2267, 0o2263, 0o3642)):
-        c = LM_CELLS[ver]
-        for name, want in (("ZDOTD", zd), ("RDOTD", rd), ("XRANGE", xr)):
-            check("%s %s ecadr %o" % (ver, name, want),
-                  name in c and ecadr(c[name]["BANK"], c[name]["OFFSET"]) == want)
     check("octal_parse", octal_parse("12345") == 5349 and octal_parse("1289") == -1 and octal_parse("") == -1)
     # the worked state-vector example of UPDATE_PROGRAM.agc: V71 E 21 E <ecadr> E ... (21 octal = 17 = 15 words + 2)
     check("count for 15 words is 21 octal", octal_text(15 + 2, 2) == "21")
