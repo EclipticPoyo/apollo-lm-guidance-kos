@@ -31,8 +31,8 @@ bar: Abort and ascent | {@3-9} to {@3-11}
 - Orbit | V82 | Trim with the RCS. `V82E`. | Shows what is left to gain, then apolune and perilune.
 - Abort | P70 P71 | `Backspace` or `0`, once. | Takes the controls and flies back to orbit.
 bar: Rendezvous | {@3-12} to {@3-18}
-- 099 burns | P32 to P35 | CSI, CDH, TPI, then the midcourses. Target each, then fly it. | Targets them from the two orbits.
-- [J] 210 burns | P34 P35 | TPI, then the midcourses. No CSI or CDH, except on the fallback. | Targets them from the two orbits.
+- {A11} burns | P32 to P35 | CSI, CDH, TPI, then the midcourses. Target each, then fly it. | Targets them from the two orbits.
+- [J] {J} burns | P34 P35 | TPI, then the midcourses. No CSI or CDH, except on the fallback. | Targets them from the two orbits.
 - Braking | P20 | `V37E 20E`. Brake at the gates by hand, close the DSKY, dock. | Holds the windows on the CSM, shows range, range rate and drift, and says when to dock.
 - Tracking | P20 P25 | `V37E 20E`, answer `V50 N18`. | Points the windows at the CSM underneath those, and counts marks.
 ```

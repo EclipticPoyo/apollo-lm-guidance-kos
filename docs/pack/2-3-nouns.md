@@ -45,4 +45,4 @@ section: Section 2 | Reference
 | == Alarms | | | |
 | N09 | Code 1, octal | Code 2 | Code 3 |
 
-Shaded rows are the nouns on the flight cards. In P12, P70 and P71 heights are above the landing site, and in 099 N63 R1 is the speed in orbit. P12's N74 angles run from 0 to 359.99. In an abort N76 shows the targets the computer chose. N44 heights are above the landing site.
+Shaded rows are the nouns on the flight cards. In P12, P70 and P71 heights are above the landing site. {A11} N63 R1 is the speed in orbit. P12's N74 angles run from 0 to 359.99. In an abort N76 shows the targets the computer chose. N44 heights are above the landing site.

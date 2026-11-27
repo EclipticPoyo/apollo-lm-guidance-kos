@@ -4,7 +4,7 @@ section: Rendezvous card
 ---
 ## Rendezvous card: orbit to docking
 
-The short version of {@3-12} to {@3-18}. 210, direct flight: start at TPI. Its coelliptic fallback flies CSI and CDH as 099 does.
+The short version of {@3-12} to {@3-18}. {J} Direct flight: start at TPI. The coelliptic fallback flies CSI and CDH as 099 does.
 
 ```checklist
 legend

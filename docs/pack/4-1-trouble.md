@@ -11,9 +11,9 @@ section: Section 4 | Trouble
 | P63, P12 or P32 to P35 refuses to start | See {@2-6 2.6}. Plan again if needed. |
 | P40, P41 or P42 refuses after the DSKY was restarted | The burn is not saved. Target again: P32 or P33 to [[PRO]] at N81, P34 to N58, or P35. |
 | The engine stopped after V37 in the ascent | V37 ends P12 and its burn. Nothing restarts it by itself: fly the rest by hand. |
-| A rate-of-descent tap does nothing | 099: check SAS is on. Use H and N, or Shift and Ctrl: if one pair does not register on your keyboard, use the other. `ROD_KEYS` ({@2-4 2.4}) can limit it to one pair. |
+| A rate-of-descent tap does nothing | Use H and N, or Shift and Ctrl: if one pair does not register on your keyboard, use the other. `ROD_KEYS` ({@2-4 2.4}) can limit it to one pair. {A11 Check SAS is on} |
 | `Backspace` or `0` does nothing | Click outside the kOS terminal. Aborts run from a P63 ignition in this DSKY session to [[PRO]] at P68 ({@3-9}). |
-| An abort aims at a very high apolune | 210 follows the CSM: one far from its place asks for up to 700 nm, which the ascent stage may not manage. Check the planner's CSM line. |
+| An abort aims at a very high apolune | {J The abort follows the CSM: one far from its place asks for up to 700 nm, which the ascent stage may not manage. Check the planner's CSM line} |
 | P32 shows 605 or 606 at the PAD's CSI time | The orbit you reached differs from the planned one. V32, load N11 with zeros (`V25 N11 E`), [[PRO]] twice: your next apolune ({@3-12}). |
 | No drift gauge | It needs P20, P25 or P47, a CSM in lunar orbit (the ascent plan's, else the target) within 40 nm, and the LM not landed. |
 | The needles stay at the middle | Point the front windows within 30 deg of the CSM, or switch to 2 mrad/s. |

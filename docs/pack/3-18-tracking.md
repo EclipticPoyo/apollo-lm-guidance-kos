@@ -46,10 +46,8 @@ Bearing is clockwise from forward, seen from above. The front windows' angle run
 
 ### CSM over 400 nm (740 km) away (P20)
 
-<!--table st-->
-| Version | What happens |
-|---|---|
-| 099 | Alarm 526 and a flashing `V05 N09`. [[PRO]] looks again, `V34E` ends P20 |
-| 210 | {J Alarm 526 once. P20 looks again by itself every 5 s} |
+{A11 Alarm 526 and a flashing `V05 N09`. [[PRO]] looks again, `V34E` ends P20}
+
+{J Alarm 526 once. P20 looks again by itself every 5 s}
 
 > NOTE: V83, V89 and V90 are refused during a load, while a request has broken in, and while another such display is up.

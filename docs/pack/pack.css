@@ -161,7 +161,7 @@ table tr.band.ver td{background:var(--ink);color:var(--paper)}
 a.ref{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .cl .pj,.cl .pj .cih{color:var(--j)}
 .cl .cif.pj{border-color:var(--j)}
-.cl .tag,.jv .tag{display:inline-block;font:700 .66rem/1.2 var(--sans);font-style:normal;letter-spacing:.05em;border:1.5px solid currentColor;border-radius:2px;padding:0 3px;margin-right:6px;text-indent:0;vertical-align:1px}
+.cl .tag,.av .tag,.jv .tag,.vtag{display:inline-block;font:700 .66rem/1.2 var(--sans);font-style:normal;letter-spacing:.05em;border:1.5px solid currentColor;border-radius:2px;padding:0 3px;margin-right:6px;text-indent:0;vertical-align:1px}
 /* a jump to another checklist: one boxed step saying where to go and when to come back */
 .cl .cgo{margin:5px 6px 7px 92px;border:2.5px solid var(--ink);padding:4px 10px}
 .cl .cgo b{display:inline-block;min-width:62px;margin-right:6px;font:700 .76rem var(--sans);letter-spacing:.06em}
@@ -176,8 +176,8 @@ a.ref{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .cl .cabort em a{color:#fff}
 /* the foot of a sheet whose page goes on */
 .onward{font:700 .72rem var(--sans);letter-spacing:.08em;text-transform:uppercase;text-align:right;margin:8px 0 4px}
-/* reference pages: a J-class note in a cell, the key nouns */
-.jv{display:block;color:var(--j)}
+/* reference pages: one version's line in a cell, the tag alone in text, the key nouns */
+.vtag{margin-right:0}.av,.jv{display:block}.jv,.vtag.j{color:var(--j)}
 .nt tr.key td{background:var(--tint)}.nt tr.key td:first-child{border-left:5px solid var(--ink)}
 .nt .band td{background:var(--ink);color:var(--paper);padding-top:6px}
 /* ---- the light style of the reference and appendix pages: black bars, thin rules, no boxes ---- */

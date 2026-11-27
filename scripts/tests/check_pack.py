@@ -311,8 +311,8 @@ for name in ("3-11-ascent-flight.md", "0-3-ascent-card.md"):
     for tag, target in (("A11", "3-12"), ("J", "3-15")):
         must(re.search(rf"^\[{tag}\] - NEXT \|.* page \{{@{target}\}}", PAGES.get(name, ""), re.M), f"{name}: no [{tag}] NEXT step naming page {target}")
 for tag, ver in (("A11", "099"), ("J", "210")):
-    must(f"== [{tag}] Rendezvous: {ver}" in PAGES.get("3-0-index.md", ""), f"3-0-index.md: the {ver} group bar is not tagged [{tag}]")
-must(re.search(r"^- \[J\] 210 burns \|", PAGES.get("1-1-overview.md", ""), re.M), "1-1-overview.md has no 210 burns row")
+    must(f"== [{tag}] Rendezvous: " in PAGES.get("3-0-index.md", ""), f"3-0-index.md: the {ver} group bar is not tagged [{tag}]")
+must(re.search(r"^- \[J\] \{J\} burns \|", PAGES.get("1-1-overview.md", ""), re.M), "1-1-overview.md has no 210 burns row")
 
 # the route marks come from make_pack.py's ROUTES table (read as text: this check needs no markdown package). Renumbering
 # section 3 moves the pages under it, so it must still name each version's pages, all of them, and the page where they join
@@ -332,7 +332,7 @@ for name, text in PAGES.items():
     if PAGE_IDS[name].startswith("3-") or PAGE_IDS[name] in ("0-2", "0-3", "0-4", "0-5"):
         must(not re.search(r"\bMAN:|AUTO: a short|ENG THR CONT", text), f"{name} words a step for the throttle switch: write it for the shipped MAN")
 must(re.search(r"^\[J\] n: Shorter than in 099", PAGES.get("3-7-p64.md", ""), re.M), "3-7-p64.md no longer says the J-class P64 is shorter")
-must(re.search(r"rate-of-descent tap does nothing \| 099: check SAS is on", PAGES.get("4-1-trouble.md", "")),
+must(re.search(r"rate-of-descent tap does nothing \|[^|\n]*\{A11 Check SAS is on\}", PAGES.get("4-1-trouble.md", "")),
      "4-1-trouble.md asks every version to check SAS for a rate-of-descent tap: J-class does not need it")
 
 # a checklist reads straight down its page (the user, 2026-11-26): inside it, a link is only on a NEXT step, a goto: box or the abort box

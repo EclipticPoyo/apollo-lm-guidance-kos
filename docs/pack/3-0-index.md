@@ -23,11 +23,11 @@ section: Section 3 | Checklist index
 | == Ascent | | |
 | {@3-10} | {@3-10 Ascent planning and lift-off} | P12 |
 | {@3-11} | {@3-11 Powered flight and orbit} | P12, V82 |
-| == [A11] Rendezvous: 099 (coelliptic) | | |
+| == [A11] Rendezvous: coelliptic | | |
 | {@3-12} | {@3-12 CSI} | P32, P41 |
 | {@3-13} | {@3-13 CDH} | P33, P41 |
 | {@3-14} | {@3-14 TPI} | P34, P41 |
-| == [J] Rendezvous: 210 (short) | | |
+| == [J] Rendezvous: short | | |
 | {@3-15} | {@3-15 TPI} | P34, P42 |
 | == Rendezvous: both | | |
 | {@3-16} | {@3-16 Midcourse} | P35, P41 |
@@ -36,7 +36,7 @@ section: Section 3 | Checklist index
 
 A green **OPTIONAL** section may be left out: the flight carries on.
 
-Lines tagged 099 or 210 are for that Luminary version only, 210 in blue. Untagged lines are for both.
+Lines tagged {A11} or {J} are for that Luminary version only, 210 in blue. Untagged lines are for both.
 
 The short versions: {@0-2 landing card}, {@0-3 ascent card}, {@0-4 abort card}, {@0-5 rendezvous card}.
 

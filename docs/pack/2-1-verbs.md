@@ -13,7 +13,7 @@ Key VERB, the number, then ENTR. A verb that needs data takes a noun first: `V16
 | V05 | Show the alarm codes (with N09) |
 | V04, V06 | Show a noun's registers (V04: V89's option) |
 | V16 | Monitor a noun, live |
-| V21 to V25 | Load a noun by keys (V21, V22, V23 one register each; V24 two; V25 all three): times, N55, N81, N76, N69 (210), N12 (octal). See {@2-5 2.5} |
+| V21 to V25 | Load a noun by keys (V21, V22, V23 one register each; V24 two; V25 all three): times, N55, N81, N76, N69 {J}, N12 (octal). See {@2-5 2.5} |
 | V35 | Lamp test, 5 s |
 | V82 | Orbit display (N44), over P00 or any programme. [[PRO]] or `V34E` ends it |
 | == Programmes and answers | |
@@ -29,7 +29,7 @@ Key VERB, the number, then ENTR. A verb that needs data takes a noun first: `V16
 | V90 | Out of plane at a time (N16, N90) |
 | V93 | The mark count starts again at the next mark |
 | == Radar and others | |
-| V57 / V58 | Radar updates permitted / inhibited (a flag only; 210 clears it below 50 ft) |
+| V57 / V58 | Radar updates permitted / inhibited (a flag only) {J Cleared below 50 ft} |
 | V59 V60 V76 V77 V80 V81 V95 | Accepted and do nothing (V95 does not stop the marks) |
 
 <!--sheet-->
@@ -42,7 +42,7 @@ Key VERB, the number, then ENTR. A verb that needs data takes a noun first: `V16
 | OPR ERR | Bad key, or a programme refused | [[RSET]]. Read the warnings first |
 | PROG | Alarm raised | `V05 N09 E`, then [[RSET]] |
 | 1201, 1202 | Only if the `ALARMS` setting asks for them (executive overflow, as on Apollo 11) | PROG lit and the display restarts. Carry on, [[RSET]] |
-| 526 | P20: CSM over 400 nm | 099: [[PRO]] looks again, `V34E` ends P20. {J 210: shown once} |
+| 526 | P20: CSM over 400 nm | {A11 [[PRO]] looks again, `V34E` ends P20} {J Shown once} |
 | 1406 | Time to go did not converge | Carry on. Last value is kept |
 | 1703 | Ignition too close. Moved to about 50 s ahead (P12: 30 s) | Check the new time. In P12 the rendezvous timing is lost |
 | 1706 | P40: descent stage gone. P42: still on | `V34E`. [[PRO]] looks again |

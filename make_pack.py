@@ -28,7 +28,9 @@ Markdown as usual (## and ### headings, lists, pipe tables, raw HTML for figures
     | == [J] Group |  a band for one version only ([A11] or [J]): filled in its colour, with its number at the end
     <!--sheet-->      on its own line: the page continues on a new sheet. Between blocks only, and a checklist that
                       goes on starts with a band:. The "(continued)" heading is added by the build
-    {J text}          in a table cell: what Luminary 210 (J-class) shows or does instead, tagged 210 and in blue
+    {J text}          in a table cell: what Luminary 210 (J-class) shows or does instead, on its own line, tagged 210 and in blue
+    {A11 text}        the same for Luminary 099 only, tagged 099
+    {J}  {A11}        the tag alone, in running text or a cell, in place of the written 210 or 099
     | **N63** | ...   in a <!--table nt--> table: a shaded key row
     {@3-3} {@3-0 Index}  a link to a page, by its number: the label is 3.3 (section 3) or the number, or your own words.
                       Works everywhere, checklists included. The build fails on a number no page has.
@@ -92,7 +94,10 @@ def inline_refs(text):
 def inline_buttons(text):
     """[[PRO]], {{+01234}}, ~V06 N62~ and page links (applied to the Markdown source before it is converted)."""
     text = inline_refs(text)
-    text = re.sub(r"\{J ([^{}]+)\}", r'<span class="jv"><em class="tag">210</em>\1</span>', text)
+    text = re.sub(r"\{(A11|J) ([^{}]+)\}",
+                  lambda m: f'<span class="{VERSION_LINE[m[1]]}"><em class="tag">{VARIANT_LABEL[m[1]]}</em>{m[2]}</span>', text)
+    text = re.sub(r"\{(A11|J)\}",
+                  lambda m: f'<em class="tag vtag{route_class(VARIANT_LABEL[m[1]])}">{VARIANT_LABEL[m[1]]}</em>', text)
     text = re.sub(r"\[\[(.+?)\]\]", r'<span class="pro">\1</span>', text)
     text = re.sub(r"\{\{(.+?)\}\}", r'<span class="reg">\1</span>', text)
     text = re.sub(r"~(.+?)~", r'<span class="dsp">\1</span>', text)
@@ -123,6 +128,7 @@ def note(kind, text):
 # checklists
 # ---------------------------------------------------------------------------------------------------------------------
 VARIANT_CLASS = {"A11": "pa", "J": "pj"}
+VERSION_LINE = {"A11": "av", "J": "jv"}        # {A11 text} and {J text}
 VARIANT_LABEL = {"A11": "099", "J": "210"}     # the printed tag: the Luminary version (the source markup keeps the profile names)
 
 

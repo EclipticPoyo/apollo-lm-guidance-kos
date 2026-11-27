@@ -35,7 +35,7 @@ An Apollo Lunar Module guidance computer for Kerbal Space Program, written in kO
 | TIG-0:05, TIG+0:26 | In the margin: time before or after ignition (TIG). |
 | FL | The display is flashing: it is waiting for you. |
 | **Bold** | In checklists, something you do to the ship: SAS, RCS, throttle, target. |
-| 099, 210 | Your software, picked in the planner: Apollo 11 is 099, J-class is 210. A tagged line is for that one only; 210 lines are blue. Untagged lines are for both. |
+| {A11} {J} | Your software, picked in the planner: Apollo 11 is 099, J-class is 210. A tagged line is for that one only; 210 lines are blue. Untagged lines are for both. |
 | 099, 210 box | Beside a page number or on a bar: that page or section is on that version's rendezvous route. |
 | Route diagram | At the foot of a page: the two rendezvous routes. The filled stop is the page you are on. |
 | &#8730; | Check that the display or state shown is what you see. In checklists, CONTROL - SETTING lines are actions, and (remarks) are not steps. |

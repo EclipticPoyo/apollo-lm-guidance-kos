@@ -33,7 +33,10 @@ assert 'class="cln v pa"' in a and '<em class="tag">099</em>' in a
 box = mp.checklist("[A11] if: X\n- A | b\nend")
 assert 'class="cif pa"' in box and '<em class="tag">099</em>' in box
 assert '<em class="tag">210</em>' in mp.checklist("[J] - | W / S | 1 deg")
-assert '<em class="tag">210</em>speed' in mp.inline_buttons("{J speed}")
+assert '<span class="jv"><em class="tag">210</em>speed</span>' == mp.inline_buttons("{J speed}")
+assert '<span class="av"><em class="tag">099</em>speed</span>' == mp.inline_buttons("{A11 speed}")
+assert 'N69 <em class="tag vtag j">210</em>' == mp.inline_buttons("N69 {J}")
+assert '<em class="tag vtag">099</em> burns' == mp.inline_buttons("{A11} burns")
 assert 'class="cln pj"' in mp.checklist("if: X\n[J] - A | b\nend")
 assert 'class="cln v chg pj"' in mp.checklist("![J] v: x")
 assert 'tag' not in mp.checklist("- | A | b")

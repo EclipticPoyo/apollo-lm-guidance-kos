@@ -10,7 +10,7 @@ The planner writes the PAD, the sheet of numbers Mission Control would have read
 
 The PAD loads three things with V71 blocks: the site (`RLS`), the landing time (`TLAND`) and the DOI burn (delta-v and ignition time). Each block shows its address, the same numbers in plain form to check against the display, and its keys. The plane change is the CSM's burn and is only noted.
 
-The **ascent PAD** has N33, N76 and the rendezvous times: CSI (N11) and TPI (N37); on 210 TPI, then a fallback set. With Skip simulated uplink ticked there, P12 fills N33, N76, N11 and N37 (210: N11 zero). Key a fallback by hand, after `V37E 12E`.
+The **ascent PAD** has N33, N76 and the rendezvous times. {A11} CSI (N11) and TPI (N37). {J} TPI, then a fallback set. With Skip simulated uplink ticked there, P12 fills N33, N76, N11 and N37 ({J} N11 zero). Key a fallback by hand, after `V37E 12E`.
 
 ### Keyed load (V21 to V25)
 
@@ -24,7 +24,7 @@ The **ascent PAD** has N33, N76 and the rendezvous times: CSI (N11) and TPI (N37
 | `V25 N16 E` | Load N16 (V90's time), keyed as N33 |
 | `V22 N12 E` | Load V89's option: octal digits, no sign (`2E`) |
 | `V25 N76 E` | Load N76 (ascent targets, from the ascent PAD) |
-| `V25 N69 E` | 210 only: landing site correction |
+| `V25 N69 E` | {J} Landing site correction |
 
 For each register key a sign (required), all five digits and [[ENTR]]: `+00025`. The load is stored after the last [[ENTR]] and the display goes to `V16` on that noun.
 
