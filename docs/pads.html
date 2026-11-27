@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LM PADs</title>
+<!-- the tab icon, a notebook page, held in the page itself so that nothing is fetched -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='22' height='26' rx='2' fill='%23FBFBF9' stroke='%23111' stroke-width='2'/%3E%3Cpath d='M10 1v6M16 1v6M22 1v6' stroke='%23888' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M9 13h14M9 18h14M9 23h9' stroke='%231F4E9C' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 /* the manual's colours (docs/pack/pack.css; check_pads.py keeps them the same), light and dark */
 :root { --j:#1F4E9C;--ink:#111;--paper:#FBFBF9;--tint:#E9E9E4;--desk:#D8D7D3;--hair:#BDBDB5;--mute:#888;--white:#fff }
@@ -15,9 +17,11 @@ h1 { margin: 0 0 6px; font-size: 26px; }
 header p { margin: 6px 0; line-height: 1.4; }
 nav { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0; }
 a { color: var(--ink); }
-button { font: 700 13px Arial, Helvetica, sans-serif; letter-spacing: .05em; text-transform: uppercase; min-height: 36px;
+button, a.back { font: 700 13px Arial, Helvetica, sans-serif; letter-spacing: .05em; text-transform: uppercase; min-height: 36px;
   padding: 4px 12px; border: 1.5px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; }
-button:hover { background: var(--tint); }
+button:hover, a.back:hover { background: var(--tint); }
+a.back { display: inline-flex; align-items: center; text-decoration: none; }
+header a.back { margin-bottom: 10px; }
 button svg { vertical-align: -2px; margin-right: 2px; }
 #theme { margin-left: 8px; }
 #note { background: var(--paper); border: 1.5px solid var(--ink); padding: 8px 10px; }
@@ -113,6 +117,7 @@ input:focus, textarea:focus { background: var(--white); outline: .5mm solid var(
 </head>
 <body>
 <header>
+  <a class="back" href="https://eclipticpoyo.github.io/apollo-lm-guidance-kos/">&#8592; Back to manual</a>
   <h1>LM PADs</h1>
   <p>The forms and data cards an Apollo LM crew copied figures onto. Type into the boxes, or print the cards and write on
   them. Printed characters are fixed and typing moves to the next box. What you type is kept in this browser.
@@ -1377,6 +1382,7 @@ function drawCard(card) {
   const sheet = add(document.getElementById("sheets"), "section", "sheet " + card.shape);
   sheet.id = "card-" + card.id;
   const bar = add(sheet, "div", "bar");
+  bar.appendChild(document.querySelector("header a.back").cloneNode(true));
   add(bar, "h2").textContent = card.title;
   for (const [name, act] of [["Print", () => Pads.printCard(card.id)], ["Clear", () => {
     if (window.confirm("Clear everything typed on the " + card.title + " card?")) Pads.clearCard(card.id);
@@ -1411,6 +1417,8 @@ function drawCard(card) {
   const link = add(document.getElementById("links"), "a");
   link.href = "#card-" + card.id;
   link.textContent = card.title;
+  // jumping to a card adds nothing to the history, so that going back still leads to the manual
+  link.addEventListener("click", event => { event.preventDefault(); location.replace(link.href); });
 }
 
 /* ---- saving ----------------------------------------------------------------------------------------------------- */
@@ -1587,6 +1595,16 @@ document.getElementById("short").addEventListener("click", () => {
 });
 
 const sheets = document.getElementById("sheets");
+// back: to the same place in the manual if the reader came from it, otherwise the link opens the manual at its start
+document.addEventListener("click", event => {
+  const link = event.target.closest("a.back");
+  if (!link || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  const from = document.referrer;
+  if (history.length > 1 && from.startsWith(link.href) && !from.includes("pads.html")) {
+    event.preventDefault();
+    history.back();
+  }
+});
 sheets.addEventListener("input", event => {
   const id = event.target.dataset.id, box = boxes.get(id);
   if (!box) return;

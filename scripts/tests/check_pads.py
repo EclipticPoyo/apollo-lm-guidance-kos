@@ -207,12 +207,15 @@ def check_planner(by_id):
 
 
 def check_file(page):
-    check("<link" not in page, "the page has a <link> element")
+    links = re.findall(r"<link\b[^>]*>", page)                   # the tab icon only, held in the page itself
+    check(len(links) == 1 and links[0].startswith('<link rel="icon" href="data:image/svg+xml,'),
+          f"<link> elements other than the one built-in tab icon: {[a[:60] for a in links]}")
     check(not re.search(r"<script[^>]*\ssrc\s*=", page), "the page loads a script file")
     check("url(http" not in page, "the page's styles fetch an address")
     outside = [a for a in re.findall(r"""\b(?:src|href)\s*=\s*["']([^"']*)["']""", page)
                if re.match(r"(?:[a-z]+:)?//", a)]
-    check(outside == [CREDIT], f"outside addresses other than the one credit link: {outside}")
+    manual = PUBLIC.replace("pads.html", "")                     # the way back to the manual, above the cards
+    check(outside == [manual, CREDIT], f"outside addresses other than the manual and the one credit link: {outside}")
     foot = re.search(r"<footer[^>]*>(.*?)</footer>", page, re.S)
     text = " ".join(re.sub(r"<[^>]+>", " ", foot.group(1)).split()) if foot else ""
     check("Apollo 11 Final Flight Plan" in text, "the foot line does not name the Apollo 11 Final Flight Plan")
