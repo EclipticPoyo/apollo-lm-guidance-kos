@@ -11,7 +11,7 @@ legend
 band: PLAN | landed, CSM in orbit
 - | MAP VIEW | **Target the CSM**
 - | TERMINAL | RUN plan.
-- | PLANNER | Ascent, PLAN, write down the PAD (times too), close
+- | PLANNER | Ascent, PLAN, write down the PAD (CARD: LM Ascent PAD, times too), close
 band: P12 | {@3-10}  /  **SAS off, throttle zero**
 - | TERMINAL | RUN dsky.
 - | DSKY | V37E 12E

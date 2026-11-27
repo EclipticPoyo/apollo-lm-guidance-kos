@@ -7,6 +7,7 @@ The zip unzips straight into the KSP folder:
   Ships/Script/agc_config.txt    the settings file for the whole project (an old lm/lm_config.txt is no longer shipped)
   Ships/Script/core, lm (with descent/, planner/, images/, an empty logs/), shared   from scripts/ (no tests/)
   README.md, CHANGELOG.md, docs/PACK.pdf, docs/images/*   the readme and the pilot's pack (the manual)
+  docs/pads.html                                           the PAD forms page, to type into or print
 VERSION (the version defaults to it, and a different argument is refused).
 Output: dist/apollo-lm-guidance-kos-<version>.zip (dist/ is git-ignored). The lowercase name is an aesthetic preference.
 """
@@ -34,7 +35,7 @@ for folder in ("core", "lm", "shared", "boot"):
                 continue
             files.append((p, f"Ships/Script/{p.relative_to(root / 'scripts').as_posix()}"))
 files.append((root / "scripts" / "agc_config.txt", "Ships/Script/agc_config.txt"))   # the settings file, at the top of Ships/Script
-files += [(root / "VERSION", "VERSION"), (root / "README.md", "README.md"), (root / "CHANGELOG.md", "CHANGELOG.md"), (root / "docs" / "PACK.pdf", "docs/PACK.pdf")]
+files += [(root / "VERSION", "VERSION"), (root / "README.md", "README.md"), (root / "CHANGELOG.md", "CHANGELOG.md"), (root / "docs" / "PACK.pdf", "docs/PACK.pdf"), (root / "docs" / "pads.html", "docs/pads.html")]
 files += [(p, f"docs/images/{p.name}") for p in sorted((root / "docs" / "images").glob("*.png"))]
 
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:

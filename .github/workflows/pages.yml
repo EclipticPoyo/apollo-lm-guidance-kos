@@ -1,7 +1,7 @@
 name: Pilot's pack site
 
 # Kept in tools/ in the private dev repo; publish_public.py copies it to .github/workflows/ in the public repo.
-# Builds the pilot's pack (docs/pack/*.md) into a web page and publishes it with GitHub Pages.
+# Builds the pilot's pack (docs/pack/*.md) into a web page and publishes it, with the PAD forms page, on GitHub Pages.
 # Pages is switched on in the PUBLIC repo only (Settings > Pages > Source: GitHub Actions); the guard below keeps this
 # from running in the private dev repo, where Pages is not available.
 on:
@@ -10,6 +10,7 @@ on:
     paths:
       - docs/pack/**
       - docs/PACK.pdf
+      - docs/pads.html
       - docs/images/**
       - make_pack.py
       - VERSION

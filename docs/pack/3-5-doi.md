@@ -7,7 +7,7 @@ section: Section 3 | Checklist: DOI
 The planner's burn that lowers your orbit before PDI. Start with {@3-1} done.
 
 ```checklist
-band: CHECK THE BURN | P30
+band: CHECK THE BURN | P30  /  CARD: DOI
 use: p30
 band: FLY THE BURN | P40  /  from circular orbit
 use: p40-ignition

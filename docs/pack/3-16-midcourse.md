@@ -7,7 +7,7 @@ section: Section 3 | Checklist: Rendezvous
 Two corrections on the way to the CSM.
 
 ```checklist
-band: MIDCOURSE | about 15 and 30 min after TPI
+band: MIDCOURSE | about 15 and 30 min after TPI  /  CARD: TPI
 - | DSKY | V37E 35E (TIG is set 3 minutes ahead)
 [A11] v: V06 N59
 [J] v: V06 N81

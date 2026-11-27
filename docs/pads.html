@@ -1,0 +1,1633 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LM PADs</title>
+<style>
+/* the manual's colours (docs/pack/pack.css; check_pads.py keeps them the same), light and dark */
+:root { --j:#1F4E9C;--ink:#111;--paper:#FBFBF9;--tint:#E9E9E4;--desk:#D8D7D3;--hair:#BDBDB5;--mute:#888;--white:#fff }
+:root[data-theme=dark] { --j:#7FB0FF;--ink:#E8E8E4;--paper:#1B1C1E;--tint:#2C2D30;--desk:#101112;--hair:#45464A;--mute:#777;--white:#26272A }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; background: var(--desk); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+header, footer { max-width: 277mm; margin: 0 auto; padding: 12px; }
+h1 { margin: 0 0 6px; font-size: 26px; }
+header p { margin: 6px 0; line-height: 1.4; }
+nav { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0; }
+a { color: var(--ink); }
+button { font: 700 13px Arial, Helvetica, sans-serif; letter-spacing: .05em; text-transform: uppercase; min-height: 36px;
+  padding: 4px 12px; border: 1.5px solid var(--ink); background: var(--paper); color: var(--ink); cursor: pointer; }
+button:hover { background: var(--tint); }
+button svg { vertical-align: -2px; margin-right: 2px; }
+#theme { margin-left: 8px; }
+#note { background: var(--paper); border: 1.5px solid var(--ink); padding: 8px 10px; }
+main { padding: 0 8px; }
+.sheet { margin: 0 0 28px; scroll-margin-top: 8px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 0 0 4px; }
+.bar h2 { margin: 0 8px 0 0; font-size: 18px; }
+.hint { max-width: 190mm; margin: 0 auto 4px; padding: 0 4px; text-align: center; font-size: 14px; line-height: 1.35; }
+.wrap { overflow-x: auto; padding: 2mm; }
+.card { position: relative; margin: 0 auto; background: var(--paper); color: var(--ink);
+  box-shadow: 0 0 0 1mm var(--paper), 0 0 0 calc(1mm + 1px) var(--ink), 0 8px 18px rgba(0, 0, 0, .25);
+  font-size: 4.6mm; line-height: 1.15; }
+.card.portrait { width: 190mm; height: 277mm; }
+.card.landscape { width: 277mm; height: 190mm; }
+.card div, .card span, .card input, .card textarea { position: absolute; }
+/* printed matter never takes a click: a frame drawn after the boxes (as the short cards' own frames are) covers them */
+.card .text, .card .shade { pointer-events: none; }
+/* figures filled in already: lighter than what one types */
+.card input.prefill, .card textarea.prefill, .card .fill { color: var(--mute); }
+.card .fill { font-family: "Courier New", Courier, monospace; font-weight: bold; }
+
+/* printed matter */
+.frame { border: 0 solid var(--ink); pointer-events: none; z-index: 2; }
+.thin { border-width: .22mm; z-index: 1; }
+.thick { border-width: .6mm; }
+.rule { background: var(--ink); width: .6mm; pointer-events: none; z-index: 2; }
+.segment { background: var(--ink); pointer-events: none; z-index: 2; }
+.shade { background: var(--tint); }
+.shade.dark { background: var(--ink); }
+.printed, .label, .text { display: flex; align-items: center; justify-content: center; white-space: pre; }
+.label { justify-content: space-between; padding: 0 1mm 0 1.2mm; }
+.card .label span, .card .text span { position: static; }
+sub { font-size: .75em; line-height: 0; }
+.text.underline span { text-decoration: underline; text-underline-offset: .6mm; }
+.text { text-align: center; letter-spacing: .2mm; }
+.text.left { justify-content: flex-start; text-align: left; padding-left: 1.2mm; }
+.text.down, .text.up { writing-mode: vertical-rl; }
+.text.up { transform: rotate(180deg); }
+.text.bold { font-weight: bold; }
+.text.serif { font-family: "Times New Roman", Times, serif; }
+.dot { width: 1.5mm; height: 1.5mm; border-radius: 50%; background: var(--ink); pointer-events: none; z-index: 3; }
+
+/* where a figure comes from (short cards): P the planner, D the DSKY */
+.badge, .rowmark { display: flex; align-items: center; justify-content: center; white-space: pre; font-weight: bold;
+  background: var(--paper); border: .3mm solid var(--ink); }
+.badge { z-index: 4; }
+.card .label span.rowmark { position: absolute; display: none; z-index: 3; top: 50%; margin-top: -1.9mm; height: 3.8mm;
+  font-size: 2.7mm; letter-spacing: 0; }
+body.short .card .label span.rowmark { display: flex; }
+body.short .label.marked-left { padding-right: var(--mark); }
+body.short .label.marked-right { padding-left: var(--mark); }
+
+/* typed matter */
+input, textarea { border: 0; margin: 0; padding: 0; background: transparent; border-radius: 0; color: var(--ink);
+  font-family: "Courier New", Courier, monospace; font-weight: bold; }
+.cell input { left: .3mm; top: .3mm; width: calc(100% - .6mm); height: calc(100% - .6mm); text-align: center;
+  font-size: 1.15em; }
+.blank { display: flex; align-items: flex-end; white-space: pre; }
+.card .blank span { position: static; }
+.card .blank input { position: static; flex: 1; min-width: 0; height: 100%; font-size: 1em; border-bottom: .4mm dotted var(--ink);
+  text-align: center; }
+.card .blank.solid input { border-bottom: .25mm solid var(--ink); }
+.card .blank .mark { position: absolute; bottom: .3mm; transform: translateX(-50%); pointer-events: none;
+  font-size: 1.6em; font-weight: bold; line-height: .8; }
+.area span { left: 1.2mm; top: 1mm; }
+.part { left: 0; top: 0; }
+body.short .only-full, body:not(.short) .only-short { display: none; }
+/* short cards: tables slid together, and the card only as large as what is on it */
+body.short .part.moves { left: var(--dx); top: var(--dy); }
+body.short .card.sized { width: var(--sw); height: var(--sh); }
+.area textarea { left: 1.2mm; right: 1.2mm; bottom: 1mm; resize: none; overflow: hidden; font-size: .9em; line-height: 1.35; }
+input:focus, textarea:focus { background: var(--white); outline: .5mm solid var(--ink); outline-offset: -.5mm; }
+
+@page portrait { size: A4 portrait; margin: 9mm; }
+@page landscape { size: A4 landscape; margin: 9mm; }
+@media print {
+  :root, :root[data-theme=dark] { --j:#1F4E9C;--ink:#111;--paper:#FBFBF9;--tint:#E9E9E4;--desk:#D8D7D3;--hair:#BDBDB5;--mute:#888;--white:#fff }      /* paper is always light, as the manual's PDF is */
+  header, footer, .bar, .hint { display: none !important; }
+  body { background: var(--white); }
+  main { padding: 0; }
+  .sheet { margin: 0; break-after: page; }
+  .sheet:last-child { break-after: auto; }
+  .sheet.portrait { page: portrait; }
+  .sheet.landscape { page: landscape; }
+  .wrap { overflow: visible; padding: 0; }
+  .card { margin: .5mm auto; box-shadow: none; background: var(--white); }
+  input:focus, textarea:focus { background: transparent; outline: none; }
+  body[data-print] .sheet:not(.printing) { display: none; }
+  body[data-print] .sheet.printing { break-after: auto; }
+}
+</style>
+<script>(function(){var t;try{t=localStorage.getItem('pack-theme')}catch(e){}if(!t)t=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';document.documentElement.setAttribute('data-theme',t)})()</script>
+</head>
+<body>
+<header>
+  <h1>LM PADs</h1>
+  <p>The forms and data cards an Apollo LM crew copied figures onto. Type into the boxes, or print the cards and write on
+  them. Printed characters are fixed and typing moves to the next box. What you type is kept in this browser.
+  The cards open short: what nothing here fills is left out, and marks say where
+  figures come from, <b>P</b> copy from the planner, <b>D</b> copy from the DSKY. <b>Full cards</b> shows the real ones. Grey figures are filled
+  in already (some depend on your software version, 099 or 210): type over one if yours differs.</p>
+  <p id="note" hidden>What you type is not saved in this browser: it will be lost when the page is closed. Print the cards
+  to keep it.</p>
+  <nav id="links" aria-label="Cards"></nav>
+  <button type="button" id="print-all">Print all</button>
+  <button type="button" id="short">Full cards</button>
+  <button type="button" id="version">Version: 099</button>
+  <button type="button" id="clear-all">Clear all</button>
+  <button type="button" id="theme" aria-label="Switch between light and dark mode">Dark mode</button>
+</header>
+<main id="sheets"></main>
+<footer>
+  <p>The cards are recreated from the
+  <a href="https://www.nasa.gov/wp-content/uploads/static/apollo50th/pdf/a11final-fltpln.pdf">Apollo 11 Final Flight
+  Plan</a>, Section II (Update Forms). Entries particular to Apollo 11 are left blank.</p>
+</footer>
+
+<script type="application/json" id="cards">
+[
+{"id": "p27", "title": "LM P27 Update", "page": 70, "shape": "portrait", "short_size": [190, 250.3], "note": "When: only if you key the plan by hand instead of pressing SEND (manual 2.5). One column a block: from row 03 copy the PAD's numbers, one a row, down to the row numbered like the INDEX. N43 height is in 0.1 nm; the planner gives metres.", "prefill": {"p27.purpose1": "SITE", "p27.verb1.0.0.0": "7", "p27.verb1.0.0.1": "1", "p27.data.0.0.3": "1", "p27.data.0.0.4": "0", "p27.data.0.1.1": "2", "p27.data.0.1.2": "0", "p27.data.0.1.3": "2", "p27.data.0.1.4": {"099": "2", "210": "0"}, "p27.purpose2": "TLAND", "p27.verb2.0.0.0": "7", "p27.verb2.0.0.1": "1", "p27.data.1.0.3": "0", "p27.data.1.0.4": "4", "p27.data.1.1.1": "2", "p27.data.1.1.2": {"099": "4", "210": "0"}, "p27.data.1.1.3": {"099": "0", "210": "2"}, "p27.data.1.1.4": {"099": "0", "210": "6"}, "p27.purpose3": "DOI", "p27.verb3.0.0.0": "7", "p27.verb3.0.0.1": "1", "p27.data.2.0.3": "1", "p27.data.2.0.4": "2", "p27.data.2.1.1": "3", "p27.data.2.1.2": "4", "p27.data.2.1.3": "3", "p27.data.2.1.4": "3"}, "blocks": [
+  {"id": "frame", "type": "text", "x": 0, "y": 0, "w": 190, "h": 277, "text": "", "boxed": true, "show": "full"},
+  {"id": "lstrip", "type": "text", "x": 0, "y": 0, "w": 16.1, "h": 277, "text": "", "boxed": true, "show": "full"},
+  {"id": "rstrip", "type": "text", "x": 172.65, "y": 0, "w": 17.35, "h": 277, "text": "", "boxed": true, "show": "full"},
+  {"id": "ltop", "type": "text", "x": 0, "y": 0, "w": 16.1, "h": 33.5, "text": "", "boxed": true},
+  {"id": "ltab", "type": "text", "x": 0, "y": 33.5, "w": 16.1, "h": 34.1, "text": "P27", "size": 5, "vertical": "down", "boxed": true},
+  {"id": "rtop", "type": "text", "x": 172.65, "y": 0, "w": 17.35, "h": 33.8, "text": "", "boxed": true},
+  {"id": "rtab", "type": "text", "x": 172.65, "y": 33.8, "w": 17.35, "h": 35.3, "text": "P27", "size": 5, "vertical": "up", "boxed": true},
+  {"id": "heading", "type": "text", "x": 16.1, "y": 0, "w": 156.55, "h": 9.6, "text": "LM P27 UPDATE", "size": 5, "boxed": true},
+  {"id": "purp", "type": "text", "x": 16.1, "y": 9.6, "w": 26.8, "h": 9.5, "text": "PURP", "align": "left", "boxed": true},
+  {"id": "get", "type": "text", "x": 16.1, "y": 19.1, "w": 26.8, "h": 9.4, "text": "GET", "align": "left", "boxed": true},
+  {"id": "purpbox1", "type": "text", "x": 42.9, "y": 9.6, "w": 43.25, "h": 9.5, "text": "", "boxed": true},
+  {"id": "getbox1", "type": "text", "x": 42.9, "y": 19.1, "w": 43.25, "h": 9.4, "text": "", "boxed": true},
+  {"id": "purpose1", "type": "area", "x": 42.9, "y": 9.6, "w": 18.5, "h": 9.5},
+  {"id": "v1", "type": "text", "x": 60.5, "y": 9.6, "w": 8, "h": 9.5, "text": "V"},
+  {"id": "verb1", "type": "reg", "x": 68.85, "y": 9.6, "cols": 1, "cell_w": 8.65, "row_h": 9.5, "label_w": 0, "label_side": "left", "rows": [
+    {"label": [], "cells": "_ _"}]},
+  {"id": "geth1", "type": "area", "x": 42.9, "y": 19.1, "w": 12, "h": 9.4},
+  {"id": "c1a", "type": "text", "x": 54.3, "y": 19.1, "w": 3.4, "h": 9.4, "text": "●\n●", "size": 2.6},
+  {"id": "getm1", "type": "area", "x": 57.1, "y": 19.1, "w": 12, "h": 9.4},
+  {"id": "c1b", "type": "text", "x": 68.4, "y": 19.1, "w": 3.4, "h": 9.4, "text": "●\n●", "size": 2.6},
+  {"id": "gets1", "type": "area", "x": 71.8, "y": 19.1, "w": 14, "h": 9.4},
+  {"id": "purpbox2", "type": "text", "x": 86.15, "y": 9.6, "w": 43.25, "h": 9.5, "text": "", "boxed": true},
+  {"id": "getbox2", "type": "text", "x": 86.15, "y": 19.1, "w": 43.25, "h": 9.4, "text": "", "boxed": true},
+  {"id": "purpose2", "type": "area", "x": 86.15, "y": 9.6, "w": 18.5, "h": 9.5},
+  {"id": "v2", "type": "text", "x": 103.75, "y": 9.6, "w": 8, "h": 9.5, "text": "V"},
+  {"id": "verb2", "type": "reg", "x": 112.1, "y": 9.6, "cols": 1, "cell_w": 8.65, "row_h": 9.5, "label_w": 0, "label_side": "left", "rows": [
+    {"label": [], "cells": "_ _"}]},
+  {"id": "geth2", "type": "area", "x": 86.15, "y": 19.1, "w": 12, "h": 9.4},
+  {"id": "c2a", "type": "text", "x": 97.55, "y": 19.1, "w": 3.4, "h": 9.4, "text": "●\n●", "size": 2.6},
+  {"id": "getm2", "type": "area", "x": 100.35, "y": 19.1, "w": 12, "h": 9.4},
+  {"id": "c2b", "type": "text", "x": 111.65, "y": 19.1, "w": 3.4, "h": 9.4, "text": "●\n●", "size": 2.6},
+  {"id": "gets2", "type": "area", "x": 115.05, "y": 19.1, "w": 14, "h": 9.4},
+  {"id": "purpbox3", "type": "text", "x": 129.4, "y": 9.6, "w": 43.25, "h": 9.5, "text": "", "boxed": true},
+  {"id": "getbox3", "type": "text", "x": 129.4, "y": 19.1, "w": 43.25, "h": 9.4, "text": "", "boxed": true},
+  {"id": "purpose3", "type": "area", "x": 129.4, "y": 9.6, "w": 18.5, "h": 9.5},
+  {"id": "v3", "type": "text", "x": 147.0, "y": 9.6, "w": 8, "h": 9.5, "text": "V"},
+  {"id": "verb3", "type": "reg", "x": 155.35, "y": 9.6, "cols": 1, "cell_w": 8.65, "row_h": 9.5, "label_w": 0, "label_side": "left", "rows": [
+    {"label": [], "cells": "_ _"}]},
+  {"id": "geth3", "type": "area", "x": 129.4, "y": 19.1, "w": 12, "h": 9.4},
+  {"id": "c3a", "type": "text", "x": 140.8, "y": 19.1, "w": 3.4, "h": 9.4, "text": "●\n●", "size": 2.6},
+  {"id": "getm3", "type": "area", "x": 143.6, "y": 19.1, "w": 12, "h": 9.4},
+  {"id": "c3b", "type": "text", "x": 154.9, "y": 19.1, "w": 3.4, "h": 9.4, "text": "●\n●", "size": 2.6},
+  {"id": "gets3", "type": "area", "x": 158.3, "y": 19.1, "w": 14, "h": 9.4},
+  {"id": "data", "type": "reg", "x": 16.1, "y": 28.5, "cols": 3, "cell_w": 8.65, "row_h": 8.78, "label_w": 26.8, "label_side": "left", "rows": [
+    {"label": ["1174", "01"], "cells": "INDEX*3 o o", "mark": "P"},
+    {"label": ["", "02"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "03"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "04"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "05"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "06"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "07"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "10"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "11"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "12"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "13"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "14"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "15"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "16"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "17"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "20"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "21"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "22"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "23"], "cells": "o o o o o", "mark": "P"},
+    {"label": ["", "24"], "cells": "o o o o o", "mark": "P"}]},
+  {"id": "n34", "type": "reg", "x": 16.1, "y": 204.1, "cols": 2, "cell_w": 8.65, "row_h": 8.9, "label_w": 52.8, "label_side": "left", "show": "full", "rows": [
+    {"label": ["         N34", "HR"], "noun": "N34", "cells": "X X X _ _ _"},
+    {"label": ["", "MIN"], "noun": "N34", "cells": "X X X X _ _"},
+    {"label": ["NAV CHECK", "SEC"], "noun": "N34", "cells": "X X _ _. _ _"}]},
+  {"id": "n43", "type": "reg", "x": 16.1, "y": 230.8, "cols": 2, "cell_w": 8.65, "row_h": 8.83, "label_w": 52.8, "label_side": "left", "move": [0, -26.7], "rows": [
+    {"label": ["         N43", "LAT"], "noun": "N43", "cells": "s 0 _ _. _ _", "mark": "P"},
+    {"label": ["", "LONG"], "noun": "N43", "cells": "s _ _ _. _ _", "mark": "P"},
+    {"label": ["", "ALT"], "noun": "N43", "cells": "+ 0 _ _ _. _", "mark": "P"}]},
+  {"id": "notes", "type": "area", "x": 16.1, "y": 257.3, "w": 156.55, "h": 19.7, "move": [0, -26.7]},
+  {"id": "cframe", "type": "text", "x": 0, "y": 0, "w": 190, "h": 250.3, "text": "", "boxed": true, "show": "short"},
+  {"id": "clstrip", "type": "text", "x": 0, "y": 0, "w": 16.1, "h": 250.3, "text": "", "boxed": true, "show": "short"},
+  {"id": "crstrip", "type": "text", "x": 172.65, "y": 0, "w": 17.35, "h": 250.3, "text": "", "boxed": true, "show": "short"}
+]},
+{"id": "p30", "title": "P30 LM Maneuver", "page": 76, "shape": "portrait", "short_size": [190, 198.7], "note": "When: any burn you check with P30 (manual 3.2). For a burn you did not plan, N33 and N81 are your own.", "blocks": [
+  {"id": "frame", "type": "text", "x": 0, "y": 0, "w": 190, "h": 277, "text": "", "boxed": true, "show": "full"},
+  {"id": "lstrip", "type": "text", "x": 0, "y": 0, "w": 17, "h": 277, "text": "", "boxed": true, "show": "full"},
+  {"id": "rstrip", "type": "text", "x": 172.6, "y": 0, "w": 17.4, "h": 277, "text": "", "boxed": true, "show": "full"},
+  {"id": "ltab", "type": "text", "x": 0, "y": 0, "w": 17, "h": 35, "text": "P30", "size": 5.5, "vertical": "down", "boxed": true},
+  {"id": "rtab", "type": "text", "x": 172.6, "y": 0, "w": 17.4, "h": 35, "text": "P30", "size": 5.5, "vertical": "up", "boxed": true},
+  {"id": "heading", "type": "text", "x": 17, "y": 0, "w": 155.6, "h": 18.4, "text": "P30 LM MANEUVER", "size": 5.8},
+  {"id": "purpose", "type": "reg", "x": 17, "y": 18.4, "cols": 2, "cell_w": 8.9, "row_h": 8.7, "label_w": 48.8, "label_side": "right", "rows": [
+    {"label": ["PURPOSE"], "cells": "t t t t t t"}]},
+  {"id": "n33", "type": "reg", "x": 17, "y": 27.1, "cols": 2, "cell_w": 8.9, "row_h": 8.7, "label_w": 48.8, "label_side": "right", "rows": [
+    {"label": ["HR", "N33"], "noun": "N33", "cells": "+ 0 0 _ _ _", "mark": "P"},
+    {"label": ["MIN", "TIG", ""], "noun": "N33", "cells": "+ 0 0 0 _ _", "mark": "P"},
+    {"label": ["SEC"], "noun": "N33", "cells": "+ 0 _ _. _ _", "mark": "P"}]},
+  {"id": "n81", "type": "reg", "x": 17, "y": 53.2, "cols": 2, "cell_w": 8.9, "row_h": 8.7, "label_w": 48.8, "label_side": "right", "rows": [
+    {"label": ["ΔVX", "N81"], "noun": "N81", "cells": "_ _ _ _ _. _", "mark": "P"},
+    {"label": ["ΔVY", "LOCAL"], "noun": "N81", "cells": "_ _ _ _ _. _", "mark": "P"},
+    {"label": ["ΔVZ", "VERT"], "noun": "N81", "cells": "_ _ _ _ _. _", "mark": "P"}]},
+  {"id": "n42", "type": "reg", "x": 17, "y": 79.3, "cols": 2, "cell_w": 8.9, "row_h": 8.7, "label_w": 48.8, "label_side": "right", "rows": [
+    {"label": ["Ha", "N42"], "noun": "N42", "cells": "+ _ _ _ _. _", "mark": "D"},
+    {"label": ["Hp"], "noun": "N42", "cells": "s _ _ _ _. _", "mark": "D"},
+    {"label": ["ΔVR"], "noun": "N42", "cells": "+ _ _ _ _. _", "mark": "D"}]},
+  {"id": "bt", "type": "reg", "x": 17, "y": 105.4, "cols": 2, "cell_w": 8.9, "row_h": 8.7, "label_w": 48.8, "label_side": "right", "show": "full", "rows": [
+    {"label": ["BT"], "cells": "X X X _: _ _"}]},
+  {"id": "fdai", "type": "reg", "x": 17, "y": 114.1, "cols": 2, "cell_w": 8.9, "row_h": 8.7, "label_w": 48.8, "label_side": "right", "show": "full", "rows": [
+    {"label": ["R", "FDAI"], "cells": "X X X _ _ _"},
+    {"label": ["P", "INER"], "cells": "X X X _ _ _"}]},
+  {"id": "n86", "type": "reg", "x": 17, "y": 131.5, "cols": 2, "cell_w": 8.9, "row_h": 8.7, "label_w": 48.8, "label_side": "right", "show": "full", "rows": [
+    {"label": ["ΔVX  AGS", "N86"], "noun": "N86", "cells": "_ _ _ _ _. _"},
+    {"label": ["ΔVY  AGS"], "noun": "N86", "cells": "_ _ _ _ _. _"},
+    {"label": ["ΔVZ  AGS"], "noun": "N86", "cells": "_ _ _ _ _. _"}]},
+  {"id": "bss", "type": "reg", "x": 17, "y": 157.6, "cols": 2, "cell_w": 8.9, "row_h": 8.7, "label_w": 48.8, "label_side": "right", "show": "full", "rows": [
+    {"label": ["BSS"], "cells": "X X X _ _ _"},
+    {"label": ["SPA"], "cells": "X X s _ _. _"},
+    {"label": ["SXP"], "cells": "X X X s _. _"}]},
+  {"id": "remarks", "type": "area", "x": 17, "y": 183.7, "w": 155.6, "h": 93.3, "label": "REMARKS:", "move": [0, -78.3]},
+  {"id": "cframe", "type": "text", "x": 0, "y": 0, "w": 190, "h": 198.7, "text": "", "boxed": true, "show": "short"},
+  {"id": "clstrip", "type": "text", "x": 0, "y": 0, "w": 17, "h": 198.7, "text": "", "boxed": true, "show": "short"},
+  {"id": "crstrip", "type": "text", "x": 172.6, "y": 0, "w": 17.4, "h": 198.7, "text": "", "boxed": true, "show": "short"}
+]},
+{"id": "doi", "title": "DOI Data Card", "page": 78, "shape": "landscape", "size": 3.6, "short_size": [229, 75.5], "note": "When: after planning, before the DOI burn (manual 3.5).", "blocks": [
+  {"id": "s1", "type": "shade", "x": 128.95, "y": 8.67, "w": 142.05, "h": 179.33, "show": "full"},
+  {"id": "s2", "type": "shade", "x": 6.0, "y": 118.54, "w": 122.95, "h": 69.46, "show": "full"},
+  {"id": "t3", "type": "text", "x": 116.54, "y": 2.61, "w": 38.1, "h": 5.04, "text": "DOI DATA CARD", "underline": true, "move": [-21.09, 0]},
+  {"id": "n33", "type": "reg", "x": 8.16, "y": 8.39, "cols": 2, "cell_w": 6.743, "row_h": 5.86, "label_w": 39.87, "label_side": "left", "title": "P30", "title_h": 5.67, "rows": [
+    {"label": ["HR", "N33", ""], "noun": "N33", "cells": "+ 0 0 _ _ _", "mark": "P"},
+    {"label": ["MIN", "TIG", ""], "noun": "N33", "cells": "+ 0 0 0 _ _", "mark": "P"},
+    {"label": ["SEC"], "noun": "N33", "cells": "+ 0 _ _. _ _", "mark": "P"}]},
+  {"id": "n81", "type": "reg", "x": 8.16, "y": 31.64, "cols": 2, "cell_w": 6.743, "row_h": 5.717, "label_w": 39.87, "label_side": "left", "rows": [
+    {"label": ["ΔVX", "N81", ""], "noun": "N81", "cells": "s _ _ _ _. _", "mark": "P"},
+    {"label": ["ΔVY", "LOCAL", ""], "noun": "N81", "cells": "s _ _ _ _. _", "mark": "P"},
+    {"label": ["ΔVZ", "VERT", ""], "noun": "N81", "cells": "s _ _ _ _. _", "mark": "P"}]},
+  {"id": "n42", "type": "reg", "x": 8.16, "y": 48.79, "cols": 2, "cell_w": 6.743, "row_h": 5.717, "label_w": 39.87, "label_side": "left", "rows": [
+    {"label": ["H_{A}", "N42", ""], "noun": "N42", "cells": ["+ _ _ _ _. _", "_ _ _ _ _. _"], "mark": "D"},
+    {"label": ["H_{P}"], "noun": "N42", "cells": "s _ _ _ _. _", "mark": "D"},
+    {"label": ["ΔVR"], "noun": "N42", "cells": "+ _ _ _ _. _", "mark": "D"}]},
+  {"id": "bt", "type": "reg", "x": 8.16, "y": 65.94, "cols": 2, "cell_w": 6.743, "row_h": 5.96, "label_w": 39.87, "label_side": "left", "show": "full", "rows": [
+    {"label": ["BT"], "cells": "X X X _: _ _"}]},
+  {"id": "fdai", "type": "reg", "x": 8.16, "y": 71.9, "cols": 2, "cell_w": 6.743, "row_h": 5.81, "label_w": 39.87, "label_side": "left", "show": "full", "rows": [
+    {"label": ["R", "FDAI", ""], "cells": "X X X _ _ _"},
+    {"label": ["P", "INER", ""], "cells": "X X X _ _ _"}]},
+  {"id": "n86", "type": "reg", "x": 8.16, "y": 83.52, "cols": 2, "cell_w": 6.743, "row_h": 5.767, "label_w": 39.87, "label_side": "left", "show": "full", "rows": [
+    {"label": ["ΔVX AGS N86"], "noun": "N86", "cells": "s _ _ _ _. _"},
+    {"label": ["ΔVY AGS"], "noun": "N86", "cells": "s _ _ _ _. _"},
+    {"label": ["ΔVZ AGS"], "noun": "N86", "cells": "s _ _ _ _. _"}]},
+  {"id": "bss", "type": "reg", "x": 8.16, "y": 100.82, "cols": 2, "cell_w": 6.743, "row_h": 5.907, "label_w": 39.87, "label_side": "left", "show": "full", "rows": [
+    {"label": ["BSS"], "cells": "X X X _ _ _"},
+    {"label": ["SPA"], "cells": "X X s _ _. _"},
+    {"label": ["SXP"], "cells": "X X X s _. _"}]},
+  {"id": "b4", "type": "text", "x": 136.42, "y": 8.39, "w": 134.25, "h": 56.28, "text": "", "boxed": true, "show": "full"},
+  {"id": "t5", "type": "text", "x": 181.03, "y": 14.66, "w": 35.4, "h": 5.04, "text": "LR SELF TEST", "underline": true, "show": "full"},
+  {"id": "t6", "type": "text", "x": 137.22, "y": 21.04, "w": 62.4, "h": 5.04, "text": "H TM (               )", "align": "left", "show": "full"},
+  {"id": "lr_h", "type": "line", "x": 183.28, "y": 20.8, "w": 28.74, "h": 5, "solid": true, "show": "full"},
+  {"id": "t7", "type": "text", "x": 137.22, "y": 26.28, "w": 59.7, "h": 5.04, "text": "Ḣ TM (              )", "align": "left", "show": "full"},
+  {"id": "lr_hdot", "type": "line", "x": 182.94, "y": 26.04, "w": 28.58, "h": 5, "solid": true, "show": "full"},
+  {"id": "t8", "type": "text", "x": 137.22, "y": 31.38, "w": 92.1, "h": 5.04, "text": "N66 SLANTRNG (                  )", "align": "left", "show": "full"},
+  {"id": "lr_slant", "type": "line", "x": 208.7, "y": 31.15, "w": 34.06, "h": 5, "solid": true, "show": "full"},
+  {"id": "t9", "type": "text", "x": 137.22, "y": 37.62, "w": 78.6, "h": 5.04, "text": "N67  VX (                  )", "align": "left", "show": "full"},
+  {"id": "lr_vx", "type": "line", "x": 183.77, "y": 37.38, "w": 29.08, "h": 5, "solid": true, "show": "full"},
+  {"id": "t10", "type": "text", "x": 148.51, "y": 43.43, "w": 65.1, "h": 5.04, "text": "VY (                  )", "align": "left", "show": "full"},
+  {"id": "lr_vy", "type": "line", "x": 183.77, "y": 43.2, "w": 28.58, "h": 5, "solid": true, "show": "full"},
+  {"id": "t11", "type": "text", "x": 148.51, "y": 49.67, "w": 65.1, "h": 5.04, "text": "VZ (                  )", "align": "left", "show": "full"},
+  {"id": "lr_vz", "type": "line", "x": 183.77, "y": 49.43, "w": 28.58, "h": 5, "solid": true, "show": "full"},
+  {"id": "b12", "type": "text", "x": 136.42, "y": 64.67, "w": 134.25, "h": 51.03, "text": "", "boxed": true, "show": "full"},
+  {"id": "t13", "type": "text", "x": 189.23, "y": 71.36, "w": 27.3, "h": 5.04, "text": "RR/TM/VHF", "underline": true, "show": "full"},
+  {"id": "b14", "type": "text", "x": 170.98, "y": 77.43, "w": 9.97, "h": 8.78, "text": "R_{1}", "boxed": true, "show": "full"},
+  {"id": "b15", "type": "text", "x": 198.39, "y": 77.43, "w": 10.31, "h": 8.78, "text": "R_{2}", "boxed": true, "show": "full"},
+  {"id": "b16", "type": "text", "x": 226.97, "y": 77.43, "w": 9.97, "h": 8.78, "text": "Ṙ", "boxed": true, "show": "full"},
+  {"id": "t17", "type": "text", "x": 151.01, "y": 89.08, "w": 11.1, "h": 5.04, "text": "N78", "align": "left", "show": "full"},
+  {"id": "rr_n78_1", "type": "line", "x": 161.68, "y": 88.84, "w": 26.58, "h": 5, "solid": true, "show": "full"},
+  {"id": "rr_n78_2", "type": "line", "x": 190.09, "y": 88.84, "w": 26.41, "h": 5, "solid": true, "show": "full"},
+  {"id": "rr_n78_3", "type": "line", "x": 218.33, "y": 88.84, "w": 27.25, "h": 5, "solid": true, "show": "full"},
+  {"id": "t18", "type": "text", "x": 151.01, "y": 95.04, "w": 8.4, "h": 5.04, "text": "TM", "align": "left", "show": "full"},
+  {"id": "rr_tm_1", "type": "line", "x": 161.68, "y": 94.8, "w": 26.58, "h": 5, "solid": true, "show": "full"},
+  {"id": "rr_tm_2", "type": "line", "x": 190.09, "y": 94.8, "w": 26.41, "h": 5, "solid": true, "show": "full"},
+  {"id": "rr_tm_3", "type": "line", "x": 218.33, "y": 94.8, "w": 27.25, "h": 5, "solid": true, "show": "full"},
+  {"id": "t19", "type": "text", "x": 151.01, "y": 100.99, "w": 11.1, "h": 5.04, "text": "CMC", "align": "left", "show": "full"},
+  {"id": "rr_cmc_1", "type": "line", "x": 161.68, "y": 100.75, "w": 26.58, "h": 5, "solid": true, "show": "full"},
+  {"id": "rr_cmc_2", "type": "line", "x": 190.09, "y": 100.75, "w": 26.41, "h": 5, "solid": true, "show": "full"},
+  {"id": "rr_cmc_3", "type": "line", "x": 218.33, "y": 100.75, "w": 27.25, "h": 5, "solid": true, "show": "full"},
+  {"id": "t20", "type": "text", "x": 151.01, "y": 106.94, "w": 11.1, "h": 5.04, "text": "VHF", "align": "left", "show": "full"},
+  {"id": "rr_vhf_1", "type": "line", "x": 161.68, "y": 106.71, "w": 26.58, "h": 5, "solid": true, "show": "full"},
+  {"id": "rr_vhf_2", "type": "line", "x": 190.09, "y": 106.71, "w": 26.41, "h": 5, "solid": true, "show": "full"},
+  {"id": "b21", "type": "text", "x": 136.42, "y": 115.7, "w": 134.25, "h": 42.81, "text": "", "boxed": true, "show": "full"},
+  {"id": "b22", "type": "text", "x": 136.42, "y": 115.7, "w": 21.6, "h": 6.66, "text": "P52", "boxed": true, "show": "full"},
+  {"id": "t23", "type": "text", "x": 164.3, "y": 118.14, "w": 13.8, "h": 5.04, "text": "STAR", "align": "left", "show": "full"},
+  {"id": "t24", "type": "text", "x": 195.87, "y": 118.14, "w": 5.7, "h": 5.04, "text": "1", "align": "left", "show": "full"},
+  {"id": "p52_star1", "type": "line", "x": 201.22, "y": 117.91, "w": 17.44, "h": 5, "solid": true, "show": "full"},
+  {"id": "t25", "type": "text", "x": 220.29, "y": 118.14, "w": 5.7, "h": 5.04, "text": "2", "align": "left", "show": "full"},
+  {"id": "p52_star2", "type": "line", "x": 224.48, "y": 117.91, "w": 17.11, "h": 5, "solid": true, "show": "full"},
+  {"id": "t26", "type": "text", "x": 243.22, "y": 118.14, "w": 5.7, "h": 5.04, "text": "3", "align": "left", "show": "full"},
+  {"id": "p52_star3", "type": "line", "x": 248.07, "y": 117.91, "w": 17.28, "h": 5, "solid": true, "show": "full"},
+  {"id": "t27", "type": "text", "x": 164.3, "y": 123.81, "w": 48.9, "h": 5.04, "text": "N05 (STAR ∡ DIFF)", "align": "left", "show": "full"},
+  {"id": "p52_n05", "type": "line", "x": 204.87, "y": 124.14, "w": 55.83, "h": 5, "solid": true, "show": "full"},
+  {"id": "t28", "type": "text", "x": 163.8, "y": 135.44, "w": 46.2, "h": 5.04, "text": "N93 (TORQUING ∡)", "align": "left", "show": "full"},
+  {"id": "t29", "type": "text", "x": 212.98, "y": 135.58, "w": 5.7, "h": 5.04, "text": "X", "align": "left", "show": "full"},
+  {"id": "p52_x", "type": "line", "x": 217.83, "y": 135.63, "w": 28.25, "h": 5, "solid": true, "show": "full"},
+  {"id": "t30", "type": "text", "x": 212.98, "y": 141.53, "w": 5.7, "h": 5.04, "text": "Y", "align": "left", "show": "full"},
+  {"id": "p52_y", "type": "line", "x": 217.83, "y": 141.58, "w": 28.25, "h": 5, "solid": true, "show": "full"},
+  {"id": "t31", "type": "text", "x": 212.98, "y": 147.2, "w": 5.7, "h": 5.04, "text": "Z", "align": "left", "show": "full"},
+  {"id": "p52_z", "type": "line", "x": 217.83, "y": 147.25, "w": 28.25, "h": 5, "solid": true, "show": "full"},
+  {"id": "t32", "type": "text", "x": 136.88, "y": 147.91, "w": 11.1, "h": 5.04, "text": "GET", "align": "left", "show": "full"},
+  {"id": "p52_get_h", "type": "line", "x": 146.72, "y": 147.96, "w": 8.64, "h": 5, "solid": true, "show": "full"},
+  {"id": "t33", "type": "text", "x": 154.01, "y": 147.91, "w": 5.7, "h": 5.04, "text": ":", "show": "full"},
+  {"id": "p52_get_m", "type": "line", "x": 158.35, "y": 147.96, "w": 8.31, "h": 5, "solid": true, "show": "full"},
+  {"id": "t34", "type": "text", "x": 165.14, "y": 147.91, "w": 5.7, "h": 5.04, "text": ":", "show": "full"},
+  {"id": "p52_get_s", "type": "line", "x": 169.32, "y": 147.96, "w": 11.13, "h": 5, "solid": true, "show": "full"},
+  {"id": "b35", "type": "text", "x": 135.59, "y": 158.51, "w": 135.08, "h": 29.49, "text": "", "boxed": true, "show": "full"},
+  {"id": "t36", "type": "text", "x": 199.2, "y": 158.4, "w": 27.3, "h": 5.04, "text": "RESIDUALS", "underline": true, "show": "full"},
+  {"id": "b37", "type": "text", "x": 183.28, "y": 163.48, "w": 40.37, "h": 5.67, "text": "PGNS", "boxed": true, "move": [-4.15, -150.27]},
+  {"id": "b38", "type": "text", "x": 223.65, "y": 163.48, "w": 40.7, "h": 5.67, "text": "AGS", "boxed": true, "show": "full"},
+  {"id": "b39", "type": "text", "x": 142.24, "y": 169.15, "w": 41.04, "h": 17.43, "text": "", "boxed": true, "move": [-4.15, -150.27]},
+  {"id": "t40", "type": "text", "x": 143.2, "y": 169.6, "w": 11.1, "h": 5.04, "text": "ΔVX", "align": "left", "move": [-4.15, -150.27]},
+  {"id": "t41", "type": "text", "x": 143.2, "y": 175.27, "w": 11.1, "h": 5.04, "text": "ΔVY", "align": "left", "move": [-4.15, -150.27]},
+  {"id": "t42", "type": "text", "x": 143.2, "y": 180.94, "w": 11.1, "h": 5.04, "text": "ΔVZ", "align": "left", "move": [-4.15, -150.27]},
+  {"id": "n85", "type": "reg", "x": 183.28, "y": 169.15, "cols": 1, "cell_w": 6.853, "row_h": 5.81, "label_w": 12.96, "label_side": "left", "move": [-4.15, -150.27], "rows": [
+    {"label": [""], "noun": "N85", "cells": "s _ _. _", "mark": "D"},
+    {"label": ["N85"], "noun": "N85", "cells": "s _ _. _", "mark": "D"},
+    {"label": [""], "noun": "N85", "cells": "s _ _. _", "mark": "D"}]},
+  {"id": "ags", "type": "reg", "x": 223.65, "y": 169.15, "cols": 1, "cell_w": 6.853, "row_h": 5.81, "label_w": 13.29, "label_side": "left", "show": "full", "rows": [
+    {"label": ["500"], "cells": "s _ _. _"},
+    {"label": ["501"], "cells": "s _ _. _"},
+    {"label": ["502"], "cells": "s _ _. _"}]},
+  {"id": "b43", "type": "text", "x": 29.26, "y": 152.56, "w": 77.59, "h": 22.26, "text": "", "boxed": true, "move": [108.82, -113.69]},
+  {"id": "t44", "type": "text", "x": 54.58, "y": 152.45, "w": 41.4, "h": 4.48, "text": "MANUAL SHUT-DOWN", "underline": true, "size": 3.2, "move": [108.82, -113.69]},
+  {"id": "t45", "type": "text", "x": 43.35, "y": 155.99, "w": 55.8, "h": 4.48, "text": "A. ΔVG NEGATIVE (PGNS)", "align": "left", "size": 3.2, "move": [108.82, -113.69]},
+  {"id": "t46", "type": "text", "x": 29.22, "y": 159.53, "w": 7.8, "h": 4.48, "text": "OR", "align": "left", "size": 3.2, "move": [108.82, -113.69]},
+  {"id": "t47", "type": "text", "x": 43.35, "y": 163.79, "w": 72.6, "h": 4.48, "text": "B. V_{T}: 2 SECONDS OVER BURN", "align": "left", "size": 3.2, "move": [108.82, -113.69]},
+  {"id": "t48", "type": "text", "x": 62.47, "y": 167.47, "w": 15.0, "h": 4.48, "text": "-AND-", "size": 3.2, "move": [108.82, -113.69]},
+  {"id": "t49", "type": "text", "x": 49.16, "y": 170.73, "w": 46.2, "h": 4.48, "text": "AGS VGX 2 FPS OVER", "align": "left", "size": 3.2, "move": [108.82, -113.69]},
+  {"id": "b50", "type": "text", "x": 29.26, "y": 174.82, "w": 77.59, "h": 10.77, "text": "", "boxed": true, "move": [108.82, -113.69]},
+  {"id": "t51", "type": "text", "x": 50.47, "y": 175.41, "w": 39.0, "h": 4.48, "text": "MANUAL TAKEOVER", "underline": true, "size": 3.2, "move": [108.82, -113.69]},
+  {"id": "t52", "type": "text", "x": 43.14, "y": 179.66, "w": 51.0, "h": 4.48, "text": "ATT±5°   RATE±5°/sec", "size": 3.2, "move": [108.82, -113.69]},
+  {"id": "short1", "type": "shade", "x": 139.75, "y": 158.51, "w": 87.23, "h": 29.49, "show": "short", "move": [-4.15, -150.27]},
+  {"id": "short2", "type": "text", "x": 189.73, "y": 158.4, "w": 27.3, "h": 5.04, "text": "RESIDUALS", "underline": true, "show": "short", "move": [-4.15, -150.27]}
+]},
+{"id": "pdi", "title": "PDI Data Card", "page": 80, "shape": "landscape", "size": 3.7, "short_size": [277, 52.04], "note": "When: before P63 (manual 3.6). The planner window shows the PDI time in game time (UT): write it in if you want it.", "blocks": [
+  {"id": "s1", "type": "shade", "x": 5.0, "y": 92.76, "w": 120.5, "h": 19.27, "show": "full"},
+  {"id": "s2", "type": "shade", "x": 151.18, "y": 152.35, "w": 120.82, "h": 36.15, "show": "full"},
+  {"id": "t3", "type": "text", "x": 122.29, "y": 1.34, "w": 32.25, "h": 4.2, "text": "PDI DATA CARD", "size": 3.0},
+  {"id": "tig", "type": "reg", "x": 5.0, "y": 4.79, "cols": 2, "cell_w": 6.761, "row_h": 6.323, "label_w": 39.85, "label_side": "left", "title": "PDI PAD", "title_h": 13.44, "rows": [
+    {"label": ["HRS", "TIG", ""], "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "PDI", ""], "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "cells": "+ 0 _ _. _ _"}]},
+  {"id": "tgo", "type": "reg", "x": 5.0, "y": 37.2, "cols": 2, "cell_w": 6.761, "row_h": 6.42, "label_w": 39.85, "label_side": "left", "rows": [
+    {"label": ["TGO", "N61", ""], "noun": "N61", "cells": "X X _ _: _ _", "mark": "D"},
+    {"label": ["CROSSRANGE"], "noun": "N61", "cells": "s _ _ _ _. _", "mark": "D"}]},
+  {"id": "fdai", "type": "reg", "x": 5.0, "y": 50.04, "cols": 2, "cell_w": 6.761, "row_h": 6.473, "label_w": 39.85, "label_side": "left", "show": "full", "rows": [
+    {"label": ["R", "FDAI", ""], "cells": "X X X _ _ _"},
+    {"label": ["P", "AT TIG", ""], "cells": "X X X _ _ _"},
+    {"label": ["Y"], "cells": "X X X _ _ _"}]},
+  {"id": "deda", "type": "reg", "x": 5.0, "y": 69.46, "cols": 2, "cell_w": 6.761, "row_h": 6.72, "label_w": 39.85, "label_side": "left", "show": "full", "rows": [
+    {"label": ["DEDA 231 IF RQD"], "cells": "s _ _ _ _ _"}]},
+  {"id": "early", "type": "reg", "x": 5.0, "y": 86.19, "cols": 2, "cell_w": 6.76, "row_h": 6.47, "label_w": 39.38, "label_side": "left", "title": "PDI ABORT < 10 MIN", "title_h": 25.84, "title_top": true, "show": "full", "rows": [
+    {"label": ["HRS", "N37", ""], "noun": "N37", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "TPI", ""], "noun": "N37", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N37", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "b4", "type": "text", "x": 5.0, "y": 92.76, "w": 120.5, "h": 19.27, "text": "", "boxed": true, "move": [146.18, -81.25]},
+  {"id": "t5", "type": "text", "x": 4.59, "y": 93.6, "w": 52.95, "h": 5.18, "text": "LOG INSERTION GET=", "align": "left", "move": [146.18, -81.25]},
+  {"id": "log_h", "type": "line", "x": 48.32, "y": 93.54, "w": 17.8, "h": 5, "move": [146.18, -81.25]},
+  {"id": "t6", "type": "text", "x": 64.65, "y": 93.6, "w": 5.78, "h": 5.18, "text": ":", "move": [146.18, -81.25]},
+  {"id": "log_m", "type": "line", "x": 69.11, "y": 93.54, "w": 10.71, "h": 5, "move": [146.18, -81.25]},
+  {"id": "t7", "type": "text", "x": 78.19, "y": 93.6, "w": 5.78, "h": 5.18, "text": ":", "move": [146.18, -81.25]},
+  {"id": "log_s", "type": "line", "x": 82.66, "y": 93.54, "w": 10.87, "h": 5, "move": [146.18, -81.25]},
+  {"id": "t8", "type": "text", "x": 39.92, "y": 98.83, "w": 5.78, "h": 5.18, "text": "+", "move": [146.18, -81.25]},
+  {"id": "t9", "type": "text", "x": 69.06, "y": 98.83, "w": 5.78, "h": 5.18, "text": "5", "underline": true, "move": [146.18, -81.25]},
+  {"id": "t10", "type": "text", "x": 75.67, "y": 98.83, "w": 5.78, "h": 5.18, "text": "0", "underline": true, "move": [146.18, -81.25]},
+  {"id": "t11", "type": "text", "x": 82.45, "y": 98.83, "w": 5.78, "h": 5.18, "text": "0", "underline": true, "move": [146.18, -81.25]},
+  {"id": "t12", "type": "text", "x": 89.06, "y": 98.83, "w": 5.78, "h": 5.18, "text": "0", "underline": true, "move": [146.18, -81.25]},
+  {"id": "t13", "type": "text", "x": 78.51, "y": 98.83, "w": 5.78, "h": 5.18, "text": ":", "move": [146.18, -81.25]},
+  {"id": "t14", "type": "text", "x": 27.43, "y": 104.96, "w": 25.2, "h": 5.18, "text": "CSI TIG=", "align": "left", "move": [146.18, -81.25]},
+  {"id": "csi_h", "type": "line", "x": 48.32, "y": 104.89, "w": 17.8, "h": 5, "move": [146.18, -81.25]},
+  {"id": "t15", "type": "text", "x": 64.65, "y": 104.96, "w": 5.78, "h": 5.18, "text": ":", "move": [146.18, -81.25]},
+  {"id": "csi_m", "type": "line", "x": 69.11, "y": 104.89, "w": 10.71, "h": 5, "move": [146.18, -81.25]},
+  {"id": "t16", "type": "text", "x": 78.19, "y": 104.96, "w": 5.78, "h": 5.18, "text": ":", "move": [146.18, -81.25]},
+  {"id": "csi_s", "type": "line", "x": 82.66, "y": 104.89, "w": 10.87, "h": 5, "move": [146.18, -81.25]},
+  {"id": "phasing", "type": "reg", "x": 5.0, "y": 141.45, "cols": 2, "cell_w": 6.76, "row_h": 6.323, "label_w": 39.38, "label_side": "left", "title": "PDI ABORT > 10 MIN", "title_h": 6.42, "show": "full", "rows": [
+    {"label": ["HRS"], "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN"], "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC", "PHASING TIG"], "cells": "+ 0 _ _. _ _"}]},
+  {"id": "late_tpi", "type": "reg", "x": 5.0, "y": 166.84, "cols": 2, "cell_w": 6.76, "row_h": 6.573, "label_w": 39.38, "label_side": "left", "show": "full", "rows": [
+    {"label": ["HRS", "N37", ""], "noun": "N37", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "TPI", ""], "noun": "N37", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N37", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "n33", "type": "reg", "x": 151.18, "y": 4.79, "cols": 2, "cell_w": 6.76, "row_h": 6.173, "label_w": 39.7, "label_side": "left", "title": "NO PDI +12 ABORT", "title_h": 13.14, "show": "full", "rows": [
+    {"label": ["HR", "N33", ""], "noun": "N33", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "TIG", ""], "noun": "N33", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N33", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "n81", "type": "reg", "x": 151.18, "y": 36.45, "cols": 2, "cell_w": 6.76, "row_h": 6.473, "label_w": 39.7, "label_side": "left", "show": "full", "rows": [
+    {"label": ["ΔVX", "N81", ""], "noun": "N81", "cells": "s _ _ _ _. _"},
+    {"label": ["ΔVY", "LOCAL", ""], "noun": "N81", "cells": "s _ _ _ _. _"},
+    {"label": ["ΔVZ", "VERT", ""], "noun": "N81", "cells": "s _ _ _ _. _"}]},
+  {"id": "n42", "type": "reg", "x": 151.18, "y": 55.87, "cols": 2, "cell_w": 6.76, "row_h": 6.323, "label_w": 39.7, "label_side": "left", "show": "full", "rows": [
+    {"label": ["H_{A}", "N42", ""], "noun": "N42", "cells": ["+ _ _ _ _. _", "_ _ _ _ _. _"]},
+    {"label": ["H_{P}"], "noun": "N42", "cells": "s _ _ _ _. _"},
+    {"label": ["ΔVR"], "noun": "N42", "cells": "+ _ _ _ _. _"}]},
+  {"id": "bt", "type": "reg", "x": 151.18, "y": 74.84, "cols": 2, "cell_w": 6.76, "row_h": 6.57, "label_w": 39.7, "label_side": "left", "show": "full", "rows": [
+    {"label": ["BT"], "cells": "X X X _: _ _"}]},
+  {"id": "inertial", "type": "reg", "x": 151.18, "y": 81.41, "cols": 2, "cell_w": 6.76, "row_h": 6.495, "label_w": 39.7, "label_side": "left", "show": "full", "rows": [
+    {"label": ["R", "FDAI", ""], "cells": "X X X _ _ _"},
+    {"label": ["P", "INER", ""], "cells": "X X X _ _ _"}]},
+  {"id": "n86", "type": "reg", "x": 151.18, "y": 94.4, "cols": 2, "cell_w": 6.76, "row_h": 6.473, "label_w": 39.7, "label_side": "left", "show": "full", "rows": [
+    {"label": ["ΔVX AGS N86"], "noun": "N86", "cells": "s _ _ _ _. _"},
+    {"label": ["ΔVY AGS"], "noun": "N86", "cells": "s _ _ _ _. _"},
+    {"label": ["ΔVZ AGS"], "noun": "N86", "cells": "s _ _ _ _. _"}]},
+  {"id": "n11", "type": "reg", "x": 151.18, "y": 113.82, "cols": 2, "cell_w": 6.76, "row_h": 6.473, "label_w": 39.7, "label_side": "left", "show": "full", "rows": [
+    {"label": ["HRS", "N11", ""], "noun": "N11", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "CSI", ""], "noun": "N11", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N11", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "n37", "type": "reg", "x": 151.18, "y": 133.24, "cols": 2, "cell_w": 6.76, "row_h": 6.37, "label_w": 39.7, "label_side": "left", "show": "full", "rows": [
+    {"label": ["HRS", "N37", ""], "noun": "N37", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "TPI", ""], "noun": "N37", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N37", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "t17", "type": "text", "x": 152.66, "y": 159.47, "w": 36.3, "h": 5.18, "text": "R2 SUN CHECK", "align": "left", "show": "full"},
+  {"id": "t18", "type": "text", "x": 152.66, "y": 163.95, "w": 11.33, "h": 5.18, "text": "N22", "align": "left", "show": "full"},
+  {"id": "sun_n22", "type": "line", "x": 162.52, "y": 164.03, "w": 16.07, "h": 5, "show": "full"},
+  {"id": "t19", "type": "text", "x": 179.44, "y": 163.95, "w": 11.33, "h": 5.18, "text": "N20", "align": "left", "show": "full"},
+  {"id": "sun_n20_1", "type": "line", "x": 189.77, "y": 164.03, "w": 16.39, "h": 5, "show": "full"},
+  {"id": "sun_n20_2", "type": "line", "x": 189.77, "y": 168.37, "w": 16.39, "h": 5, "show": "full"},
+  {"id": "sun_n20_3", "type": "line", "x": 189.77, "y": 172.7, "w": 16.39, "h": 5, "show": "full"},
+  {"id": "short1", "type": "shade", "x": 5.0, "y": 92.76, "w": 120.5, "h": 19.27, "show": "short", "move": [146.18, -81.25]},
+  {"id": "m1", "type": "text", "x": 151.18, "y": 4.79, "w": 120.5, "h": 6.72, "text": "PDI ABORT < 10 MIN", "boxed": true, "show": "short"}
+]},
+{"id": "surface", "title": "Lunar Surface Data Card", "page": 84, "shape": "landscape", "size": 3.7, "note": "When: after landing, for P68 and P12 (manual 3.8). You can copy the ascent PAD's lift-off, CSI and TPI into the T 3 table.", "short_size": [277, 131.55], "blocks": [
+  {"id": "s1", "type": "shade", "x": 5.0, "y": 90.31, "w": 142.18, "h": 98.19, "show": "full"},
+  {"id": "s2", "type": "shade", "x": 147.18, "y": 107.24, "w": 124.82, "h": 81.26, "show": "full"},
+  {"id": "t3", "type": "text", "x": 110.03, "y": 0.91, "w": 66.83, "h": 5.18, "text": "LUNAR SURFACE DATA CARD", "underline": true},
+  {"id": "b4", "type": "text", "x": 139.18, "y": 6.58, "w": 0.0, "h": 181.92, "text": "", "boxed": true, "show": "full"},
+  {"id": "t2_tig", "type": "reg", "x": 5.0, "y": 6.58, "cols": 2, "cell_w": 6.825, "row_h": 6.26, "label_w": 41.55, "label_side": "left", "title": "T 2 ABORT", "title_h": 8.46, "show": "full", "rows": [
+    {"label": ["HR", "T2", ""], "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "TIG", ""], "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "cells": "+ 0 _ _. _ _"}]},
+  {"id": "phasing", "type": "reg", "x": 5.0, "y": 33.82, "cols": 2, "cell_w": 6.825, "row_h": 6.26, "label_w": 41.55, "label_side": "left", "show": "full", "rows": [
+    {"label": ["HR", "N33", ""], "noun": "N33", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "PHASING", ""], "noun": "N33", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC", "TIG", ""], "noun": "N33", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "csi", "type": "reg", "x": 5.0, "y": 52.6, "cols": 2, "cell_w": 6.825, "row_h": 6.257, "label_w": 41.55, "label_side": "left", "show": "full", "rows": [
+    {"label": ["HRS", "N11", ""], "noun": "N11", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "CSI_{1}", ""], "noun": "N11", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N11", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "tpi", "type": "reg", "x": 5.0, "y": 71.37, "cols": 2, "cell_w": 6.825, "row_h": 6.313, "label_w": 41.55, "label_side": "left", "show": "full", "rows": [
+    {"label": ["HRS", "N37", ""], "noun": "N37", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "TPI", ""], "noun": "N37", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N37", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "t3_tig", "type": "reg", "x": 147.18, "y": 6.58, "cols": 2, "cell_w": 6.925, "row_h": 6.21, "label_w": 41.72, "label_side": "left", "title": "T 3 ABORT", "title_h": 6.92, "rows": [
+    {"label": ["HRS", "T3", ""], "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "TIG", ""], "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "cells": "+ 0 _ _. _ _"}]},
+  {"id": "period", "type": "reg", "x": 147.18, "y": 32.13, "cols": 2, "cell_w": 6.925, "row_h": 6.207, "label_w": 41.72, "label_side": "left", "show": "full", "rows": [
+    {"label": ["HRS", "CSM", ""], "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "PERIOD", ""], "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "cells": "+ 0 _ _. _ _"}]},
+  {"id": "pdt", "type": "reg", "x": 147.18, "y": 50.75, "cols": 2, "cell_w": 6.925, "row_h": 6.157, "label_w": 41.72, "label_side": "left", "show": "full", "rows": [
+    {"label": ["HRS"], "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "P+ΔT", ""], "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "cells": "+ 0 _ _. _ _"}]},
+  {"id": "t3_csi", "type": "reg", "x": 147.18, "y": 69.22, "cols": 2, "cell_w": 6.925, "row_h": 6.36, "label_w": 41.72, "label_side": "left", "move": [0, -37.09], "rows": [
+    {"label": ["HRS", "N11", ""], "noun": "N11", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "CSI TIG", ""], "noun": "N11", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N11", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "t3_tpi", "type": "reg", "x": 147.18, "y": 88.3, "cols": 2, "cell_w": 6.925, "row_h": 6.26, "label_w": 41.72, "label_side": "left", "move": [0, -37.09], "rows": [
+    {"label": ["HRS", "N37", ""], "noun": "N37", "cells": "+ 0 0 _ _ _"},
+    {"label": ["MIN", "TPI", ""], "noun": "N37", "cells": "+ 0 0 0 _ _"},
+    {"label": ["SEC"], "noun": "N37", "cells": "+ 0 _ _. _ _"}]},
+  {"id": "b5", "type": "text", "x": 5.0, "y": 98.92, "w": 16.35, "h": 6.01, "text": "P68", "boxed": true, "move": [0, -92.35]},
+  {"id": "t6", "type": "text", "x": 13.34, "y": 107.11, "w": 11.33, "h": 5.18, "text": "N43", "align": "left", "move": [0, -92.35]},
+  {"id": "p68_lat", "type": "line", "x": 24.24, "y": 107.71, "w": 52.79, "h": 5, "noun": "N43", "mark": ".", "mark_at": 0.65, "move": [0, -92.35]},
+  {"id": "t7", "type": "text", "x": 79.75, "y": 107.26, "w": 11.33, "h": 5.18, "text": "LAT", "align": "left", "move": [0, -92.35]},
+  {"id": "p68_long", "type": "line", "x": 24.24, "y": 115.41, "w": 52.79, "h": 5, "noun": "N43", "mark": ".", "mark_at": 0.65, "move": [0, -92.35]},
+  {"id": "t8", "type": "text", "x": 79.75, "y": 114.96, "w": 14.1, "h": 5.18, "text": "LONG", "align": "left", "move": [0, -92.35]},
+  {"id": "p68_alt", "type": "line", "x": 24.24, "y": 123.11, "w": 52.79, "h": 5, "noun": "N43", "mark": ".", "mark_at": 0.83, "move": [0, -92.35]},
+  {"id": "t9", "type": "text", "x": 79.75, "y": 122.65, "w": 11.33, "h": 5.18, "text": "ALT", "align": "left", "move": [0, -92.35]},
+  {"id": "b10", "type": "text", "x": 5.0, "y": 131.09, "w": 16.35, "h": 6.0, "text": "P12", "boxed": true, "move": [0, -92.35]},
+  {"id": "t11", "type": "text", "x": 13.34, "y": 136.66, "w": 11.33, "h": 5.18, "text": "N76", "align": "left", "move": [0, -92.35]},
+  {"id": "t2_vhor", "type": "line", "x": 24.75, "y": 136.8, "w": 52.28, "h": 5, "noun": "N76", "mark": ".", "mark_at": 0.83, "move": [0, -92.35]},
+  {"id": "t12", "type": "text", "x": 79.75, "y": 136.2, "w": 22.43, "h": 5.18, "text": "V (HOR)", "align": "left", "move": [0, -92.35]},
+  {"id": "t13", "type": "text", "x": 110.74, "y": 136.2, "w": 36.3, "h": 5.18, "text": "(          )", "align": "left", "move": [0, -92.35]},
+  {"id": "t2_vvert", "type": "line", "x": 24.75, "y": 144.65, "w": 52.28, "h": 5, "noun": "N76", "mark": ".", "mark_at": 0.83, "move": [0, -92.35]},
+  {"id": "t14", "type": "text", "x": 79.75, "y": 144.05, "w": 25.2, "h": 5.18, "text": "V (VERT)", "align": "left", "move": [0, -92.35]},
+  {"id": "t15", "type": "text", "x": 110.74, "y": 144.05, "w": 36.3, "h": 5.18, "text": "(          )", "align": "left", "move": [0, -92.35]},
+  {"id": "t2_cross", "type": "line", "x": 24.75, "y": 152.35, "w": 52.28, "h": 5, "noun": "N76", "mark": ".", "mark_at": 0.83, "move": [0, -92.35]},
+  {"id": "t16", "type": "text", "x": 79.75, "y": 151.74, "w": 30.75, "h": 5.18, "text": "CROSSRANGE", "align": "left", "move": [0, -92.35]},
+  {"id": "t17", "type": "text", "x": 110.74, "y": 151.74, "w": 36.3, "h": 5.18, "text": "(          )", "align": "left", "move": [0, -92.35]},
+  {"id": "t18", "type": "text", "x": 6.52, "y": 161.28, "w": 116.78, "h": 5.18, "text": "NOTE:  IF CROSSRANGE >8 N.M., LOAD 8 N.M.", "align": "left", "move": [0, -92.35]},
+  {"id": "t19", "type": "text", "x": 13.68, "y": 171.29, "w": 11.33, "h": 5.18, "text": "N74", "align": "left", "move": [0, -92.35]},
+  {"id": "t2_yaw", "type": "line", "x": 24.75, "y": 171.59, "w": 52.28, "h": 5, "noun": "N74", "mark": ".", "mark_at": 0.83, "move": [0, -92.35]},
+  {"id": "t20", "type": "text", "x": 79.75, "y": 170.98, "w": 11.33, "h": 5.18, "text": "YAW", "align": "left", "move": [0, -92.35]},
+  {"id": "t2_pitch", "type": "line", "x": 24.75, "y": 179.59, "w": 52.28, "h": 5, "noun": "N74", "move": [0, -92.35]},
+  {"id": "t21", "type": "text", "x": 79.75, "y": 179.29, "w": 16.88, "h": 5.18, "text": "PITCH", "align": "left", "move": [0, -92.35]},
+  {"id": "b22", "type": "text", "x": 147.18, "y": 117.39, "w": 14.99, "h": 5.85, "text": "P12", "boxed": true, "move": [0, -41.25]},
+  {"id": "t23", "type": "text", "x": 152.8, "y": 124.65, "w": 11.33, "h": 5.18, "text": "N76", "align": "left", "move": [0, -41.25]},
+  {"id": "t3_vhor", "type": "line", "x": 163.87, "y": 124.95, "w": 48.53, "h": 5, "noun": "N76", "mark": ".", "mark_at": 0.81, "move": [0, -41.25]},
+  {"id": "t24", "type": "text", "x": 217.16, "y": 124.35, "w": 22.43, "h": 5.18, "text": "V (HOR)", "align": "left", "move": [0, -41.25]},
+  {"id": "t25", "type": "text", "x": 247.3, "y": 124.35, "w": 29.7, "h": 5.18, "text": "(          )", "align": "left", "move": [0, -41.25]},
+  {"id": "t3_vvert", "type": "line", "x": 163.87, "y": 132.49, "w": 48.53, "h": 5, "noun": "N76", "mark": ".", "mark_at": 0.81, "move": [0, -41.25]},
+  {"id": "t26", "type": "text", "x": 217.16, "y": 131.89, "w": 25.2, "h": 5.18, "text": "V (VERT)", "align": "left", "move": [0, -41.25]},
+  {"id": "t27", "type": "text", "x": 247.3, "y": 131.89, "w": 29.7, "h": 5.18, "text": "(          )", "align": "left", "move": [0, -41.25]},
+  {"id": "t3_cross", "type": "line", "x": 163.87, "y": 140.04, "w": 48.53, "h": 5, "noun": "N76", "mark": ".", "mark_at": 0.81, "move": [0, -41.25]},
+  {"id": "t28", "type": "text", "x": 217.16, "y": 139.43, "w": 30.75, "h": 5.18, "text": "CROSSRANGE", "align": "left", "move": [0, -41.25]},
+  {"id": "t29", "type": "text", "x": 247.3, "y": 139.43, "w": 29.7, "h": 5.18, "text": "(          )", "align": "left", "move": [0, -41.25]},
+  {"id": "t30", "type": "text", "x": 148.2, "y": 146.36, "w": 116.78, "h": 5.18, "text": "NOTE:  IF CROSSRANGE >8 N.M., LOAD 8 N.M.", "align": "left", "move": [0, -41.25]},
+  {"id": "t31", "type": "text", "x": 150.75, "y": 154.82, "w": 11.33, "h": 5.18, "text": "N74", "align": "left", "move": [0, -41.25]},
+  {"id": "t3_yaw", "type": "line", "x": 164.38, "y": 155.43, "w": 47.51, "h": 5, "noun": "N74", "mark": ".", "mark_at": 0.63, "move": [0, -41.25]},
+  {"id": "t32", "type": "text", "x": 217.16, "y": 154.67, "w": 11.33, "h": 5.18, "text": "YAW", "align": "left", "move": [0, -41.25]},
+  {"id": "t3_pitch", "type": "line", "x": 164.38, "y": 162.66, "w": 47.51, "h": 5, "noun": "N74", "mark": ".", "mark_at": 0.63, "move": [0, -41.25]},
+  {"id": "t33", "type": "text", "x": 217.16, "y": 161.9, "w": 16.88, "h": 5.18, "text": "PITCH", "align": "left", "move": [0, -41.25]},
+  {"id": "m1", "type": "shade", "x": 5.0, "y": 6.58, "w": 134.18, "h": 88.81, "show": "short"},
+  {"id": "m2", "type": "shade", "x": 147.18, "y": 70.76, "w": 124.82, "h": 58.79, "show": "short"},
+  {"id": "m3", "type": "text", "x": 139.18, "y": 6.58, "w": 0.0, "h": 122.97, "text": "", "boxed": true, "show": "short"},
+  {"id": "m4", "type": "text", "x": 8.07, "y": 15.45, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m5", "type": "text", "x": 8.07, "y": 45.0, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m6", "type": "text", "x": 8.07, "y": 79.63, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m7", "type": "text", "x": 147.36, "y": 84.1, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m8", "type": "text", "x": 145.65, "y": 114.26, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"}
+]},
+{"id": "ascent", "title": "LM Ascent PAD", "page": 86, "shape": "portrait", "short_size": [190, 237], "note": "When: after planning the ascent, still on the surface (manual 3.10).", "prefill": {"ascent.n76.0.1.1": "0", "ascent.n76.1.1.1": {"210": "0"}, "ascent.n76.0.1.2": "0", "ascent.n76.1.1.2": {"210": "0"}, "ascent.n76.0.1.3": "3", "ascent.n76.1.1.3": {"210": "3"}, "ascent.n76.0.1.4": "2", "ascent.n76.1.1.4": {"210": "2"}, "ascent.n76.0.1.5": "2", "ascent.n76.1.1.5": {"210": "2"}}, "blocks": [
+  {"id": "heading", "type": "text", "x": 5, "y": 0, "w": 142, "h": 11.6, "text": "LM ASCENT PAD", "size": 5.4},
+  {"id": "tig", "type": "reg", "x": 5, "y": 12, "cols": 2, "cell_w": 10, "row_h": 10, "label_w": 59.8, "label_side": "right", "rows": [
+    {"label": ["HRS"], "noun": "N33", "cells": "+ 0 0 _ _ _", "mark": "P"},
+    {"label": ["MIN", "TIG", ""], "noun": "N33", "cells": "+ 0 0 0 _ _", "mark": "P"},
+    {"label": ["SEC"], "noun": "N33", "cells": "+ 0 _ _. _ _", "mark": "P"}]},
+  {"id": "n76", "type": "reg", "x": 5, "y": 42, "cols": 2, "cell_w": 10, "row_h": 9.7, "label_w": 59.8, "label_side": "right", "rows": [
+    {"label": ["V (HOR)"], "noun": "N76", "cells": "+ _ _ _ _. _", "mark": "P"},
+    {"label": ["V (VERT)   N76", ""], "noun": "N76", "cells": "+ _ _ _ _. _", "mark": "P"},
+    {"label": ["*CROSSRANGE"], "noun": "N76", "cells": "s 0 _ _ _. _", "mark": "P"}]},
+  {"id": "deda", "type": "reg", "x": 5, "y": 71.1, "cols": 2, "cell_w": 10, "row_h": 10, "label_w": 59.8, "label_side": "right", "ruled": true, "show": "full", "rows": [
+    {"label": ["    DEDA 047"], "cells": "_ _ _ _ _ _"},
+    {"label": ["    DEDA 053"], "cells": "_ _ _ _ _ _"},
+    {"label": ["    DEDA 225/226"], "cells": "_ _ _ _ _ _"},
+    {"label": ["    DEDA 231"], "cells": "_ _ _ _ _ _"}]},
+  {"id": "lower", "type": "text", "x": 5, "y": 111.1, "w": 179.8, "h": 165.6, "text": "", "boxed": true, "move": [0, -40]},
+  {"id": "note", "type": "text", "x": 5, "y": 112, "w": 179.8, "h": 7, "text": "*NOTE: LOAD 8 NM IF CROSSRANGE IS GREATER THAN 8 NM", "align": "left", "move": [0, -40]},
+  {"id": "comments", "type": "area", "x": 5, "y": 119, "w": 179.8, "h": 157.7, "label": "COMMENTS:", "move": [0, -40]},
+  {"id": "m1", "type": "text", "x": 38.3, "y": 80.9, "w": 3.4, "h": 3.8, "text": "P", "size": 2.7, "badge": true, "show": "short"}
+]},
+{"id": "csi", "title": "CSI Data Card", "page": 88, "shape": "landscape", "size": 3.4, "short_size": [277, 113.2], "note": "When: P32, after insertion (manual 3.12; on 210 only for the fallback). N90 comes from V90 (3.18).", "blocks": [
+  {"id": "s1", "type": "shade", "x": 118.98, "y": 18.75, "w": 154.02, "h": 98.8, "show": "full"},
+  {"id": "s2", "type": "shade", "x": 4.0, "y": 37.08, "w": 114.98, "h": 6.44, "show": "full"},
+  {"id": "s3", "type": "shade", "x": 4.0, "y": 92.92, "w": 114.98, "h": 6.02, "show": "full"},
+  {"id": "s4", "type": "shade", "x": 4.0, "y": 117.55, "w": 269.0, "h": 69.45, "show": "full"},
+  {"id": "b5", "type": "text", "x": 4.0, "y": 3.0, "w": 269.0, "h": 184.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b6", "type": "text", "x": 4.0, "y": 18.75, "w": 269.0, "h": 0.0, "text": "", "boxed": true, "move": [0, -8.5]},
+  {"id": "t7", "type": "text", "x": 118.42, "y": 13.22, "w": 36.15, "h": 4.76, "text": "CSI DATA CARD", "move": [0, -8.5]},
+  {"id": "n11", "type": "reg", "x": 4.77, "y": 18.75, "cols": 2, "cell_w": 6.61, "row_h": 6.11, "label_w": 34.89, "label_side": "left", "move": [0, -8.5], "rows": [
+    {"label": ["HR", "TIG", ""], "noun": "N11", "cells": "+ 0 0 _ _ _", "mark": "P"},
+    {"label": ["MIN", "CSI", "N11"], "noun": "N11", "cells": "+ 0 0 0 _ _", "mark": "P"},
+    {"label": ["SEC"], "noun": "N11", "cells": "+ 0 _ _. _ _", "mark": "P"}]},
+  {"id": "t8", "type": "text", "x": 8.18, "y": 37.85, "w": 10.65, "h": 4.76, "text": "N55", "align": "left", "move": [0, -8.5]},
+  {"id": "t9", "type": "text", "x": 36.7, "y": 37.99, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0, -8.5], "fill": "+00001"},
+  {"id": "t10", "type": "text", "x": 58.52, "y": 37.99, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0, -8.5], "fill": "+02660"},
+  {"id": "t11", "type": "text", "x": 80.2, "y": 37.99, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0, -8.5]},
+  {"id": "n37", "type": "reg", "x": 4.77, "y": 43.52, "cols": 2, "cell_w": 6.61, "row_h": 6.207, "label_w": 34.89, "label_side": "left", "move": [0, -8.5], "rows": [
+    {"label": ["HR", "TIG", "N37"], "noun": "N37", "cells": "+ 0 0 _ _ _", "mark": "P"},
+    {"label": ["MIN", "TPI", ""], "noun": "N37", "cells": "+ 0 0 0 _ _", "mark": "P"},
+    {"label": ["SEC"], "noun": "N37", "cells": "+ 0 _ _. _ _", "mark": "P"}]},
+  {"id": "n81", "type": "reg", "x": 4.77, "y": 62.14, "cols": 2, "cell_w": 6.61, "row_h": 6.085, "label_w": 34.89, "label_side": "left", "move": [0, -8.5], "rows": [
+    {"label": ["ΔVX", "N81"], "noun": "N81", "cells": "+ 0 _ _ _. _", "mark": "D"},
+    {"label": ["ΔVY"], "noun": "N81", "cells": "_ 0 _ _ _. _", "mark": "D"}]},
+  {"id": "pitch", "type": "reg", "x": 4.77, "y": 74.31, "cols": 2, "cell_w": 6.61, "row_h": 6.3, "label_w": 34.89, "label_side": "left", "show": "full", "rows": [
+    {"label": ["FDAI PITCH"], "cells": "+ X X _ _ _"}]},
+  {"id": "deda", "type": "reg", "x": 4.77, "y": 80.61, "cols": 2, "cell_w": 6.61, "row_h": 6.155, "label_w": 34.89, "label_side": "left", "show": "full", "rows": [
+    {"label": ["373  (               )"], "cells": "+ _ _ _ _. _"},
+    {"label": ["275  (               )"], "cells": "+ _ _ _ _. _"}]},
+  {"id": "n86", "type": "reg", "x": 4.77, "y": 98.94, "cols": 2, "cell_w": 6.61, "row_h": 6.203, "label_w": 34.89, "label_side": "left", "show": "full", "rows": [
+    {"label": ["ΔVX", "AGS N86", ""], "noun": "N86", "cells": "_ 0 0 _ _. _"},
+    {"label": ["ΔVY", "AGS", ""], "noun": "N86", "cells": "_ 0 0 _ _. _"},
+    {"label": ["ΔVZ", "AGS", ""], "noun": "N86", "cells": "_ 0 0 _ _. _"}]},
+  {"id": "t12", "type": "text", "x": 141.66, "y": 21.1, "w": 25.95, "h": 4.76, "text": "RESIDUALS", "underline": true, "show": "full"},
+  {"id": "b13", "type": "text", "x": 128.2, "y": 25.91, "w": 29.51, "h": 6.44, "text": "PGNS", "boxed": true, "move": [0, -8.5]},
+  {"id": "b14", "type": "text", "x": 157.71, "y": 25.91, "w": 27.98, "h": 6.44, "text": "AGS", "boxed": true, "show": "full"},
+  {"id": "t15", "type": "text", "x": 118.7, "y": 32.12, "w": 10.65, "h": 4.76, "text": "ΔVX", "align": "left", "move": [0, -8.5]},
+  {"id": "t16", "type": "text", "x": 118.7, "y": 38.85, "w": 10.65, "h": 4.76, "text": "ΔVY", "align": "left", "move": [0, -8.5]},
+  {"id": "t17", "type": "text", "x": 118.7, "y": 45.01, "w": 10.65, "h": 4.76, "text": "ΔVZ", "align": "left", "move": [0, -8.5]},
+  {"id": "n85", "type": "reg", "x": 128.2, "y": 32.35, "cols": 1, "cell_w": 6.763, "row_h": 6.11, "label_w": 9.22, "label_side": "left", "move": [0, -8.5], "rows": [
+    {"label": [""], "noun": "N85", "cells": "s _. _", "mark": "D"},
+    {"label": ["N85"], "noun": "N85", "cells": "s _. _", "mark": "D"},
+    {"label": [""], "noun": "N85", "cells": "s _. _", "mark": "D"}]},
+  {"id": "ags", "type": "reg", "x": 157.71, "y": 32.35, "cols": 1, "cell_w": 6.507, "row_h": 6.11, "label_w": 8.46, "label_side": "left", "show": "full", "rows": [
+    {"label": ["500"], "cells": "s _. _"},
+    {"label": ["501"], "cells": "s _. _"},
+    {"label": ["502"], "cells": "s _. _"}]},
+  {"id": "b18", "type": "text", "x": 187.23, "y": 18.75, "w": 0.0, "h": 81.62, "text": "", "boxed": true, "show": "full"},
+  {"id": "b19", "type": "text", "x": 187.23, "y": 20.18, "w": 20.44, "h": 9.31, "text": "", "boxed": true, "show": "full"},
+  {"id": "t20", "type": "text", "x": 188.49, "y": 21.96, "w": 10.65, "h": 4.76, "text": "P52", "align": "left", "show": "full"},
+  {"id": "t21", "type": "text", "x": 199.86, "y": 33.7, "w": 18.3, "h": 4.76, "text": "STAR 1", "align": "left", "show": "full"},
+  {"id": "p52_star1", "type": "line", "x": 215.36, "y": 33.77, "w": 9.99, "h": 5, "solid": true, "show": "full"},
+  {"id": "t22", "type": "text", "x": 230.6, "y": 33.7, "w": 5.55, "h": 4.76, "text": "2", "align": "left", "show": "full"},
+  {"id": "p52_star2", "type": "line", "x": 234.11, "y": 33.77, "w": 8.92, "h": 5, "solid": true, "show": "full"},
+  {"id": "t23", "type": "text", "x": 243.82, "y": 33.7, "w": 5.55, "h": 4.76, "text": "3", "align": "left", "show": "full"},
+  {"id": "p52_star3", "type": "line", "x": 250.25, "y": 33.77, "w": 9.84, "h": 5, "solid": true, "show": "full"},
+  {"id": "t24", "type": "text", "x": 199.55, "y": 43.0, "w": 46.35, "h": 4.76, "text": "N05 (STAR ∡ DIFF)", "align": "left", "show": "full"},
+  {"id": "p52_n05", "type": "line", "x": 243.49, "y": 43.22, "w": 23.36, "h": 5, "solid": true, "show": "full"},
+  {"id": "t25", "type": "text", "x": 199.55, "y": 52.17, "w": 43.8, "h": 4.76, "text": "N93 (TORQUING ∡)", "align": "left", "show": "full"},
+  {"id": "t26", "type": "text", "x": 239.21, "y": 52.46, "w": 5.55, "h": 4.76, "text": "X", "align": "left", "show": "full"},
+  {"id": "p52_x", "type": "line", "x": 243.49, "y": 52.81, "w": 23.36, "h": 5, "solid": true, "show": "full"},
+  {"id": "t27", "type": "text", "x": 239.21, "y": 61.91, "w": 5.55, "h": 4.76, "text": "Y", "align": "left", "show": "full"},
+  {"id": "p52_y", "type": "line", "x": 243.49, "y": 62.12, "w": 23.36, "h": 5, "solid": true, "show": "full"},
+  {"id": "t28", "type": "text", "x": 239.21, "y": 70.64, "w": 5.55, "h": 4.76, "text": "Z", "align": "left", "show": "full"},
+  {"id": "p52_z", "type": "line", "x": 243.49, "y": 71.28, "w": 23.36, "h": 5, "solid": true, "show": "full"},
+  {"id": "b29", "type": "text", "x": 187.23, "y": 100.37, "w": 85.77, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b30", "type": "text", "x": 118.98, "y": 105.81, "w": 154.02, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b31", "type": "text", "x": 4.0, "y": 117.55, "w": 182.15, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b32", "type": "text", "x": 4.0, "y": 156.64, "w": 182.15, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b33", "type": "text", "x": 185.69, "y": 159.08, "w": 87.31, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b34", "type": "text", "x": 84.7, "y": 174.11, "w": 100.99, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b35", "type": "text", "x": 13.22, "y": 117.55, "w": 0.0, "h": 69.45, "text": "", "boxed": true, "show": "full"},
+  {"id": "b36", "type": "text", "x": 84.7, "y": 117.55, "w": 0.0, "h": 69.45, "text": "", "boxed": true, "show": "full"},
+  {"id": "b37", "type": "text", "x": 185.69, "y": 105.81, "w": 0.0, "h": 81.19, "text": "", "boxed": true, "show": "full"},
+  {"id": "b38", "type": "text", "x": 254.86, "y": 105.81, "w": 0.0, "h": 81.19, "text": "", "boxed": true, "show": "full"},
+  {"id": "t39", "type": "text", "x": 4.67, "y": 116.58, "w": 7.88, "h": 9.1, "text": "P", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t40", "type": "text", "x": 4.67, "y": 123.74, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t41", "type": "text", "x": 4.67, "y": 130.9, "w": 7.88, "h": 9.1, "text": "N", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t42", "type": "text", "x": 4.67, "y": 138.49, "w": 7.88, "h": 9.1, "text": "C", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t43", "type": "text", "x": 4.67, "y": 146.37, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t44", "type": "text", "x": 4.67, "y": 158.39, "w": 7.88, "h": 9.1, "text": "A", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t45", "type": "text", "x": 4.67, "y": 166.41, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t46", "type": "text", "x": 4.67, "y": 174.29, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t47", "type": "text", "x": 259.53, "y": 107.7, "w": 7.88, "h": 9.1, "text": "P", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t48", "type": "text", "x": 259.53, "y": 116.58, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t49", "type": "text", "x": 259.53, "y": 126.89, "w": 7.88, "h": 9.1, "text": "N", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t50", "type": "text", "x": 259.53, "y": 136.34, "w": 7.88, "h": 9.1, "text": "C", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t51", "type": "text", "x": 259.53, "y": 145.94, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -48.88]},
+  {"id": "t52", "type": "text", "x": 259.53, "y": 160.4, "w": 7.88, "h": 9.1, "text": "A", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t53", "type": "text", "x": 259.53, "y": 168.85, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t54", "type": "text", "x": 259.53, "y": 177.15, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t55", "type": "text", "x": 43.25, "y": 117.03, "w": 10.65, "h": 4.76, "text": "N75", "move": [0.0, -48.88]},
+  {"id": "b56", "type": "text", "x": 15.07, "y": 120.13, "w": 28.13, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b57", "type": "text", "x": 15.07, "y": 120.13, "w": 0.0, "h": 3.87, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b58", "type": "text", "x": 55.49, "y": 120.13, "w": 27.67, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b59", "type": "text", "x": 83.16, "y": 120.13, "w": 0.0, "h": 3.87, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "t60", "type": "text", "x": 21.78, "y": 120.04, "w": 8.1, "h": 4.76, "text": "ΔH", "move": [0.0, -48.88]},
+  {"id": "t61", "type": "text", "x": 9.03, "y": 124.05, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -48.88]},
+  {"id": "t62", "type": "text", "x": 38.16, "y": 120.04, "w": 20.85, "h": 4.76, "text": "CSI/CDH", "move": [0.0, -48.88]},
+  {"id": "t63", "type": "text", "x": 31.78, "y": 124.05, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -48.88]},
+  {"id": "t64", "type": "text", "x": 61.98, "y": 121.33, "w": 20.85, "h": 4.76, "text": "CDH/TPI", "move": [0.0, -48.88]},
+  {"id": "t65", "type": "text", "x": 55.6, "y": 125.34, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -48.88]},
+  {"id": "n75_1_1", "type": "line", "x": 15.53, "y": 131.57, "w": 19.98, "h": 5, "solid": true, "noun": "N75", "mark": ".", "mark_at": 0.68, "move": [0.0, -48.88]},
+  {"id": "n75_1_2", "type": "line", "x": 15.53, "y": 137.58, "w": 19.98, "h": 5, "solid": true, "noun": "N75", "mark": ".", "mark_at": 0.68, "move": [0.0, -48.88]},
+  {"id": "n75_1_3", "type": "line", "x": 15.53, "y": 143.74, "w": 19.98, "h": 5, "solid": true, "noun": "N75", "mark": ".", "mark_at": 0.68, "move": [0.0, -48.88]},
+  {"id": "n75_1_4", "type": "line", "x": 15.53, "y": 149.75, "w": 19.98, "h": 5, "solid": true, "noun": "N75", "mark": ".", "mark_at": 0.68, "move": [0.0, -48.88]},
+  {"id": "n75_2_1", "type": "line", "x": 37.51, "y": 131.57, "w": 21.52, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5, "move": [0.0, -48.88]},
+  {"id": "n75_2_2", "type": "line", "x": 37.51, "y": 137.58, "w": 21.52, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5, "move": [0.0, -48.88]},
+  {"id": "n75_2_3", "type": "line", "x": 37.51, "y": 143.74, "w": 21.52, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5, "move": [0.0, -48.88]},
+  {"id": "n75_2_4", "type": "line", "x": 37.51, "y": 149.75, "w": 21.52, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5, "move": [0.0, -48.88]},
+  {"id": "n75_3_1", "type": "line", "x": 61.64, "y": 131.57, "w": 21.52, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5, "move": [0.0, -48.88]},
+  {"id": "n75_3_2", "type": "line", "x": 61.64, "y": 137.58, "w": 21.52, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5, "move": [0.0, -48.88]},
+  {"id": "n75_3_3", "type": "line", "x": 61.64, "y": 143.74, "w": 21.52, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5, "move": [0.0, -48.88]},
+  {"id": "n75_3_4", "type": "line", "x": 61.64, "y": 149.75, "w": 21.52, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5, "move": [0.0, -48.88]},
+  {"id": "t66", "type": "text", "x": 115.03, "y": 117.03, "w": 10.65, "h": 4.76, "text": "N81", "move": [0.0, -48.88]},
+  {"id": "b67", "type": "text", "x": 87.47, "y": 120.42, "w": 28.43, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b68", "type": "text", "x": 87.47, "y": 120.42, "w": 0.0, "h": 3.86, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b69", "type": "text", "x": 125.13, "y": 120.42, "w": 29.2, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b70", "type": "text", "x": 154.33, "y": 120.42, "w": 0.0, "h": 3.86, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "t71", "type": "text", "x": 90.91, "y": 121.62, "w": 10.65, "h": 4.76, "text": "ΔVX", "underline": true, "move": [0.0, -48.88]},
+  {"id": "t72", "type": "text", "x": 100.12, "y": 121.62, "w": 10.65, "h": 4.76, "text": "CSI", "move": [0.0, -48.88]},
+  {"id": "t73", "type": "text", "x": 86.35, "y": 125.63, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -48.88]},
+  {"id": "t74", "type": "text", "x": 124.21, "y": 125.91, "w": 13.2, "h": 4.76, "text": "YDOT", "underline": true, "move": [0.0, -48.88]},
+  {"id": "t75", "type": "text", "x": 136.72, "y": 125.91, "w": 10.65, "h": 4.76, "text": "N90", "move": [0.0, -48.88]},
+  {"id": "t76", "type": "text", "x": 130.11, "y": 130.06, "w": 10.65, "h": 4.76, "text": "CSI", "move": [0.0, -48.88]},
+  {"id": "t77", "type": "text", "x": 119.09, "y": 134.36, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -48.88]},
+  {"id": "n81_1_1", "type": "line", "x": 87.01, "y": 132.57, "w": 31.05, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.68, "move": [0.0, -48.88]},
+  {"id": "n81_1_2", "type": "line", "x": 87.01, "y": 138.73, "w": 31.05, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.68, "move": [0.0, -48.88]},
+  {"id": "n81_1_3", "type": "line", "x": 87.01, "y": 144.88, "w": 31.05, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.68, "move": [0.0, -48.88]},
+  {"id": "n81_1_4", "type": "line", "x": 87.01, "y": 150.9, "w": 31.05, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.68, "move": [0.0, -48.88]},
+  {"id": "n90_1_1", "type": "line", "x": 126.51, "y": 138.73, "w": 26.13, "h": 5, "solid": true, "noun": "N90", "mark": ".", "mark_at": 0.62, "move": [0.0, -48.88]},
+  {"id": "n90_1_2", "type": "line", "x": 126.51, "y": 144.88, "w": 26.13, "h": 5, "solid": true, "noun": "N90", "mark": ".", "mark_at": 0.62, "move": [0.0, -48.88]},
+  {"id": "n90_1_3", "type": "line", "x": 126.51, "y": 150.9, "w": 26.13, "h": 5, "solid": true, "noun": "N90", "mark": ".", "mark_at": 0.62, "move": [0.0, -48.88]},
+  {"id": "t78", "type": "text", "x": 117.03, "y": 138.51, "w": 10.65, "h": 4.76, "text": "(-)", "move": [0.0, -48.88]},
+  {"id": "t79", "type": "text", "x": 117.03, "y": 144.67, "w": 10.65, "h": 4.76, "text": "(-)", "move": [0.0, -48.88]},
+  {"id": "t80", "type": "text", "x": 117.03, "y": 150.68, "w": 10.65, "h": 4.76, "text": "(-)", "move": [0.0, -48.88]},
+  {"id": "t81", "type": "text", "x": 215.42, "y": 106.44, "w": 10.65, "h": 4.76, "text": "N82", "move": [0.0, -48.88]},
+  {"id": "b82", "type": "text", "x": 188.15, "y": 111.4, "w": 65.64, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b83", "type": "text", "x": 188.15, "y": 111.4, "w": 0.0, "h": 3.86, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b84", "type": "text", "x": 253.48, "y": 111.4, "w": 0.31, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "b85", "type": "text", "x": 253.79, "y": 111.4, "w": 0.0, "h": 3.86, "text": "", "boxed": true, "move": [0.0, -48.88]},
+  {"id": "t86", "type": "text", "x": 190.05, "y": 111.45, "w": 10.65, "h": 4.76, "text": "ΔVX", "underline": true, "move": [0.0, -48.88]},
+  {"id": "t87", "type": "text", "x": 199.58, "y": 115.46, "w": 10.65, "h": 4.76, "text": "CDH", "move": [0.0, -48.88]},
+  {"id": "t88", "type": "text", "x": 182.88, "y": 121.04, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -48.88]},
+  {"id": "t89", "type": "text", "x": 212.04, "y": 111.45, "w": 10.65, "h": 4.76, "text": "ΔVY", "underline": true, "move": [0.0, -48.88]},
+  {"id": "t90", "type": "text", "x": 221.56, "y": 115.46, "w": 10.65, "h": 4.76, "text": "CDH", "move": [0.0, -48.88]},
+  {"id": "t91", "type": "text", "x": 204.86, "y": 121.04, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -48.88]},
+  {"id": "t92", "type": "text", "x": 230.79, "y": 111.45, "w": 10.65, "h": 4.76, "text": "ΔVZ", "underline": true, "move": [0.0, -48.88]},
+  {"id": "t93", "type": "text", "x": 240.31, "y": 115.46, "w": 10.65, "h": 4.76, "text": "CDH", "move": [0.0, -48.88]},
+  {"id": "t94", "type": "text", "x": 223.61, "y": 121.04, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -48.88]},
+  {"id": "n82_1_1", "type": "line", "x": 186.92, "y": 133.72, "w": 20.44, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_1_2", "type": "line", "x": 186.92, "y": 139.73, "w": 20.44, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_1_3", "type": "line", "x": 186.92, "y": 146.03, "w": 20.44, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_1_4", "type": "line", "x": 186.92, "y": 152.33, "w": 20.44, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_2_1", "type": "line", "x": 210.44, "y": 133.72, "w": 20.75, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_2_2", "type": "line", "x": 210.44, "y": 139.73, "w": 20.75, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_2_3", "type": "line", "x": 210.44, "y": 146.03, "w": 20.75, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_2_4", "type": "line", "x": 210.44, "y": 152.33, "w": 20.75, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_3_1", "type": "line", "x": 234.11, "y": 133.72, "w": 19.21, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_3_2", "type": "line", "x": 234.11, "y": 139.73, "w": 19.21, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_3_3", "type": "line", "x": 234.11, "y": 146.03, "w": 19.21, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "n82_3_4", "type": "line", "x": 234.11, "y": 152.33, "w": 19.21, "h": 5, "solid": true, "noun": "N82", "mark": ".", "mark_at": 0.72, "move": [0.0, -48.88]},
+  {"id": "t95", "type": "text", "x": 19.43, "y": 158.13, "w": 10.65, "h": 4.76, "text": "402", "underline": true, "show": "full"},
+  {"id": "t96", "type": "text", "x": 20.7, "y": 162.28, "w": 8.1, "h": 4.76, "text": "ΔH", "show": "full"},
+  {"id": "t97", "type": "text", "x": 36.79, "y": 158.13, "w": 10.65, "h": 4.76, "text": "372", "underline": true, "show": "full"},
+  {"id": "t98", "type": "text", "x": 30.91, "y": 162.28, "w": 31.05, "h": 4.76, "text": "ΔT(CSI-CDH)", "show": "full"},
+  {"id": "t99", "type": "text", "x": 62.47, "y": 158.13, "w": 10.65, "h": 4.76, "text": "267", "underline": true, "show": "full"},
+  {"id": "t100", "type": "text", "x": 59.12, "y": 162.28, "w": 25.95, "h": 4.76, "text": "ΔVG (CSI)", "show": "full"},
+  {"id": "ags_1_1", "type": "line", "x": 15.07, "y": 168.8, "w": 20.44, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_1_2", "type": "line", "x": 15.07, "y": 174.24, "w": 20.44, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_1_3", "type": "line", "x": 15.07, "y": 179.82, "w": 20.44, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_1", "type": "line", "x": 37.82, "y": 168.8, "w": 21.21, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_2", "type": "line", "x": 37.82, "y": 174.24, "w": 21.21, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_3", "type": "line", "x": 37.82, "y": 179.82, "w": 21.21, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_3_1", "type": "line", "x": 61.18, "y": 168.8, "w": 21.21, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_3_2", "type": "line", "x": 61.18, "y": 174.24, "w": 21.21, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_3_3", "type": "line", "x": 61.18, "y": 179.82, "w": 21.21, "h": 5, "solid": true, "show": "full"},
+  {"id": "t101", "type": "text", "x": 95.57, "y": 158.56, "w": 33.6, "h": 4.76, "text": "CSM SOLUTION", "underline": true, "show": "full"},
+  {"id": "t102", "type": "text", "x": 87.06, "y": 162.57, "w": 10.65, "h": 4.76, "text": "ΔVX", "underline": true, "show": "full"},
+  {"id": "t103", "type": "text", "x": 95.83, "y": 162.57, "w": 10.65, "h": 4.76, "text": "CSI", "show": "full"},
+  {"id": "t104", "type": "text", "x": 125.95, "y": 162.86, "w": 10.65, "h": 4.76, "text": "ΔVY", "underline": true, "show": "full"},
+  {"id": "t105", "type": "text", "x": 134.56, "y": 162.86, "w": 10.65, "h": 4.76, "text": "CSI", "show": "full"},
+  {"id": "csm_vx", "type": "line", "x": 87.77, "y": 167.51, "w": 23.83, "h": 5, "solid": true, "mark": ".", "mark_at": 0.65, "show": "full"},
+  {"id": "csm_vy", "type": "line", "x": 123.9, "y": 167.79, "w": 26.9, "h": 5, "solid": true, "mark": ".", "mark_at": 0.7, "show": "full"},
+  {"id": "t106", "type": "text", "x": 117.38, "y": 173.74, "w": 25.95, "h": 4.76, "text": "N86 (AGS)", "show": "full"},
+  {"id": "b107", "type": "text", "x": 87.77, "y": 176.55, "w": 32.28, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b108", "type": "text", "x": 87.77, "y": 176.55, "w": 0.0, "h": 3.86, "text": "", "boxed": true, "show": "full"},
+  {"id": "b109", "type": "text", "x": 147.26, "y": 176.55, "w": 32.9, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b110", "type": "text", "x": 180.16, "y": 176.55, "w": 0.0, "h": 3.86, "text": "", "boxed": true, "show": "full"},
+  {"id": "t111", "type": "text", "x": 88.91, "y": 176.6, "w": 10.65, "h": 4.76, "text": "ΔVX", "show": "full"},
+  {"id": "t112", "type": "text", "x": 120.88, "y": 176.6, "w": 10.65, "h": 4.76, "text": "ΔVY", "show": "full"},
+  {"id": "t113", "type": "text", "x": 155.93, "y": 176.6, "w": 10.65, "h": 4.76, "text": "ΔVZ", "show": "full"},
+  {"id": "ags_n86_1_1", "type": "line", "x": 88.08, "y": 180.54, "w": 26.29, "h": 5, "solid": true, "noun": "N86", "show": "full"},
+  {"id": "ags_n86_2_1", "type": "line", "x": 120.36, "y": 180.54, "w": 26.9, "h": 5, "solid": true, "noun": "N86", "show": "full"},
+  {"id": "ags_n86_3_1", "type": "line", "x": 153.1, "y": 180.54, "w": 27.67, "h": 5, "solid": true, "noun": "N86", "show": "full"},
+  {"id": "t114", "type": "text", "x": 189.56, "y": 162.43, "w": 10.65, "h": 4.76, "text": "371", "align": "left", "show": "full"},
+  {"id": "t115", "type": "text", "x": 189.56, "y": 166.43, "w": 18.3, "h": 4.76, "text": "ΔV CDH", "align": "left", "show": "full"},
+  {"id": "ags371_1_1", "type": "line", "x": 186.61, "y": 170.37, "w": 19.99, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags371_1_2", "type": "line", "x": 186.61, "y": 175.96, "w": 19.99, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags371_1_3", "type": "line", "x": 186.61, "y": 181.25, "w": 19.99, "h": 5, "solid": true, "show": "full"},
+  {"id": "short1", "type": "text", "x": 13.22, "y": 117.55, "w": 0.0, "h": 39.09, "text": "", "boxed": true, "show": "short", "move": [0.0, -48.88]},
+  {"id": "short2", "type": "text", "x": 84.7, "y": 117.55, "w": 0.0, "h": 39.09, "text": "", "boxed": true, "show": "short", "move": [0.0, -48.88]},
+  {"id": "short3", "type": "text", "x": 185.69, "y": 105.81, "w": 0.0, "h": 53.27, "text": "", "boxed": true, "show": "short", "move": [0.0, -48.88]},
+  {"id": "short4", "type": "text", "x": 254.86, "y": 105.81, "w": 0.0, "h": 53.27, "text": "", "boxed": true, "show": "short", "move": [0.0, -48.88]},
+  {"id": "short5", "type": "text", "x": 185.69, "y": 105.81, "w": 87.31, "h": 0.0, "text": "", "boxed": true, "show": "short", "move": [0.0, -48.88]},
+  {"id": "short6", "type": "text", "x": 4.0, "y": 3.0, "w": 269.0, "h": 0.0, "text": "", "boxed": true, "show": "short"},
+  {"id": "short7", "type": "text", "x": 4.0, "y": 3.0, "w": 0.0, "h": 104.76, "text": "", "boxed": true, "show": "short"},
+  {"id": "short8", "type": "text", "x": 273.0, "y": 3.0, "w": 0.0, "h": 107.2, "text": "", "boxed": true, "show": "short"},
+  {"id": "short9", "type": "shade", "x": 4.0, "y": 37.08, "w": 114.98, "h": 6.44, "show": "short", "move": [0, -8.5]},
+  {"id": "short10", "type": "shade", "x": 118.98, "y": 18.75, "w": 40.27, "h": 32.93, "show": "short", "move": [0, -8.5]},
+  {"id": "short11", "type": "shade", "x": 4.0, "y": 117.55, "w": 181.69, "h": 39.09, "show": "short", "move": [0.0, -48.88]},
+  {"id": "short12", "type": "shade", "x": 185.69, "y": 105.81, "w": 87.31, "h": 53.27, "show": "short", "move": [0.0, -48.88]},
+  {"id": "short13", "type": "text", "x": 129.98, "y": 21.1, "w": 25.95, "h": 4.76, "text": "RESIDUALS", "underline": true, "show": "short", "move": [0, -8.5]},
+  {"id": "m1", "type": "text", "x": 16.81, "y": 29.83, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m2", "type": "text", "x": 52.74, "y": 68.63, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m3", "type": "text", "x": 124.52, "y": 68.63, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m4", "type": "text", "x": 146.21, "y": 77.51, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m5", "type": "text", "x": 224.91, "y": 58.04, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"}
+]},
+{"id": "cdh", "title": "CDH Data Card", "page": 90, "shape": "landscape", "size": 3.4, "short_size": [277, 150.48], "note": "When: P33 (manual 3.13; on 210 only for the fallback). N90 comes from V90 (3.18).", "blocks": [
+  {"id": "s1", "type": "shade", "x": 125.49, "y": 7.31, "w": 147.51, "h": 68.29, "show": "full"},
+  {"id": "s2", "type": "shade", "x": 4.0, "y": 75.6, "w": 269.0, "h": 32.55, "show": "full"},
+  {"id": "s3", "type": "shade", "x": 4.0, "y": 108.15, "w": 269.0, "h": 80.35, "show": "full"},
+  {"id": "t4", "type": "text", "x": 55.12, "y": 1.3, "w": 20.85, "h": 4.76, "text": "CDH PAD"},
+  {"id": "t5", "type": "text", "x": 121.21, "y": 1.01, "w": 36.15, "h": 4.76, "text": "CDH DATA CARD"},
+  {"id": "n13", "type": "reg", "x": 4.16, "y": 6.59, "cols": 2, "cell_w": 6.714, "row_h": 6.15, "label_w": 40.76, "label_side": "left", "rows": [
+    {"label": ["HR", "N13", ""], "noun": "N13", "cells": "+ 0 0 _ _ _", "mark": "D"},
+    {"label": ["MIN", "TIG", ""], "noun": "N13", "cells": "+ 0 0 0 _ _", "mark": "D"},
+    {"label": ["SEC", "CDH", ""], "noun": "N13", "cells": "+ 0 _ _. _ _", "mark": "D"}]},
+  {"id": "n81", "type": "reg", "x": 4.16, "y": 25.04, "cols": 2, "cell_w": 6.714, "row_h": 6.393, "label_w": 40.76, "label_side": "left", "rows": [
+    {"label": ["ΔVX"], "noun": "N81", "cells": "s 0 _ _ _. _", "mark": "D"},
+    {"label": ["ΔVY", "N81", ""], "noun": "N81", "cells": "s 0 _ _ _. _", "mark": "D"},
+    {"label": ["ΔVZ"], "noun": "N81", "cells": "s 0 _ _ _. _", "mark": "D"}]},
+  {"id": "fdai", "type": "reg", "x": 4.16, "y": 44.22, "cols": 2, "cell_w": 6.714, "row_h": 6.25, "label_w": 40.76, "label_side": "left", "show": "full", "rows": [
+    {"label": ["PLM", "FDAI", ""], "cells": "X X X _ _ _"}]},
+  {"id": "deda", "type": "reg", "x": 4.16, "y": 50.47, "cols": 2, "cell_w": 6.714, "row_h": 6.39, "label_w": 40.76, "label_side": "left", "show": "full", "rows": [
+    {"label": ["373 (               )"], "cells": "+ _ _ _ _. _"}]},
+  {"id": "n86", "type": "reg", "x": 4.16, "y": 56.86, "cols": 2, "cell_w": 6.714, "row_h": 6.247, "label_w": 40.76, "label_side": "left", "show": "full", "rows": [
+    {"label": ["ΔVX", "N86", ""], "noun": "N86", "cells": "s 0 _ _ _. _"},
+    {"label": ["ΔVY", "AGS", ""], "noun": "N86", "cells": "s 0 _ _ _. _"},
+    {"label": ["ΔVZ"], "noun": "N86", "cells": "s 0 _ _ _. _"}]},
+  {"id": "b6", "type": "text", "x": 148.81, "y": 7.31, "w": 124.19, "h": 96.19, "text": "", "boxed": true},
+  {"id": "s7", "type": "shade", "x": 148.81, "y": 7.31, "w": 3, "h": 96.19, "dark": true},
+  {"id": "s8", "type": "shade", "x": 148.81, "y": 101.03, "w": 124.19, "h": 3, "dark": true},
+  {"id": "b9", "type": "text", "x": 184.02, "y": 7.6, "w": 62.65, "h": 4.65, "text": "PLANE CHANGE P30,V90", "boxed": true},
+  {"id": "t10", "type": "text", "x": 152.84, "y": 15.54, "w": 10.65, "h": 4.76, "text": "TIG", "align": "left"},
+  {"id": "t11", "type": "text", "x": 170.61, "y": 15.54, "w": 10.65, "h": 4.76, "text": "CDH", "align": "left"},
+  {"id": "tig_cdh_h", "type": "line", "x": 192.43, "y": 15.5, "w": 23.0, "h": 5},
+  {"id": "tig_cdh_m", "type": "line", "x": 218.12, "y": 15.5, "w": 13.64, "h": 5},
+  {"id": "tig_cdh_s", "type": "line", "x": 235.57, "y": 15.5, "w": 13.64, "h": 5},
+  {"id": "tig_cdh_c", "type": "line", "x": 252.06, "y": 15.5, "w": 14.91, "h": 5},
+  {"id": "t12", "type": "text", "x": 214.07, "y": 15.97, "w": 5.55, "h": 4.76, "text": ":"},
+  {"id": "t13", "type": "text", "x": 230.89, "y": 15.97, "w": 5.55, "h": 4.76, "text": ":"},
+  {"id": "t14", "type": "text", "x": 247.86, "y": 15.97, "w": 5.55, "h": 4.76, "text": "."},
+  {"id": "t15", "type": "text", "x": 152.84, "y": 27.89, "w": 10.65, "h": 4.76, "text": "TIG", "align": "left"},
+  {"id": "t16", "type": "text", "x": 170.61, "y": 27.89, "w": 8.1, "h": 4.76, "text": "PC", "align": "left"},
+  {"id": "tig_pc_h", "type": "line", "x": 192.43, "y": 27.85, "w": 23.0, "h": 5},
+  {"id": "tig_pc_m", "type": "line", "x": 218.12, "y": 27.85, "w": 13.64, "h": 5},
+  {"id": "tig_pc_s", "type": "line", "x": 235.57, "y": 27.85, "w": 13.64, "h": 5},
+  {"id": "tig_pc_c", "type": "line", "x": 252.06, "y": 27.85, "w": 14.91, "h": 5},
+  {"id": "t17", "type": "text", "x": 214.07, "y": 28.33, "w": 5.55, "h": 4.76, "text": ":"},
+  {"id": "t18", "type": "text", "x": 230.89, "y": 28.33, "w": 5.55, "h": 4.76, "text": ":"},
+  {"id": "t19", "type": "text", "x": 247.86, "y": 28.33, "w": 5.55, "h": 4.76, "text": "."},
+  {"id": "t20", "type": "text", "x": 211.22, "y": 21.64, "w": 5.55, "h": 4.76, "text": "-"},
+  {"id": "t21", "type": "text", "x": 217.72, "y": 21.64, "w": 5.55, "h": 4.76, "text": "3"},
+  {"id": "t22", "type": "text", "x": 226.13, "y": 21.64, "w": 5.55, "h": 4.76, "text": "0"},
+  {"id": "t23", "type": "text", "x": 231.2, "y": 21.64, "w": 5.55, "h": 4.76, "text": ":"},
+  {"id": "t24", "type": "text", "x": 235.17, "y": 21.64, "w": 5.55, "h": 4.76, "text": "0"},
+  {"id": "t25", "type": "text", "x": 243.26, "y": 21.64, "w": 5.55, "h": 4.76, "text": "0"},
+  {"id": "t26", "type": "text", "x": 247.86, "y": 21.64, "w": 5.55, "h": 4.76, "text": "."},
+  {"id": "t27", "type": "text", "x": 252.61, "y": 21.64, "w": 5.55, "h": 4.76, "text": "0"},
+  {"id": "t28", "type": "text", "x": 260.71, "y": 21.64, "w": 5.55, "h": 4.76, "text": "0"},
+  {"id": "b29", "type": "text", "x": 191.63, "y": 26.49, "w": 75.34, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b30", "type": "text", "x": 151.98, "y": 38.84, "w": 121.02, "h": 0.0, "text": "", "boxed": true},
+  {"id": "t31", "type": "text", "x": 205.65, "y": 39.66, "w": 13.2, "h": 4.76, "text": "YDOT"},
+  {"id": "b32", "type": "text", "x": 151.98, "y": 44.94, "w": 121.02, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b33", "type": "text", "x": 151.98, "y": 51.19, "w": 121.02, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b34", "type": "text", "x": 151.98, "y": 70.37, "w": 121.02, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b35", "type": "text", "x": 191.63, "y": 44.94, "w": 0.0, "h": 25.43, "text": "", "boxed": true},
+  {"id": "b36", "type": "text", "x": 232.4, "y": 44.94, "w": 0.0, "h": 25.43, "text": "", "boxed": true},
+  {"id": "t37", "type": "text", "x": 157.6, "y": 45.62, "w": 10.65, "h": 4.76, "text": "CSM", "align": "left", "show": "full"},
+  {"id": "t38", "type": "text", "x": 179.81, "y": 45.62, "w": 10.65, "h": 4.76, "text": "N90", "align": "left", "show": "full"},
+  {"id": "t39", "type": "text", "x": 193.61, "y": 45.62, "w": 13.2, "h": 4.76, "text": "PGNS", "align": "left"},
+  {"id": "t40", "type": "text", "x": 218.19, "y": 45.62, "w": 10.65, "h": 4.76, "text": "N90", "align": "left"},
+  {"id": "t41", "type": "text", "x": 234.05, "y": 45.62, "w": 10.65, "h": 4.76, "text": "AGS", "align": "left", "show": "full"},
+  {"id": "t42", "type": "text", "x": 256.73, "y": 45.62, "w": 10.65, "h": 4.76, "text": "263", "align": "left", "show": "full"},
+  {"id": "t43", "type": "text", "x": 151.57, "y": 53.17, "w": 10.65, "h": 4.76, "text": "(-)", "align": "left", "show": "full"},
+  {"id": "ydot1_1", "type": "line", "x": 158.8, "y": 53.13, "w": 28.23, "h": 5, "solid": true, "mark": ".", "mark_at": 0.72, "show": "full"},
+  {"id": "t44", "type": "text", "x": 151.57, "y": 59.27, "w": 10.65, "h": 4.76, "text": "(-)", "align": "left", "show": "full"},
+  {"id": "ydot1_2", "type": "line", "x": 158.8, "y": 59.23, "w": 28.23, "h": 5, "solid": true, "mark": ".", "mark_at": 0.72, "show": "full"},
+  {"id": "t45", "type": "text", "x": 191.54, "y": 53.17, "w": 10.65, "h": 4.76, "text": "(-)", "align": "left"},
+  {"id": "ydot2_1", "type": "line", "x": 199.09, "y": 53.13, "w": 29.5, "h": 5, "solid": true, "mark": ".", "mark_at": 0.72},
+  {"id": "t46", "type": "text", "x": 191.54, "y": 59.27, "w": 10.65, "h": 4.76, "text": "(-)", "align": "left"},
+  {"id": "ydot2_2", "type": "line", "x": 199.09, "y": 59.23, "w": 29.5, "h": 5, "solid": true, "mark": ".", "mark_at": 0.72},
+  {"id": "t47", "type": "text", "x": 232.47, "y": 53.17, "w": 10.65, "h": 4.76, "text": "(-)", "align": "left", "show": "full"},
+  {"id": "ydot3_1", "type": "line", "x": 239.69, "y": 53.13, "w": 29.66, "h": 5, "solid": true, "mark": ".", "mark_at": 0.72, "show": "full"},
+  {"id": "t48", "type": "text", "x": 232.47, "y": 59.27, "w": 10.65, "h": 4.76, "text": "(-)", "align": "left", "show": "full"},
+  {"id": "ydot3_2", "type": "line", "x": 239.69, "y": 59.23, "w": 29.66, "h": 5, "solid": true, "mark": ".", "mark_at": 0.72, "show": "full"},
+  {"id": "t49", "type": "text", "x": 218.78, "y": 70.9, "w": 25.95, "h": 4.76, "text": "RESIDUALS", "underline": true, "show": "full"},
+  {"id": "b50", "type": "text", "x": 151.98, "y": 82.72, "w": 39.65, "h": 18.31, "text": "", "boxed": true},
+  {"id": "t51", "type": "text", "x": 152.84, "y": 83.39, "w": 10.65, "h": 4.76, "text": "ΔVX", "align": "left"},
+  {"id": "t52", "type": "text", "x": 152.84, "y": 89.5, "w": 10.65, "h": 4.76, "text": "ΔVY", "align": "left"},
+  {"id": "t53", "type": "text", "x": 152.84, "y": 95.6, "w": 10.65, "h": 4.76, "text": "ΔVZ", "align": "left"},
+  {"id": "b54", "type": "text", "x": 191.63, "y": 76.33, "w": 40.77, "h": 6.39, "text": "PGNS", "boxed": true},
+  {"id": "b55", "type": "text", "x": 232.4, "y": 76.33, "w": 40.6, "h": 6.39, "text": "AGS", "boxed": true, "show": "full"},
+  {"id": "pc_n85", "type": "reg", "x": 191.63, "y": 82.72, "cols": 1, "cell_w": 6.703, "row_h": 6.103, "label_w": 13.96, "label_side": "left", "rows": [
+    {"label": [""], "noun": "N85", "cells": "s _ _. _", "mark": "D"},
+    {"label": ["N85"], "noun": "N85", "cells": "s _ _. _", "mark": "D"},
+    {"label": [""], "noun": "N85", "cells": "s _ _. _", "mark": "D"}]},
+  {"id": "pc_ags", "type": "reg", "x": 232.4, "y": 82.72, "cols": 1, "cell_w": 6.74, "row_h": 6.103, "label_w": 13.64, "label_side": "left", "show": "full", "rows": [
+    {"label": ["500"], "cells": "s _ _. _"},
+    {"label": ["501"], "cells": "s _ _. _"},
+    {"label": ["502"], "cells": "s _ _. _"}]},
+  {"id": "t56", "type": "text", "x": 93.02, "y": 77.44, "w": 25.95, "h": 4.76, "text": "RESIDUALS", "underline": true, "show": "full"},
+  {"id": "b57", "type": "text", "x": 65.54, "y": 82.0, "w": 40.76, "h": 6.24, "text": "PGNS", "boxed": true, "move": [0.0, -31.24]},
+  {"id": "b58", "type": "text", "x": 106.3, "y": 82.0, "w": 39.65, "h": 6.24, "text": "AGS", "boxed": true, "show": "full"},
+  {"id": "b59", "type": "text", "x": 32.23, "y": 88.24, "w": 33.31, "h": 18.89, "text": "", "boxed": true, "move": [0.0, -31.24]},
+  {"id": "t60", "type": "text", "x": 36.11, "y": 88.77, "w": 10.65, "h": 4.76, "text": "ΔVX", "align": "left", "move": [0.0, -31.24]},
+  {"id": "t61", "type": "text", "x": 36.11, "y": 94.73, "w": 10.65, "h": 4.76, "text": "ΔVY", "align": "left", "move": [0.0, -31.24]},
+  {"id": "t62", "type": "text", "x": 36.11, "y": 100.83, "w": 10.65, "h": 4.76, "text": "ΔVZ", "align": "left", "move": [0.0, -31.24]},
+  {"id": "n85", "type": "reg", "x": 65.54, "y": 88.24, "cols": 1, "cell_w": 6.74, "row_h": 6.297, "label_w": 13.8, "label_side": "left", "move": [0.0, -31.24], "rows": [
+    {"label": [""], "noun": "N85", "cells": "s _ _. _", "mark": "D"},
+    {"label": ["N85"], "noun": "N85", "cells": "s _ _. _", "mark": "D"},
+    {"label": [""], "noun": "N85", "cells": "s _ _. _", "mark": "D"}]},
+  {"id": "ags", "type": "reg", "x": 106.3, "y": 88.24, "cols": 1, "cell_w": 6.62, "row_h": 6.297, "label_w": 13.17, "label_side": "left", "show": "full", "rows": [
+    {"label": ["500"], "cells": "s _ _. _"},
+    {"label": ["501"], "cells": "s _ _. _"},
+    {"label": ["502"], "cells": "s _ _. _"}]},
+  {"id": "b63", "type": "text", "x": 4.0, "y": 108.15, "w": 269.0, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b64", "type": "text", "x": 4.0, "y": 148.98, "w": 269.0, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b65", "type": "text", "x": 108.36, "y": 167.14, "w": 93.58, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b66", "type": "text", "x": 4.0, "y": 188.5, "w": 269.0, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b67", "type": "text", "x": 4.0, "y": 108.15, "w": 0.0, "h": 80.35, "text": "", "boxed": true, "show": "full"},
+  {"id": "b68", "type": "text", "x": 14.31, "y": 108.15, "w": 0.0, "h": 80.35, "text": "", "boxed": true, "show": "full"},
+  {"id": "b69", "type": "text", "x": 108.36, "y": 108.15, "w": 0.0, "h": 80.35, "text": "", "boxed": true, "show": "full"},
+  {"id": "b70", "type": "text", "x": 201.94, "y": 108.15, "w": 0.0, "h": 80.35, "text": "", "boxed": true, "show": "full"},
+  {"id": "b71", "type": "text", "x": 262.69, "y": 108.15, "w": 0.0, "h": 80.35, "text": "", "boxed": true, "show": "full"},
+  {"id": "b72", "type": "text", "x": 273.0, "y": 108.15, "w": 0.0, "h": 80.35, "text": "", "boxed": true, "show": "full"},
+  {"id": "t73", "type": "text", "x": 5.14, "y": 108.69, "w": 7.88, "h": 9.1, "text": "P", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t74", "type": "text", "x": 5.14, "y": 115.66, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t75", "type": "text", "x": 5.14, "y": 123.36, "w": 7.88, "h": 9.1, "text": "N", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t76", "type": "text", "x": 5.14, "y": 131.21, "w": 7.88, "h": 9.1, "text": "C", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t77", "type": "text", "x": 5.14, "y": 138.76, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t78", "type": "text", "x": 5.14, "y": 153.29, "w": 7.88, "h": 9.1, "text": "A", "bold": true, "serif": false, "size": 6.5, "show": "full"},
+  {"id": "t79", "type": "text", "x": 5.14, "y": 163.9, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": false, "size": 6.5, "show": "full"},
+  {"id": "t80", "type": "text", "x": 5.14, "y": 174.94, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": false, "size": 6.5, "show": "full"},
+  {"id": "t81", "type": "text", "x": 263.98, "y": 109.7, "w": 7.88, "h": 9.1, "text": "P", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t82", "type": "text", "x": 263.98, "y": 116.39, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t83", "type": "text", "x": 263.98, "y": 124.81, "w": 7.88, "h": 9.1, "text": "N", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t84", "type": "text", "x": 263.98, "y": 132.66, "w": 7.88, "h": 9.1, "text": "C", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t85", "type": "text", "x": 263.98, "y": 139.63, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": false, "size": 6.5},
+  {"id": "t86", "type": "text", "x": 263.98, "y": 154.16, "w": 7.88, "h": 9.1, "text": "A", "bold": true, "serif": false, "size": 6.5, "show": "full"},
+  {"id": "t87", "type": "text", "x": 263.98, "y": 164.77, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": false, "size": 6.5, "show": "full"},
+  {"id": "t88", "type": "text", "x": 263.98, "y": 175.23, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": false, "size": 6.5, "show": "full"},
+  {"id": "t89", "type": "text", "x": 55.13, "y": 107.8, "w": 10.65, "h": 4.76, "text": "N75"},
+  {"id": "b90", "type": "text", "x": 16.69, "y": 112.07, "w": 39.33, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b91", "type": "text", "x": 16.69, "y": 112.07, "w": 0.0, "h": 3.2, "text": "", "boxed": true},
+  {"id": "b92", "type": "text", "x": 64.75, "y": 112.07, "w": 41.24, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b93", "type": "text", "x": 105.99, "y": 112.07, "w": 0.0, "h": 3.2, "text": "", "boxed": true},
+  {"id": "t94", "type": "text", "x": 17.71, "y": 112.16, "w": 8.1, "h": 4.76, "text": "ΔH"},
+  {"id": "t95", "type": "text", "x": 7.18, "y": 115.65, "w": 33.6, "h": 4.76, "text": "(          )"},
+  {"id": "t96", "type": "text", "x": 45.74, "y": 112.16, "w": 28.5, "h": 4.76, "text": "ΔT TPI/CDH"},
+  {"id": "t97", "type": "text", "x": 40.33, "y": 115.65, "w": 33.6, "h": 4.76, "text": "(          )"},
+  {"id": "t98", "type": "text", "x": 77.31, "y": 112.16, "w": 23.4, "h": 4.76, "text": "TPI SLIP"},
+  {"id": "t99", "type": "text", "x": 69.36, "y": 115.65, "w": 33.6, "h": 4.76, "text": "(          )"},
+  {"id": "n75_1_1", "type": "line", "x": 17.96, "y": 122.87, "w": 26.49, "h": 5, "solid": true, "noun": "N75", "mark": ".", "mark_at": 0.68},
+  {"id": "n75_1_2", "type": "line", "x": 17.96, "y": 129.12, "w": 26.49, "h": 5, "solid": true, "noun": "N75", "mark": ".", "mark_at": 0.68},
+  {"id": "n75_1_3", "type": "line", "x": 17.96, "y": 135.37, "w": 26.49, "h": 5, "solid": true, "noun": "N75", "mark": ".", "mark_at": 0.68},
+  {"id": "n75_1_4", "type": "line", "x": 17.96, "y": 141.62, "w": 26.49, "h": 5, "solid": true, "noun": "N75", "mark": ".", "mark_at": 0.68},
+  {"id": "n75_2_1", "type": "line", "x": 48.09, "y": 122.87, "w": 26.97, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.52},
+  {"id": "n75_2_2", "type": "line", "x": 48.09, "y": 129.12, "w": 26.97, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.52},
+  {"id": "n75_2_3", "type": "line", "x": 48.09, "y": 135.37, "w": 26.97, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.52},
+  {"id": "n75_2_4", "type": "line", "x": 48.09, "y": 141.62, "w": 26.97, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.52},
+  {"id": "n75_3_1", "type": "line", "x": 78.23, "y": 122.87, "w": 26.33, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5},
+  {"id": "n75_3_2", "type": "line", "x": 78.23, "y": 129.12, "w": 26.33, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5},
+  {"id": "n75_3_3", "type": "line", "x": 78.23, "y": 135.37, "w": 26.33, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5},
+  {"id": "n75_3_4", "type": "line", "x": 78.23, "y": 141.62, "w": 26.33, "h": 5, "solid": true, "noun": "N75", "mark": ":", "mark_at": 0.5},
+  {"id": "t100", "type": "text", "x": 151.9, "y": 107.8, "w": 10.65, "h": 4.76, "text": "N81"},
+  {"id": "b101", "type": "text", "x": 110.74, "y": 112.51, "w": 40.45, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b102", "type": "text", "x": 110.74, "y": 112.51, "w": 0.0, "h": 3.2, "text": "", "boxed": true},
+  {"id": "b103", "type": "text", "x": 163.08, "y": 112.51, "w": 36.96, "h": 0.0, "text": "", "boxed": true},
+  {"id": "b104", "type": "text", "x": 200.04, "y": 112.51, "w": 0.0, "h": 3.2, "text": "", "boxed": true},
+  {"id": "t105", "type": "text", "x": 118.11, "y": 113.18, "w": 10.65, "h": 4.76, "text": "ΔVX"},
+  {"id": "t106", "type": "text", "x": 139.81, "y": 113.18, "w": 23.4, "h": 4.76, "text": "YDOT N90"},
+  {"id": "t107", "type": "text", "x": 148.06, "y": 116.8, "w": 9.75, "h": 4.2, "text": "CDH", "size": 3.0},
+  {"id": "t108", "type": "text", "x": 174.42, "y": 113.18, "w": 10.65, "h": 4.76, "text": "ΔVZ"},
+  {"id": "t109", "type": "text", "x": 105.84, "y": 119.43, "w": 33.6, "h": 4.76, "text": "(          )"},
+  {"id": "t110", "type": "text", "x": 137.24, "y": 119.43, "w": 33.6, "h": 4.76, "text": "(          )"},
+  {"id": "t111", "type": "text", "x": 164.21, "y": 119.43, "w": 33.6, "h": 4.76, "text": "(          )"},
+  {"id": "n81_1_1", "type": "line", "x": 110.74, "y": 123.31, "w": 27.76, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.76},
+  {"id": "n81_1_2", "type": "line", "x": 110.74, "y": 129.56, "w": 27.76, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.76},
+  {"id": "n81_1_3", "type": "line", "x": 110.74, "y": 135.81, "w": 27.76, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.76},
+  {"id": "n81_1_4", "type": "line", "x": 110.74, "y": 142.05, "w": 27.76, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.76},
+  {"id": "n90_1_1", "type": "line", "x": 141.67, "y": 129.56, "w": 27.28, "h": 5, "solid": true, "noun": "N90", "mark": ".", "mark_at": 0.76},
+  {"id": "n90_1_2", "type": "line", "x": 141.67, "y": 135.81, "w": 27.28, "h": 5, "solid": true, "noun": "N90", "mark": ".", "mark_at": 0.76},
+  {"id": "n90_1_3", "type": "line", "x": 141.67, "y": 142.05, "w": 27.28, "h": 5, "solid": true, "noun": "N90", "mark": ".", "mark_at": 0.76},
+  {"id": "t112", "type": "text", "x": 140.79, "y": 129.45, "w": 10.65, "h": 4.76, "text": "(-)"},
+  {"id": "t113", "type": "text", "x": 140.79, "y": 134.97, "w": 10.65, "h": 4.76, "text": "(-)"},
+  {"id": "t114", "type": "text", "x": 140.79, "y": 141.22, "w": 10.65, "h": 4.76, "text": "(-)"},
+  {"id": "n81z_1_1", "type": "line", "x": 171.49, "y": 123.31, "w": 27.28, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.76},
+  {"id": "n81z_1_2", "type": "line", "x": 171.49, "y": 129.56, "w": 27.28, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.76},
+  {"id": "n81z_1_3", "type": "line", "x": 171.49, "y": 135.81, "w": 27.28, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.76},
+  {"id": "n81z_1_4", "type": "line", "x": 171.49, "y": 142.05, "w": 27.28, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.76},
+  {"id": "t115", "type": "text", "x": 25.32, "y": 155.17, "w": 10.65, "h": 4.76, "text": "402", "underline": true, "show": "full"},
+  {"id": "t116", "type": "text", "x": 26.6, "y": 159.09, "w": 8.1, "h": 4.76, "text": "ΔH", "show": "full"},
+  {"id": "t117", "type": "text", "x": 57.83, "y": 155.17, "w": 10.65, "h": 4.76, "text": "450", "underline": true, "show": "full"},
+  {"id": "t118", "type": "text", "x": 57.83, "y": 159.09, "w": 10.65, "h": 4.76, "text": "ΔVX", "show": "full"},
+  {"id": "t119", "type": "text", "x": 82.42, "y": 155.17, "w": 10.65, "h": 4.76, "text": "452", "underline": true, "show": "full"},
+  {"id": "t120", "type": "text", "x": 82.42, "y": 159.09, "w": 10.65, "h": 4.76, "text": "ΔVZ", "show": "full"},
+  {"id": "ags_1_1", "type": "line", "x": 17.96, "y": 168.06, "w": 26.17, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_1_2", "type": "line", "x": 17.96, "y": 174.16, "w": 26.17, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_1_3", "type": "line", "x": 17.96, "y": 180.27, "w": 26.17, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_1", "type": "line", "x": 47.78, "y": 168.06, "w": 26.48, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_2", "type": "line", "x": 47.78, "y": 174.16, "w": 26.48, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_3", "type": "line", "x": 47.78, "y": 180.27, "w": 26.48, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_3_1", "type": "line", "x": 78.23, "y": 168.06, "w": 26.33, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_3_2", "type": "line", "x": 78.23, "y": 174.16, "w": 26.33, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_3_3", "type": "line", "x": 78.23, "y": 180.27, "w": 26.33, "h": 5, "solid": true, "show": "full"},
+  {"id": "t121", "type": "text", "x": 139.15, "y": 149.36, "w": 33.6, "h": 4.76, "text": "CSM SOLUTION", "underline": true, "show": "full"},
+  {"id": "t122", "type": "text", "x": 122.38, "y": 153.28, "w": 10.65, "h": 4.76, "text": "ΔVX", "show": "full"},
+  {"id": "t123", "type": "text", "x": 147.14, "y": 153.28, "w": 10.65, "h": 4.76, "text": "ΔVY", "show": "full"},
+  {"id": "t124", "type": "text", "x": 169.66, "y": 153.28, "w": 10.65, "h": 4.76, "text": "ΔVZ", "show": "full"},
+  {"id": "csm_1_1", "type": "line", "x": 110.74, "y": 159.49, "w": 27.76, "h": 5, "solid": true, "mark": ".", "mark_at": 0.76, "show": "full"},
+  {"id": "csm_2_1", "type": "line", "x": 141.35, "y": 159.49, "w": 27.6, "h": 5, "solid": true, "mark": ".", "mark_at": 0.76, "show": "full"},
+  {"id": "csm_3_1", "type": "line", "x": 171.49, "y": 159.49, "w": 27.28, "h": 5, "solid": true, "mark": ".", "mark_at": 0.76, "show": "full"},
+  {"id": "t125", "type": "text", "x": 146.15, "y": 167.38, "w": 25.95, "h": 4.76, "text": "N86 (AGS)", "show": "full"},
+  {"id": "b126", "type": "text", "x": 109.63, "y": 171.94, "w": 39.97, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b127", "type": "text", "x": 109.63, "y": 171.94, "w": 0.0, "h": 2.61, "text": "", "boxed": true, "show": "full"},
+  {"id": "b128", "type": "text", "x": 168.64, "y": 171.94, "w": 31.4, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b129", "type": "text", "x": 200.04, "y": 171.94, "w": 0.0, "h": 2.61, "text": "", "boxed": true, "show": "full"},
+  {"id": "t130", "type": "text", "x": 111.77, "y": 171.74, "w": 10.65, "h": 4.76, "text": "ΔVX", "show": "full"},
+  {"id": "t131", "type": "text", "x": 147.14, "y": 171.74, "w": 10.65, "h": 4.76, "text": "ΔVY", "show": "full"},
+  {"id": "t132", "type": "text", "x": 174.09, "y": 171.74, "w": 10.65, "h": 4.76, "text": "ΔVZ", "show": "full"},
+  {"id": "ags_n86_1_1", "type": "line", "x": 110.74, "y": 180.99, "w": 27.76, "h": 5, "solid": true, "noun": "N86", "mark": ".", "mark_at": 0.76, "show": "full"},
+  {"id": "ags_n86_2_1", "type": "line", "x": 141.35, "y": 180.99, "w": 27.6, "h": 5, "solid": true, "noun": "N86", "mark": ".", "mark_at": 0.76, "show": "full"},
+  {"id": "ags_n86_3_1", "type": "line", "x": 171.49, "y": 180.99, "w": 27.28, "h": 5, "solid": true, "noun": "N86", "mark": ".", "mark_at": 0.76, "show": "full"},
+  {"id": "short1", "type": "text", "x": 4.0, "y": 108.15, "w": 0.0, "h": 40.83, "text": "", "boxed": true, "show": "short"},
+  {"id": "short2", "type": "text", "x": 14.31, "y": 108.15, "w": 0.0, "h": 40.83, "text": "", "boxed": true, "show": "short"},
+  {"id": "short3", "type": "text", "x": 108.36, "y": 108.15, "w": 0.0, "h": 40.83, "text": "", "boxed": true, "show": "short"},
+  {"id": "short4", "type": "text", "x": 201.94, "y": 108.15, "w": 0.0, "h": 40.83, "text": "", "boxed": true, "show": "short"},
+  {"id": "short5", "type": "text", "x": 262.69, "y": 108.15, "w": 0.0, "h": 40.83, "text": "", "boxed": true, "show": "short"},
+  {"id": "short6", "type": "text", "x": 273.0, "y": 108.15, "w": 0.0, "h": 40.83, "text": "", "boxed": true, "show": "short"},
+  {"id": "short7", "type": "shade", "x": 148.81, "y": 7.31, "w": 124.19, "h": 96.19, "show": "short"},
+  {"id": "short8", "type": "shade", "x": 32.23, "y": 76.76, "w": 76.13, "h": 30.37, "show": "short", "move": [0.0, -31.24]},
+  {"id": "short9", "type": "shade", "x": 4.0, "y": 108.15, "w": 269.0, "h": 40.83, "show": "short"},
+  {"id": "short10", "type": "text", "x": 72.87, "y": 77.44, "w": 25.95, "h": 4.76, "text": "RESIDUALS", "underline": true, "show": "short", "move": [0.0, -31.24]},
+  {"id": "short11", "type": "text", "x": 198.96, "y": 70.9, "w": 25.95, "h": 4.76, "text": "RESIDUALS", "underline": true, "show": "short"},
+  {"id": "m1", "type": "text", "x": 64.62, "y": 108.28, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m2", "type": "text", "x": 161.39, "y": 108.28, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m3", "type": "text", "x": 161.11, "y": 113.66, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m4", "type": "text", "x": 226.82, "y": 46.1, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"}
+]},
+{"id": "tpi", "title": "TPI Data Card", "page": 92, "shape": "landscape", "size": 3.4, "short_size": [277, 126.31], "note": "When: TPI to the midcourses (manual 3.14 for 099, 3.15 for 210, then 3.16). N54 comes from V83 (3.18).", "blocks": [
+  {"id": "s1", "type": "shade", "x": 119.42, "y": 5.73, "w": 153.58, "h": 106.95, "show": "full"},
+  {"id": "s2", "type": "shade", "x": 4.79, "y": 21.39, "w": 114.63, "h": 6.71, "show": "full"},
+  {"id": "s3", "type": "shade", "x": 4.79, "y": 104.47, "w": 114.63, "h": 6.27, "show": "full"},
+  {"id": "s4", "type": "shade", "x": 4.0, "y": 112.68, "w": 269.0, "h": 75.02, "show": "full"},
+  {"id": "t5", "type": "text", "x": 128.43, "y": 0.81, "w": 36.15, "h": 4.76, "text": "TPI DATA CARD"},
+  {"id": "n37", "type": "reg", "x": 4.79, "y": 2.75, "cols": 2, "cell_w": 6.729, "row_h": 6.213, "label_w": 33.88, "label_side": "left", "rows": [
+    {"label": ["HR", "N37"], "noun": "N37", "cells": "+ 0 0 _ _ _", "mark": "P"},
+    {"label": ["MIN", "TIG", ""], "noun": "N37", "cells": "+ 0 0 0 _ _", "mark": "P"},
+    {"label": ["SEC", "TPI", ""], "noun": "N37", "cells": "+ 0 _ _. _ _", "mark": "P"}]},
+  {"id": "t6", "type": "text", "x": 5.81, "y": 22.29, "w": 10.65, "h": 4.76, "text": "N55", "align": "left"},
+  {"id": "t7", "type": "text", "x": 36.17, "y": 22.29, "w": 20.85, "h": 4.76, "text": "(BLANK)"},
+  {"id": "t8", "type": "text", "x": 52.43, "y": 22.29, "w": 33.6, "h": 4.76, "text": "(          )", "fill": {"099": "+026.60", "210": "+000.00"}},
+  {"id": "t9", "type": "text", "x": 76.97, "y": 22.29, "w": 33.6, "h": 4.76, "text": "(          )", "fill": "+130.00"},
+  {"id": "n81", "type": "reg", "x": 4.79, "y": 28.1, "cols": 2, "cell_w": 6.729, "row_h": 6.317, "label_w": 33.88, "label_side": "left", "rows": [
+    {"label": ["ΔVX", "N81", ""], "noun": "N81", "cells": "s 0 _ _ _. _", "mark": "D"},
+    {"label": ["ΔVY"], "noun": "N81", "cells": "s 0 _ _ _. _", "mark": "D"},
+    {"label": ["ΔVZ"], "noun": "N81", "cells": "s 0 _ _ _. _", "mark": "D"}]},
+  {"id": "n42", "type": "reg", "x": 4.79, "y": 47.05, "cols": 2, "cell_w": 6.729, "row_h": 6.26, "label_w": 33.88, "label_side": "left", "show": "full", "rows": [
+    {"label": ["ΔVR", "N42", ""], "noun": "N42", "cells": "+ 0 0 _ _. _"}]},
+  {"id": "fdai", "type": "reg", "x": 4.79, "y": 53.31, "cols": 2, "cell_w": 6.729, "row_h": 6.34, "label_w": 33.88, "label_side": "left", "show": "full", "rows": [
+    {"label": ["RLM"], "cells": "X X X _ _ _"},
+    {"label": ["PLM"], "cells": "X X X _ _ _"}]},
+  {"id": "n54", "type": "reg", "x": 4.79, "y": 65.99, "cols": 2, "cell_w": 6.729, "row_h": 6.56, "label_w": 33.88, "label_side": "left", "move": [0.0, -18.94], "rows": [
+    {"label": ["R TPI", "N54", ""], "noun": "N54", "cells": "+ 0 _ _. _ _", "mark": "D"},
+    {"label": ["R TPI TIG-5"], "noun": "N54", "cells": "s 0 _ _ _. _", "mark": "D"}]},
+  {"id": "n59", "type": "reg", "x": 4.79, "y": 79.11, "cols": 2, "cell_w": 6.729, "row_h": 6.317, "label_w": 33.88, "label_side": "left", "move": [0.0, -18.94], "rows": [
+    {"label": ["F/A (+/-) N59"], "noun": "N59", "cells": "s 0 0 _ _ _", "mark": "D 099"},
+    {"label": ["R/L (+/-) ΔV"], "noun": "N59", "cells": "s 0 0 _ _ _", "mark": "D 099"},
+    {"label": ["D/U (+/-) LOS"], "noun": "N59", "cells": "s 0 0 _ _ _", "mark": "D 099"}]},
+  {"id": "bt", "type": "reg", "x": 4.79, "y": 98.06, "cols": 2, "cell_w": 6.729, "row_h": 6.41, "label_w": 33.88, "label_side": "left", "show": "full", "rows": [
+    {"label": ["BT"], "cells": "X X _ _: _ _"}]},
+  {"id": "b10", "type": "text", "x": 4.79, "y": 104.47, "w": 114.63, "h": 6.27, "text": "", "boxed": true, "show": "full"},
+  {"id": "b11", "type": "text", "x": 136.2, "y": 37.65, "w": 121.44, "h": 32.22, "text": "", "boxed": true, "show": "full"},
+  {"id": "t12", "type": "text", "x": 197.97, "y": 39.45, "w": 25.95, "h": 4.76, "text": "RESIDUALS", "underline": true, "show": "full"},
+  {"id": "b13", "type": "text", "x": 136.2, "y": 50.18, "w": 40.22, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b14", "type": "text", "x": 176.42, "y": 43.76, "w": 40.85, "h": 6.42, "text": "PGNS", "boxed": true},
+  {"id": "b15", "type": "text", "x": 217.27, "y": 43.76, "w": 40.37, "h": 6.42, "text": "AGS", "boxed": true, "show": "full"},
+  {"id": "b16", "type": "text", "x": 136.2, "y": 50.18, "w": 40.22, "h": 19.69, "text": "", "boxed": true},
+  {"id": "t17", "type": "text", "x": 139.28, "y": 51.68, "w": 10.65, "h": 4.76, "text": "ΔVX", "align": "left"},
+  {"id": "t18", "type": "text", "x": 139.28, "y": 58.39, "w": 10.65, "h": 4.76, "text": "ΔVY", "align": "left"},
+  {"id": "t19", "type": "text", "x": 139.28, "y": 64.65, "w": 10.65, "h": 4.76, "text": "ΔVZ", "align": "left"},
+  {"id": "n85", "type": "reg", "x": 176.42, "y": 50.18, "cols": 1, "cell_w": 6.808, "row_h": 6.563, "label_w": 13.62, "label_side": "left", "rows": [
+    {"label": [""], "noun": "N85", "cells": "s _ _. _", "mark": "D"},
+    {"label": ["N85"], "noun": "N85", "cells": "s _ _. _", "mark": "D"},
+    {"label": [""], "noun": "N85", "cells": "s _ _. _", "mark": "D"}]},
+  {"id": "ags", "type": "reg", "x": 217.27, "y": 50.18, "cols": 1, "cell_w": 6.727, "row_h": 6.563, "label_w": 13.46, "label_side": "left", "show": "full", "rows": [
+    {"label": ["500"], "cells": "s _ _. _"},
+    {"label": ["501"], "cells": "s _ _. _"},
+    {"label": ["502"], "cells": "s _ _. _"}]},
+  {"id": "b20", "type": "text", "x": 4.0, "y": 112.68, "w": 269.0, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b21", "type": "text", "x": 4.0, "y": 154.89, "w": 269.0, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b22", "type": "text", "x": 97.26, "y": 169.8, "w": 83.12, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b23", "type": "text", "x": 4.0, "y": 187.7, "w": 269.0, "h": 0.0, "text": "", "boxed": true, "show": "full"},
+  {"id": "b24", "type": "text", "x": 4.0, "y": 112.68, "w": 0.0, "h": 75.02, "text": "", "boxed": true, "show": "full"},
+  {"id": "b25", "type": "text", "x": 14.29, "y": 112.68, "w": 0.0, "h": 75.02, "text": "", "boxed": true, "show": "full"},
+  {"id": "b26", "type": "text", "x": 97.26, "y": 112.68, "w": 0.0, "h": 75.02, "text": "", "boxed": true, "show": "full"},
+  {"id": "b27", "type": "text", "x": 180.38, "y": 112.68, "w": 0.0, "h": 75.02, "text": "", "boxed": true, "show": "full"},
+  {"id": "b28", "type": "text", "x": 262.39, "y": 112.68, "w": 0.0, "h": 75.02, "text": "", "boxed": true, "show": "full"},
+  {"id": "b29", "type": "text", "x": 273.0, "y": 112.68, "w": 0.0, "h": 75.02, "text": "", "boxed": true, "show": "full"},
+  {"id": "t30", "type": "text", "x": 4.81, "y": 112.15, "w": 7.88, "h": 9.1, "text": "P", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t31", "type": "text", "x": 4.81, "y": 120.06, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t32", "type": "text", "x": 4.81, "y": 128.26, "w": 7.88, "h": 9.1, "text": "N", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t33", "type": "text", "x": 4.81, "y": 136.76, "w": 7.88, "h": 9.1, "text": "C", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t34", "type": "text", "x": 4.81, "y": 145.86, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t35", "type": "text", "x": 4.81, "y": 158.24, "w": 7.88, "h": 9.1, "text": "A", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t36", "type": "text", "x": 4.81, "y": 166.6, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t37", "type": "text", "x": 4.81, "y": 174.95, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t38", "type": "text", "x": 263.52, "y": 112.75, "w": 7.88, "h": 9.1, "text": "P", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t39", "type": "text", "x": 263.52, "y": 119.91, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t40", "type": "text", "x": 263.52, "y": 128.41, "w": 7.88, "h": 9.1, "text": "N", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t41", "type": "text", "x": 263.52, "y": 138.11, "w": 7.88, "h": 9.1, "text": "C", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t42", "type": "text", "x": 263.52, "y": 147.06, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": true, "size": 6.5, "move": [0.0, -30.58]},
+  {"id": "t43", "type": "text", "x": 263.52, "y": 158.54, "w": 7.88, "h": 9.1, "text": "A", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t44", "type": "text", "x": 263.52, "y": 167.19, "w": 7.88, "h": 9.1, "text": "G", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t45", "type": "text", "x": 263.52, "y": 175.84, "w": 7.88, "h": 9.1, "text": "S", "bold": true, "serif": true, "size": 6.5, "show": "full"},
+  {"id": "t46", "type": "text", "x": 49.65, "y": 112.68, "w": 10.65, "h": 4.76, "text": "N58", "move": [0.0, -30.58]},
+  {"id": "b47", "type": "text", "x": 16.51, "y": 117.6, "w": 33.72, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b48", "type": "text", "x": 16.51, "y": 117.6, "w": 0.0, "h": 3.28, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b49", "type": "text", "x": 59.73, "y": 117.6, "w": 35.63, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b50", "type": "text", "x": 95.36, "y": 117.6, "w": 0.0, "h": 3.28, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "t51", "type": "text", "x": 20.37, "y": 118.05, "w": 8.1, "h": 4.76, "text": "HP", "move": [0.0, -30.58]},
+  {"id": "t52", "type": "text", "x": 8.89, "y": 122.38, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "t53", "type": "text", "x": 41.56, "y": 118.05, "w": 18.3, "h": 4.76, "text": "ΔV TPI", "move": [0.0, -30.58]},
+  {"id": "t54", "type": "text", "x": 33.43, "y": 122.38, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "t55", "type": "text", "x": 66.41, "y": 118.05, "w": 18.3, "h": 4.76, "text": "ΔV TPF", "move": [0.0, -30.58]},
+  {"id": "t56", "type": "text", "x": 57.97, "y": 122.38, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "n58_1_1", "type": "line", "x": 19.04, "y": 127.47, "w": 20.11, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.68, "move": [0.0, -30.58]},
+  {"id": "n58_1_2", "type": "line", "x": 19.04, "y": 133.88, "w": 20.11, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.68, "move": [0.0, -30.58]},
+  {"id": "n58_1_3", "type": "line", "x": 19.04, "y": 140.14, "w": 20.11, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.68, "move": [0.0, -30.58]},
+  {"id": "n58_1_4", "type": "line", "x": 19.04, "y": 146.56, "w": 20.11, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.68, "move": [0.0, -30.58]},
+  {"id": "n58_2_1", "type": "line", "x": 44.69, "y": 127.47, "w": 20.27, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "n58_2_2", "type": "line", "x": 44.69, "y": 133.88, "w": 20.27, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "n58_2_3", "type": "line", "x": 44.69, "y": 140.14, "w": 20.27, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "n58_2_4", "type": "line", "x": 44.69, "y": 146.56, "w": 20.27, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "n58_3_1", "type": "line", "x": 70.81, "y": 127.47, "w": 20.11, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.7, "move": [0.0, -30.58]},
+  {"id": "n58_3_2", "type": "line", "x": 70.81, "y": 133.88, "w": 20.11, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.7, "move": [0.0, -30.58]},
+  {"id": "n58_3_3", "type": "line", "x": 70.81, "y": 140.14, "w": 20.11, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.7, "move": [0.0, -30.58]},
+  {"id": "n58_3_4", "type": "line", "x": 70.81, "y": 146.56, "w": 20.11, "h": 5, "solid": true, "noun": "N58", "mark": ".", "mark_at": 0.7, "move": [0.0, -30.58]},
+  {"id": "t57", "type": "text", "x": 134.05, "y": 112.83, "w": 10.65, "h": 4.76, "text": "N81", "move": [0.0, -30.58]},
+  {"id": "b58", "type": "text", "x": 99.31, "y": 117.9, "w": 34.84, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b59", "type": "text", "x": 99.31, "y": 117.9, "w": 0.0, "h": 3.28, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b60", "type": "text", "x": 144.44, "y": 117.9, "w": 33.56, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b61", "type": "text", "x": 178.0, "y": 117.9, "w": 0.0, "h": 3.28, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "t62", "type": "text", "x": 103.02, "y": 118.5, "w": 10.65, "h": 4.76, "text": "ΔVX", "move": [0.0, -30.58]},
+  {"id": "t63", "type": "text", "x": 90.43, "y": 122.53, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "t64", "type": "text", "x": 127.39, "y": 118.5, "w": 10.65, "h": 4.76, "text": "ΔVY", "move": [0.0, -30.58]},
+  {"id": "t65", "type": "text", "x": 115.92, "y": 122.53, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "t66", "type": "text", "x": 154.31, "y": 118.5, "w": 10.65, "h": 4.76, "text": "ΔVZ", "move": [0.0, -30.58]},
+  {"id": "t67", "type": "text", "x": 143.15, "y": 122.53, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "n81_1_1", "type": "line", "x": 102.16, "y": 127.76, "w": 20.11, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "n81_1_2", "type": "line", "x": 102.16, "y": 134.18, "w": 20.11, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "n81_1_3", "type": "line", "x": 102.16, "y": 140.44, "w": 20.11, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "n81_1_4", "type": "line", "x": 102.16, "y": 146.86, "w": 20.11, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "n81y_1", "type": "line", "x": 127.81, "y": 127.76, "w": 20.59, "h": 5, "solid": true, "mark": ".", "mark_at": 0.68, "noun": "N81", "move": [0.0, -30.58]},
+  {"id": "t68", "type": "text", "x": 127.39, "y": 134.91, "w": 10.65, "h": 4.76, "text": "N90", "move": [0.0, -30.58]},
+  {"id": "n81y_3", "type": "line", "x": 127.81, "y": 140.44, "w": 20.59, "h": 5, "solid": true, "mark": ".", "mark_at": 0.68, "noun": "N81", "move": [0.0, -30.58]},
+  {"id": "n81y_4", "type": "line", "x": 127.81, "y": 146.86, "w": 20.59, "h": 5, "solid": true, "mark": ".", "mark_at": 0.68, "noun": "N81", "move": [0.0, -30.58]},
+  {"id": "n81z_1_1", "type": "line", "x": 153.94, "y": 127.76, "w": 20.26, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.68, "move": [0.0, -30.58]},
+  {"id": "n81z_1_2", "type": "line", "x": 153.94, "y": 134.18, "w": 20.26, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.68, "move": [0.0, -30.58]},
+  {"id": "n81z_1_3", "type": "line", "x": 153.94, "y": 140.44, "w": 20.26, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.68, "move": [0.0, -30.58]},
+  {"id": "n81z_1_4", "type": "line", "x": 153.94, "y": 146.86, "w": 20.26, "h": 5, "solid": true, "noun": "N81", "mark": ".", "mark_at": 0.68, "move": [0.0, -30.58]},
+  {"id": "b69", "type": "text", "x": 182.44, "y": 117.9, "w": 33.56, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b70", "type": "text", "x": 182.44, "y": 117.9, "w": 0.0, "h": 3.28, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b71", "type": "text", "x": 225.18, "y": 117.9, "w": 35.15, "h": 0.0, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "b72", "type": "text", "x": 260.33, "y": 117.9, "w": 0.0, "h": 3.28, "text": "", "boxed": true, "move": [0.0, -30.58]},
+  {"id": "t73", "type": "text", "x": 185.16, "y": 118.2, "w": 20.85, "h": 4.76, "text": "ΔVF⁺/A⁻", "move": [0.0, -30.58]},
+  {"id": "t74", "type": "text", "x": 177.83, "y": 122.38, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "t75", "type": "text", "x": 208.11, "y": 118.2, "w": 20.85, "h": 4.76, "text": "ΔVR⁺/L⁻", "move": [0.0, -30.58]},
+  {"id": "t76", "type": "text", "x": 200.47, "y": 122.38, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "t77", "type": "text", "x": 232.96, "y": 118.2, "w": 20.85, "h": 4.76, "text": "ΔVD⁺/U⁻", "move": [0.0, -30.58]},
+  {"id": "t78", "type": "text", "x": 225.33, "y": 122.38, "w": 33.6, "h": 4.76, "text": "(          )", "move": [0.0, -30.58]},
+  {"id": "los_1_1", "type": "line", "x": 185.29, "y": 128.06, "w": 20.1, "h": 5, "solid": true, "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "los_1_2", "type": "line", "x": 185.29, "y": 134.48, "w": 20.1, "h": 5, "solid": true, "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "los_1_3", "type": "line", "x": 185.29, "y": 140.89, "w": 20.1, "h": 5, "solid": true, "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "los_1_4", "type": "line", "x": 185.29, "y": 147.3, "w": 20.1, "h": 5, "solid": true, "mark": ".", "mark_at": 0.66, "move": [0.0, -30.58]},
+  {"id": "los_2_1", "type": "line", "x": 211.25, "y": 128.06, "w": 20.27, "h": 5, "solid": true, "mark": ".", "mark_at": 0.7, "move": [0.0, -30.58]},
+  {"id": "los_2_2", "type": "line", "x": 211.25, "y": 134.48, "w": 20.27, "h": 5, "solid": true, "mark": ".", "mark_at": 0.7, "move": [0.0, -30.58]},
+  {"id": "los_2_3", "type": "line", "x": 211.25, "y": 140.89, "w": 20.27, "h": 5, "solid": true, "mark": ".", "mark_at": 0.7, "move": [0.0, -30.58]},
+  {"id": "los_2_4", "type": "line", "x": 211.25, "y": 147.3, "w": 20.27, "h": 5, "solid": true, "mark": ".", "mark_at": 0.7, "move": [0.0, -30.58]},
+  {"id": "los_3_1", "type": "line", "x": 237.06, "y": 128.06, "w": 19.95, "h": 5, "solid": true, "mark": ".", "mark_at": 0.65, "move": [0.0, -30.58]},
+  {"id": "los_3_2", "type": "line", "x": 237.06, "y": 134.48, "w": 19.95, "h": 5, "solid": true, "mark": ".", "mark_at": 0.65, "move": [0.0, -30.58]},
+  {"id": "los_3_3", "type": "line", "x": 237.06, "y": 140.89, "w": 19.95, "h": 5, "solid": true, "mark": ".", "mark_at": 0.65, "move": [0.0, -30.58]},
+  {"id": "los_3_4", "type": "line", "x": 237.06, "y": 147.3, "w": 19.95, "h": 5, "solid": true, "mark": ".", "mark_at": 0.65, "move": [0.0, -30.58]},
+  {"id": "t79", "type": "text", "x": 44.43, "y": 156.24, "w": 10.65, "h": 4.76, "text": "267", "underline": true, "show": "full"},
+  {"id": "t80", "type": "text", "x": 43.95, "y": 160.56, "w": 15.75, "h": 4.76, "text": "ΔVTPI", "show": "full"},
+  {"id": "t81", "type": "text", "x": 75.78, "y": 156.24, "w": 10.65, "h": 4.76, "text": "371", "show": "full"},
+  {"id": "t82", "type": "text", "x": 63.69, "y": 160.56, "w": 28.5, "h": 4.76, "text": "ΔV TPI+TPF", "show": "full"},
+  {"id": "ags_1_1", "type": "line", "x": 44.69, "y": 163.26, "w": 19.95, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_1_2", "type": "line", "x": 44.69, "y": 169.68, "w": 19.95, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_1_3", "type": "line", "x": 44.69, "y": 175.94, "w": 19.95, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_1", "type": "line", "x": 70.81, "y": 163.26, "w": 19.95, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_2", "type": "line", "x": 70.81, "y": 169.68, "w": 19.95, "h": 5, "solid": true, "show": "full"},
+  {"id": "ags_2_3", "type": "line", "x": 70.81, "y": 175.94, "w": 19.95, "h": 5, "solid": true, "show": "full"},
+  {"id": "t83", "type": "text", "x": 118.14, "y": 155.34, "w": 33.6, "h": 4.76, "text": "CSM SOLUTION", "show": "full"},
+  {"id": "t84", "type": "text", "x": 106.33, "y": 157.88, "w": 10.65, "h": 4.76, "text": "ΔVX", "show": "full"},
+  {"id": "t85", "type": "text", "x": 128.51, "y": 157.88, "w": 10.65, "h": 4.76, "text": "ΔVY", "show": "full"},
+  {"id": "t86", "type": "text", "x": 150.99, "y": 157.88, "w": 10.65, "h": 4.76, "text": "ΔVZ", "show": "full"},
+  {"id": "csm_1_1", "type": "line", "x": 101.69, "y": 162.22, "w": 20.58, "h": 5, "solid": true, "mark": ".", "mark_at": 0.68, "show": "full"},
+  {"id": "csm_2_1", "type": "line", "x": 127.81, "y": 162.22, "w": 20.59, "h": 5, "solid": true, "mark": ".", "mark_at": 0.68, "show": "full"},
+  {"id": "csm_3_1", "type": "line", "x": 153.94, "y": 162.22, "w": 20.1, "h": 5, "solid": true, "mark": ".", "mark_at": 0.68, "show": "full"},
+  {"id": "t87", "type": "text", "x": 127.5, "y": 171.0, "w": 25.95, "h": 4.76, "text": "N86 (AGS)", "show": "full"},
+  {"id": "t88", "type": "text", "x": 103.97, "y": 175.18, "w": 10.65, "h": 4.76, "text": "ΔVX", "show": "full"},
+  {"id": "t89", "type": "text", "x": 126.12, "y": 175.18, "w": 10.65, "h": 4.76, "text": "ΔVY", "show": "full"},
+  {"id": "t90", "type": "text", "x": 148.62, "y": 175.18, "w": 10.65, "h": 4.76, "text": "ΔVZ", "show": "full"},
+  {"id": "ags_n86_1_1", "type": "line", "x": 101.69, "y": 180.57, "w": 20.58, "h": 5, "solid": true, "noun": "N86", "mark": ".", "mark_at": 0.68, "show": "full"},
+  {"id": "ags_n86_2_1", "type": "line", "x": 127.5, "y": 180.57, "w": 20.58, "h": 5, "solid": true, "noun": "N86", "mark": ".", "mark_at": 0.68, "show": "full"},
+  {"id": "ags_n86_3_1", "type": "line", "x": 153.62, "y": 180.57, "w": 20.42, "h": 5, "solid": true, "noun": "N86", "mark": ".", "mark_at": 0.68, "show": "full"},
+  {"id": "short1", "type": "text", "x": 4.0, "y": 112.68, "w": 0.0, "h": 42.21, "text": "", "boxed": true, "show": "short", "move": [0.0, -30.58]},
+  {"id": "short2", "type": "text", "x": 14.29, "y": 112.68, "w": 0.0, "h": 42.21, "text": "", "boxed": true, "show": "short", "move": [0.0, -30.58]},
+  {"id": "short3", "type": "text", "x": 97.26, "y": 112.68, "w": 0.0, "h": 42.21, "text": "", "boxed": true, "show": "short", "move": [0.0, -30.58]},
+  {"id": "short4", "type": "text", "x": 180.38, "y": 112.68, "w": 0.0, "h": 42.21, "text": "", "boxed": true, "show": "short", "move": [0.0, -30.58]},
+  {"id": "short5", "type": "text", "x": 262.39, "y": 112.68, "w": 0.0, "h": 42.21, "text": "", "boxed": true, "show": "short", "move": [0.0, -30.58]},
+  {"id": "short6", "type": "text", "x": 273.0, "y": 112.68, "w": 0.0, "h": 42.21, "text": "", "boxed": true, "show": "short", "move": [0.0, -30.58]},
+  {"id": "short7", "type": "shade", "x": 4.79, "y": 21.39, "w": 114.63, "h": 6.71, "show": "short"},
+  {"id": "short8", "type": "shade", "x": 136.2, "y": 38.84, "w": 81.06, "h": 31.02, "show": "short"},
+  {"id": "short9", "type": "shade", "x": 4.0, "y": 112.68, "w": 269.0, "h": 42.21, "show": "short", "move": [0.0, -30.58]},
+  {"id": "short10", "type": "text", "x": 183.87, "y": 39.45, "w": 25.95, "h": 4.76, "text": "RESIDUALS", "underline": true, "show": "short"},
+  {"id": "m1", "type": "text", "x": 14.44, "y": 22.77, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m2", "type": "text", "x": 59.14, "y": 82.58, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m3", "type": "text", "x": 143.54, "y": 82.73, "w": 3.4, "h": 3.8, "text": "D", "size": 2.7, "badge": true, "show": "short"},
+  {"id": "m4", "type": "text", "x": 216.13, "y": 82.58, "w": 8.6, "h": 3.8, "text": "D 099", "size": 2.7, "badge": true, "show": "short"}
+]}
+]
+</script>
+
+<script>
+(function () {
+"use strict";
+const KEY = "lm-pads-v1", SHORT = "lm-pads-short", VERSION = "lm-pads-version";
+const FITS = { "_": /^[0-9+-]$/, "o": /^[0-7]$/, "s": /^[+-]$/, "t": /^[^\r\n]$/ };
+const boxes = new Map();     // box id -> {el, kind: "_", "o", "s", "t" or "free", card, held: what the box holds,
+                             //             show: "full" for a box short cards hide}
+const rows = new Map();      // "card.block.col.row" -> box id (or null for a printed cell) of each grid cell
+const order = [];            // box ids in typing order
+const cards = JSON.parse(document.getElementById("cards").textContent);
+const fills = [];            // {el, spec}: figures printed inside brackets
+let version = "099";
+try { if (localStorage.getItem(VERSION) === "210") version = "210"; } catch (err) { /* load() reports it */ }
+// a filled-in figure: one for both versions, or one for each ("" where a version has none)
+const figure = spec => spec === undefined ? "" : typeof spec === "string" ? spec : spec[version] || "";
+
+const mm = v => v + "mm";
+function add(parent, tag, cls, x, y, w, h) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (x !== undefined) { e.style.left = mm(x); e.style.top = mm(y); }
+  if (w !== undefined) e.style.width = mm(w);
+  if (h !== undefined) e.style.height = mm(h);
+  parent.appendChild(e);
+  return e;
+}
+// a box outline, its stroke centred on the edge so that neighbouring outlines coincide
+function frame(parent, weight, x, y, w, h) {
+  const t = weight === "thick" ? 0.6 : 0.22;
+  if (!w || !h) add(parent, "div", "segment", x - .2, y - .2, (w || 0) + .4, (h || 0) + .4);     // a single line
+  else add(parent, "div", "frame " + weight, x - t / 2, y - t / 2, w + t, h + t);
+}
+// printed lettering; "_{A}" is a subscript
+function put(parent, text) {
+  const host = add(parent, "span");
+  text.split(/_\{(.*?)\}/).forEach((part, i) => {
+    const piece = i % 2 ? document.createElement("sub") : document.createTextNode(part);
+    if (i % 2) piece.textContent = part;
+    host.appendChild(piece);
+  });
+}
+const rule = (parent, x, y, h) => add(parent, "div", "rule", x - 0.3, y, undefined, h);
+
+/* ---- drawing ---------------------------------------------------------------------------------------------------- */
+function entry(parent, tag, id, kind, card, name) {
+  const e = add(parent, tag);
+  if (tag === "input") e.type = "text";
+  e.dataset.id = id;
+  e.autocomplete = "off";
+  e.spellcheck = false;
+  e.setAttribute("aria-label", name);
+  boxes.set(id, { el: e, kind, card, held: "" });
+  order.push(id);
+  return e;
+}
+
+// "+ 0 _ _. s INDEX*3" -> one item per printed or entry cell, with its span and the mark on its right edge
+function tokens(pattern) {
+  return pattern.trim().split(/\s+/).map(token => {
+    const word = /^(.+)\*(\d+)([.:]?)$/.exec(token);
+    if (word) return { text: word[1], span: Number(word[2]), mark: word[3] };
+    const kind = token[0];
+    return { text: "+0X".includes(kind) ? kind : null, kind, span: 1, mark: token.slice(1) };
+  });
+}
+
+function drawReg(card, block, root) {
+  const reg = add(root, "div", "reg", block.x, block.y);
+  if (block.size) reg.style.fontSize = mm(block.size);
+  const patterns = block.rows.map(r => Array.isArray(r.cells) ? r.cells : Array(block.cols).fill(r.cells));
+  const per = tokens(patterns[0][0]).reduce((n, t) => n + t.span, 0);
+  const { cell_w: cw, row_h: rh, label_w: lw, cols } = block;
+  const cellsWide = cols * per * cw, width = lw + cellsWide;
+  const top = block.title ? block.title_h || rh : 0, height = top + block.rows.length * rh;
+  const cellsX = block.label_side === "left" ? lw : 0;
+  const labelX = block.label_side === "left" ? 0 : cellsWide;
+  if (block.shaded) add(reg, "div", "shade", 0, 0, width, height);
+  if (block.title) {
+    put(add(reg, "div", "text", 0, 0, width, block.title_top ? rh : top), block.title);
+    frame(reg, "thick", 0, 0, width, top);
+  }
+  for (let col = 0; col < cols; col++) {
+    block.rows.forEach((row, r) => {
+      const rowKey = [card.id, block.id, col, r].join(".");
+      const ids = [];
+      let at = 0;
+      for (const t of tokens(patterns[r][col])) {
+        const x = cellsX + (col * per + at) * cw, y = top + r * rh, w = t.span * cw;
+        const cell = add(reg, "div", "cell", x, y, w, rh);
+        if (t.text !== null) {
+          add(cell, "div", "printed", 0, 0, w, rh).textContent = t.text;
+          for (let i = 0; i < t.span; i++) ids.push(null);
+        } else {
+          const id = rowKey + "." + at;
+          entry(cell, "input", id, t.kind, card.id, (row.label.join(" ").trim() || block.id) + ", column " + (col + 1));
+          ids.push(id);
+        }
+        frame(reg, "thin", x, y, w, rh);
+        if (t.kind === "s") frame(reg, "thick", x, y, w, rh);
+        if (t.mark === ".") add(reg, "div", "dot", x + w - 0.75, y + rh - 2.2);
+        if (t.mark === ":") for (const f of [0.34, 0.68]) add(reg, "div", "dot", x + w - 0.75, y + rh * f - 0.75);
+        at += t.span;
+      }
+      rows.set(rowKey, ids);
+    });
+    if (col) rule(reg, cellsX + col * per * cw, top, height - top);
+  }
+  if (lw) {
+    block.rows.forEach((row, r) => {
+      const label = add(reg, "div", "label", labelX, top + r * rh, lw, rh);
+      for (const part of row.label) put(label, part);
+      // the first row of each run says where the figures come from, on the side next to the boxes
+      if (row.mark && row.mark !== (block.rows[r - 1] || {}).mark) {
+        const mark = add(label, "span", "rowmark"), wide = row.mark.length > 1 ? 8.6 : 3.4;
+        mark.textContent = row.mark;
+        mark.style.width = mm(wide);
+        mark.style[block.label_side === "left" ? "right" : "left"] = ".6mm";
+        label.classList.add("marked-" + block.label_side);
+        label.style.setProperty("--mark", mm(wide + 1.4));
+      }
+    });
+    rule(reg, block.label_side === "left" ? lw : cellsWide, top, height - top);
+  }
+  if (block.ruled) block.rows.forEach((row, r) => frame(reg, "thick", 0, top + r * rh, width, rh));
+  frame(reg, "thick", 0, 0, width, height);
+}
+
+const DRAW = {
+  reg: drawReg,
+  line(card, block, root) {
+    const line = add(root, "div", "blank" + (block.solid ? " solid" : ""), block.x, block.y, block.w, block.h || 6);
+    if (block.size) line.style.fontSize = mm(block.size);
+    if (block.label) add(line, "span").textContent = block.label + " ";
+    entry(line, "input", card.id + "." + block.id, "free", card.id, block.label || block.id);
+    if (block.mark) {
+      const mark = add(line, "span", "mark");
+      mark.textContent = block.mark;
+      mark.style.left = (block.mark_at || 0.5) * 100 + "%";
+    }
+  },
+  area(card, block, root) {
+    const area = add(root, "div", "area", block.x, block.y, block.w, block.h);
+    if (block.size) area.style.fontSize = mm(block.size);
+    if (block.label) add(area, "span").textContent = block.label;
+    const text = entry(area, "textarea", card.id + "." + block.id, "free", card.id, block.label || block.id);
+    text.style.top = block.label ? "1.8em" : "1mm";
+    text.style.width = mm(block.w - 2.4);
+    text.style.height = "calc(100% - " + (block.label ? "1.8em - 1mm" : "2mm") + ")";
+  },
+  text(card, block, root) {
+    const cls = ["text", block.vertical, block.bold && "bold", block.align, block.underline && "underline",
+      block.serif && "serif", block.badge && "badge"]
+      .filter(Boolean).join(" ");
+    const text = add(root, "div", cls, block.x, block.y, block.w, block.h);
+    if (block.size) text.style.fontSize = mm(block.size);
+    if (block.fill) {
+      put(text, "( ");
+      fills.push({ el: add(text, "span", "fill"), spec: block.fill });
+      put(text, " )");
+    } else if (block.text) put(text, block.text);
+    if (block.boxed) frame(root, "thick", block.x, block.y, block.w, block.h);
+  },
+  shade(card, block, root) {
+    add(root, "div", block.dark ? "shade dark" : "shade", block.x, block.y, block.w, block.h);
+  },
+};
+
+function drawCard(card) {
+  const sheet = add(document.getElementById("sheets"), "section", "sheet " + card.shape);
+  sheet.id = "card-" + card.id;
+  const bar = add(sheet, "div", "bar");
+  add(bar, "h2").textContent = card.title;
+  for (const [name, act] of [["Print", () => Pads.printCard(card.id)], ["Clear", () => {
+    if (window.confirm("Clear everything typed on the " + card.title + " card?")) Pads.clearCard(card.id);
+  }]]) {
+    const button = add(bar, "button");
+    button.type = "button";
+    button.textContent = name;
+    button.addEventListener("click", act);
+  }
+  add(sheet, "p", "hint").textContent = card.note;
+  const root = add(add(sheet, "div", "wrap"), "div", "card " + card.shape);
+  root.dataset.card = card.id;
+  if (card.size) root.style.fontSize = mm(card.size);
+  if (card.short_size) {
+    root.classList.add("sized");
+    card.short_size.forEach((v, i) => root.style.setProperty(i ? "--sh" : "--sw", mm(v)));
+  }
+  // grey ground first, then the heavy bars, so that everything else lies on top of them
+  const rank = b => b.type !== "shade" ? 2 : b.dark ? 1 : 0;
+  const blocks = [...card.blocks].sort((a, b) => rank(a) - rank(b));
+  for (const block of blocks) {
+    // a block that short cards hide, add or slide is drawn in a wrapper the switch acts on
+    let into = root;
+    if (block.show || block.move) {
+      into = add(root, "div", "part" + (block.show ? " only-" + block.show : "") + (block.move ? " moves" : ""));
+      (block.move || []).forEach((v, i) => into.style.setProperty(i ? "--dy" : "--dx", mm(v)));
+    }
+    const first = order.length;
+    DRAW[block.type](card, block, into);
+    for (const id of order.slice(first)) boxes.get(id).show = block.show;
+  }
+  const link = add(document.getElementById("links"), "a");
+  link.href = "#card-" + card.id;
+  link.textContent = card.title;
+}
+
+/* ---- saving ----------------------------------------------------------------------------------------------------- */
+function notSaving() {
+  Pads.saving = false;
+  document.getElementById("note").hidden = false;
+}
+function parsed(raw) {
+  try {
+    const store = JSON.parse(raw);
+    return store && typeof store === "object" && !Array.isArray(store) ? store : {};
+  } catch (err) {
+    return {};
+  }
+}
+// read, change and write back, so that boxes saved by another tab are kept
+function writeStore(change) {
+  try {
+    const store = parsed(localStorage.getItem(KEY));
+    change(store);
+    localStorage.setItem(KEY, JSON.stringify(store));
+  } catch (err) {
+    notSaving();
+  }
+}
+function save(id, text) {
+  writeStore(store => { if (text === "") delete store[id]; else store[id] = text; });
+}
+function load() {
+  let store = {};
+  try {
+    store = parsed(localStorage.getItem(KEY));
+    localStorage.setItem(KEY + "-probe", "1");
+    localStorage.removeItem(KEY + "-probe");
+  } catch (err) {
+    notSaving();
+  }
+  for (const [id, text] of Object.entries(store)) {
+    const box = boxes.get(id);
+    if (box && typeof text === "string" && (box.kind === "free" || FITS[box.kind].test(text))) show(box, text);
+  }
+}
+
+/* ---- typing ----------------------------------------------------------------------------------------------------- */
+// text is what has been typed ("" for nothing), under which the filled-in figure shows
+function show(box, text) {
+  const given = figure(box.given);
+  box.held = text;
+  box.el.value = text || given;
+  box.el.classList.toggle("prefill", !text && given !== "");
+}
+function showVersion() {
+  document.getElementById("version").textContent = "Version: " + version;
+  for (const fill of fills) fill.el.textContent = figure(fill.spec);
+  for (const box of boxes.values()) show(box, box.held);
+}
+const minus = text => text.replace(/[‒–—−]/g, "-");
+// the box before (-1) or after (+1) on the same card, passing over what short cards hide
+function neighbour(id, step) {
+  const short = document.body.classList.contains("short");
+  for (let at = order.indexOf(id) + step; order[at]; at += step) {
+    const next = boxes.get(order[at]);
+    if (next.card !== boxes.get(id).card) break;
+    if (!(short && next.show === "full")) return order[at];
+  }
+  return null;
+}
+function showShort(short) {
+  document.body.classList.toggle("short", short);
+  document.getElementById("short").textContent = short ? "Full cards" : "Short cards";
+}
+
+const Pads = window.Pads = {
+  saving: true,
+  value(id) {
+    return boxes.has(id) ? boxes.get(id).el.value : "";
+  },
+  set(id, text) {
+    const box = boxes.get(id);
+    if (!box) return;
+    if (box.kind !== "free") {
+      text = minus(text);
+      if (text !== "" && !FITS[box.kind].test(text)) return;
+    }
+    show(box, text);
+    save(id, text);
+  },
+  type(id, ch) {
+    const box = boxes.get(id);
+    if (!box) return id;
+    if (box.kind === "free") {
+      Pads.set(id, box.el.value + ch);
+      return id;
+    }
+    if (!FITS[box.kind].test(minus(ch))) return id;
+    Pads.set(id, ch);
+    const next = neighbour(id, 1);
+    if (!next) return id;
+    boxes.get(next).el.focus();
+    return next;
+  },
+  back(id) {
+    const box = boxes.get(id);
+    if (!box) return id;
+    if (box.held !== "") {
+      Pads.set(id, box.kind === "free" ? box.held.slice(0, -1) : "");
+      return id;
+    }
+    const previous = neighbour(id, -1);
+    if (!previous) return id;
+    if (boxes.get(previous).kind !== "free") Pads.set(previous, "");     // free text is never wiped from next door
+    boxes.get(previous).el.focus();
+    return previous;
+  },
+  paste(id, text) {
+    const box = boxes.get(id);
+    if (box && box.kind === "free") {
+      Pads.set(id, box.el.value + text);
+      return;
+    }
+    const dot = id.lastIndexOf(".");
+    const row = rows.get(id.slice(0, dot));
+    if (!row) return;
+    const allFree = row.every(i => i === null || boxes.get(i).kind === "t");
+    const chars = Array.from(minus(text).replace(allFree ? /[\r\n]/g : /[.:\s]/g, ""));
+    // a whole register lands from the row's first cell, printed characters and all; anything else from where it is put
+    const start = chars.length === row.length ? 0 : Number(id.slice(dot + 1));
+    chars.forEach((ch, i) => {
+      const target = row[start + i];
+      if (target) Pads.set(target, ch);
+    });
+  },
+  clearCard(cardId) {
+    for (const box of boxes.values()) if (box.card === cardId) show(box, "");
+    writeStore(store => {
+      for (const id of Object.keys(store)) if (id.startsWith(cardId + ".")) delete store[id];
+    });
+  },
+  printCard(cardId) {
+    unmark();
+    if (cardId) {
+      document.body.dataset.print = cardId;
+      document.getElementById("card-" + cardId).classList.add("printing");
+    }
+    window.print();
+  },
+};
+function unmark() {
+  delete document.body.dataset.print;
+  document.querySelectorAll(".printing").forEach(s => s.classList.remove("printing"));
+}
+
+cards.forEach(drawCard);
+for (const card of cards) for (const [id, spec] of Object.entries(card.prefill || {})) boxes.get(id).given = spec;
+load();
+showVersion();
+document.getElementById("version").addEventListener("click", () => {
+  version = version === "099" ? "210" : "099";
+  showVersion();
+  try { localStorage.setItem(VERSION, version); } catch (err) { notSaving(); }
+});
+// free text emptied while typing gets its filled-in figure back on leaving it
+document.getElementById("sheets").addEventListener("focusout", event => {
+  const box = boxes.get(event.target.dataset.id);
+  if (box && box.held === "") show(box, "");
+});
+let chosen = true;      // the page opens on short cards; full cards are kept once asked for
+try { chosen = localStorage.getItem(SHORT) !== "0"; } catch (err) { /* load() has said that nothing is saved */ }
+showShort(chosen);
+document.getElementById("short").addEventListener("click", () => {
+  const short = !document.body.classList.contains("short");
+  showShort(short);
+  try { localStorage.setItem(SHORT, short ? "1" : "0"); } catch (err) { notSaving(); }
+});
+
+const sheets = document.getElementById("sheets");
+sheets.addEventListener("input", event => {
+  const id = event.target.dataset.id, box = boxes.get(id);
+  if (!box) return;
+  if (box.kind === "free") {
+    box.held = box.el.value;
+    box.el.classList.remove("prefill");
+    save(id, box.held);
+    return;
+  }
+  // a cell holds one character: take what was just entered, then show only what the box accepts
+  const entered = event.data || box.el.value;
+  if ((event.inputType || "").startsWith("delete")) {
+    Pads.set(id, "");
+  } else {
+    show(box, box.held);
+    if (Array.from(entered).length > 1) Pads.paste(id, entered); else Pads.type(id, entered);
+  }
+});
+sheets.addEventListener("keydown", event => {
+  const box = boxes.get(event.target.dataset.id);
+  if (box && box.kind !== "free" && event.key === "Backspace" && box.held === "") {
+    event.preventDefault();
+    Pads.back(event.target.dataset.id);
+  }
+});
+sheets.addEventListener("paste", event => {
+  const box = boxes.get(event.target.dataset.id);
+  if (box && box.kind !== "free") {
+    event.preventDefault();
+    Pads.paste(event.target.dataset.id, event.clipboardData.getData("text/plain"));
+  }
+});
+// typing over a filled box replaces its character
+sheets.addEventListener("focusin", event => { if (event.target.select) event.target.select(); });
+document.getElementById("print-all").addEventListener("click", () => Pads.printCard());
+document.getElementById("clear-all").addEventListener("click", () => {
+  if (window.confirm("Clear everything typed on all the cards?")) cards.forEach(card => Pads.clearCard(card.id));
+});
+window.addEventListener("afterprint", unmark);
+})();
+</script>
+<script>(function(){var b=document.getElementById('theme'),r=document.documentElement,MOON="<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" aria-hidden=\"true\"><path d=\"M13 10.2A6 6 0 0 1 5.8 3 6 6 0 1 0 13 10.2z\" fill=\"currentColor\"/></svg>",SUN="<svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"3.2\" fill=\"currentColor\"/><path d=\"M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\"/></svg>";function label(){var d=r.getAttribute('data-theme')=='dark';b.innerHTML=(d?SUN:MOON)+' '+(d?'Light mode':'Dark mode')}label();b.addEventListener('click',function(){var t=r.getAttribute('data-theme')=='dark'?'light':'dark';r.setAttribute('data-theme',t);try{localStorage.setItem('pack-theme',t)}catch(e){}label()})})()</script>
+</body>
+</html>

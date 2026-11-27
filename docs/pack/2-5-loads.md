@@ -10,6 +10,12 @@ The planner writes the PAD, the sheet of numbers Mission Control would have read
 
 The PAD loads three things with V71 blocks: the site (`RLS`), the landing time (`TLAND`) and the DOI burn (delta-v and ignition time). Each block shows its address, the same numbers in plain form to check against the display, and its keys. The plane change is the CSM's burn and is only noted.
 
+Write the figures on the [PAD page](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/pads.html), the crew's forms to type into or print (in the download: `docs/pads.html`). A checklist with a card names it in its first title bar.
+
+- The cards open short, leaving out what you have no figure for. *Full cards* shows the real ones.
+- On a short card **P** means copy from the planner, **D** from the DSKY (**D 099**: 099 only).
+- Grey figures are filled in already. *Version* picks those of 099 or 210. Type over one that differs.
+
 The **ascent PAD** has N33, N76 and the rendezvous times. {A11} CSI (N11) and TPI (N37). {J} TPI, then a fallback set. With Skip simulated uplink ticked there, P12 fills N33, N76, N11 and N37 ({J} N11 zero). Key a fallback by hand, after `V37E 12E`.
 
 ### Keyed load (V21 to V25)

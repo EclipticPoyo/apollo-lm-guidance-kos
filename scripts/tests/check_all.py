@@ -1,6 +1,6 @@
 """check_all.py: every offline check in one go (no KSP needed).  Run: python scripts/tests/check_all.py
 
-Runs check_names, check_syntax, check_paths and check_pack, then checks that run_all.ks (RUN pad.) lists every pad test:
+Runs check_names, check_syntax, check_paths, check_pack and check_pads (the PAD forms page), then checks that run_all.ks (RUN pad.) lists every pad test:
 each test_*.ks here, except the helper test_lib.ks, must be in its ra_names list, and every name listed must have a file.
 Exit code 0 when everything passes, 1 otherwise.
 """
@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-CHECKS = ("check_names.py", "check_syntax.py", "check_paths.py", "check_pack.py")
+CHECKS = ("check_names.py", "check_syntax.py", "check_paths.py", "check_pack.py", "check_pads.py")
 HELPERS = {"test_lib"}      # loaded by the tests, not a test itself
 
 

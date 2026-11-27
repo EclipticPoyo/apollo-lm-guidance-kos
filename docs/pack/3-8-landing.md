@@ -6,7 +6,7 @@ section: Section 3 | Checklist: Landing
 
 ```checklist
 use: abort
-band: AUTOMATIC LANDING
+band: AUTOMATIC LANDING | CARD: Lunar Surface
 [A11] - | COMPUTER | P65 nulls horizontal speed. Settles to 3 ft/s (0.9 m/s) down
 [A11] v: V06 N60. Terminal shows descent rate in m/s
 [J] - | COMPUTER | P66 holds the approach's rate of descent and nulls horizontal speed. No P65

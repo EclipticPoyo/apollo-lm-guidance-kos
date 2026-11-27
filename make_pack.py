@@ -2,6 +2,7 @@
 
 Reads docs/pack/*.md (one file per pack page, in file name order) and docs/pack/pack.css, and writes
   site/index.html   all the pages in one self-contained file (fonts and images embedded), for GitHub Pages
+  site/pads.html    a copy of docs/pads.html, the PAD forms page (not part of the pack; edited by hand)
   docs/PACK.pdf     with --pdf: A4 sheets, one or more per pack page, all at one text size, printed by Microsoft Edge or
                     Google Chrome (headless). The build fails if a sheet overflows
 Needs the `markdown` package (pip install markdown). Nothing is edited by hand in the output: change the source and build again.
@@ -644,6 +645,7 @@ def main():
     out = SITE / "index.html"
     out.write_text(build_html(pages, sheets=False), encoding="utf-8")
     print(f"wrote {out} ({out.stat().st_size // 1024} KB, {len(names)} pages on {len(pages)} sheets)")
+    shutil.copy2(DOCS / "pads.html", SITE / "pads.html")      # the PAD forms page, published beside the pack
     if PDF.exists() and not pdf:
         shutil.copy2(PDF, SITE / "PACK.pdf")        # the published site links to the PDF committed in docs/
 

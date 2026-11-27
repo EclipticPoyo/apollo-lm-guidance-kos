@@ -23,7 +23,7 @@ if: WARNING ON THE PAD
   - | Cross-range over 8 nm (15 km): the rest is left for the rendezvous
   - | Propellant short: check the stage
 end
-- | PLANNER | Write the PAD down. Close
+- | PLANNER | Write the PAD down (CARD: LM Ascent PAD). Close
 band: PRELIMINARY | P12  /  **SAS off, throttle zero, no time warp**
 - | TERMINAL | RUN dsky.
 - | DSKY | V37E 12E
