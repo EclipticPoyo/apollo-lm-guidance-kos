@@ -1,0 +1,9 @@
+- | DSKY | V37E 30E
+- | N33 FL | TIG. PRO
+- | N81 FL | Delta-v. PRO
+- | N42 FL | Orbit after the burn. PRO
+- | N45 FL | Time to ignition. PRO
+if: OPR ERR
+  - | Time or delta-v not loaded, or time passed
+  - DSKY | V25 N33 E / V25 N81 E, or replan
+end

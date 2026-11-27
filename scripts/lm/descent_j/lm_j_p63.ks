@@ -33,7 +33,7 @@ GLOBAL J_P63_LOG_PATH IS "0:/lm/logs/j_p63.log".    // one line per cycle, read 
 // j_p63_predict: the ship's coasting state at UT t_ut, in the live raw axes (which turn with the Moon). The orbit
 // prediction (POSITIONAT, VELOCITYAT) is in fixed (inertial) axes, so the result is turned back by the Moon's spin
 // since t0 (the time the prediction was made), the opposite sense to the planner's plan_site_at. POSITIONAT is measured
-// from the ship's position NOW, so the body's position is subtracted in the same call. Both include maneuver nodes
+// from the ship's position NOW, so the body's position is subtracted in the same call. Both include manoeuvre nodes
 // still ahead. The past cannot be predicted: times before t0 are treated as t0.
 FUNCTION j_p63_predict {
   PARAMETER t0, wm_vec, t_ut.
@@ -110,6 +110,7 @@ FUNCTION j_p63_step {
   LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
+  LOCAL warn IS "".
   // V34 ENTR ends the programme in every state, including the enable prompt (where the verb would otherwise be forced
   // back to 99 each cycle): the sequence is told to terminate, which switches the ullage off.
   // Luminary VBTERM only answers a flashing request: P63's only one is the V99 enable prompt. Outside it V34 does nothing.
@@ -136,7 +137,7 @@ FUNCTION j_p63_step {
     dvmon_reset(prog["DVMON"]).
     SET prog["DVSHOWN"] TO FALSE.
     SET dv_failed TO FALSE.
-    SET msg TO "P63: NEW IGNITION IN " + DVMON_RETRY_S + " S.".
+    SET warn TO "P63: NEW IGNITION IN " + DVMON_RETRY_S + " S.".
   }
 
   // ---- the sequence: countdown, ullage, enable prompt, ignition, zoom ----
@@ -174,7 +175,7 @@ FUNCTION j_p63_step {
     SET dir_cmd TO cg_unapply(gp["CG"], gp["AFC"]).
     SET prog["THR"] TO gp["THR"].
   }
-  // The crew window (P63_WINDOW_MODE, lm_constants.ks). UP: held toward straight up from the Moon throughout (the later
+  // The crew window (P63_WINDOW_MODE, lm_constants.ks). UP: held towards straight up from the Moon throughout (the later
   // missions, per the user). KEEP, as Luminary 099 (lm_control.ks): the shortest turn from the attitude P63 started in (the
   // ship keeps its roll) until it has turned to the burn attitude; after that (and in the burn) the ship's own roll is held,
   // and in AUTO the roll stick may turn it (X-axis override). TURNED latches once the attitude has been reached.
@@ -225,14 +226,14 @@ FUNCTION j_p63_step {
     SET set_verb TO sq["VN"]:SUBSTRING(1, 2):TONUMBER(0).
     SET set_noun TO sq["VN"]:SUBSTRING(4, 2):TONUMBER(0).
   }
-  IF sq["STATE"] <> prog["LAST_STATE"] AND sq["STATE"] = "PROMPT" { SET msg TO "P63: PLEASE ENABLE ENGINE: PRESS PRO". }
+  IF sq["STATE"] <> prog["LAST_STATE"] AND sq["STATE"] = "PROMPT" { SET warn TO (warn + " P63: PLEASE ENABLE ENGINE: PRESS PRO"):TRIM. }
   SET prog["LAST_STATE"] TO sq["STATE"].
   // Alarm 1406: the time-to-go solver did not settle. The code is returned every cycle (the main loop lights PROG); the
   // message is printed once, when the alarm first appears or changes.
   LOCAL alarm_no IS 0.
   IF gp:HASKEY("ALARM") { SET alarm_no TO gp["ALARM"]. }
   IF alarm_no <> prog["LAST_ALARM"] {
-    IF alarm_no > 0 { SET msg TO "P63 ALARM " + alarm_no + ": TIME-TO-GO NOT CONVERGED. THE GUIDANCE KEEPS THE LAST TIME-TO-GO." . }
+    IF alarm_no > 0 { SET warn TO (warn + " P63 ALARM " + alarm_no + ": TIME-TO-GO NOT CONVERGED. THE GUIDANCE KEEPS THE LAST TIME-TO-GO."):TRIM. }
     SET prog["LAST_ALARM"] TO alarm_no.
   }
   IF terminating { SET prog["ENDED"] TO TRUE. }
@@ -243,7 +244,7 @@ FUNCTION j_p63_step {
     dvmon_step(prog["DVMON"], prog["DV"], now_ut).
     IF prog["DVMON"]["FAILED"] {
       IF NOT request:ISTYPE("Lexicon") { SET request TO LEXICON("VERB", 97, "NOUN", 62). }
-      IF NOT prog["DVSHOWN"] { SET prog["DVSHOWN"] TO TRUE. SET msg TO "P63: ENGINE FAILURE (V97): NO THRUST. PRO RESETS, ENTR TRIES AGAIN, V34 ENDS.". SET set_verb TO 97. SET set_noun TO 62. }
+      IF NOT prog["DVSHOWN"] { SET prog["DVSHOWN"] TO TRUE. SET warn TO (warn + " P63: ENGINE FAILURE (V97): NO THRUST. PRO RESETS, ENTR TRIES AGAIN, V34 ENDS."):TRIM. SET set_verb TO 97. SET set_noun TO 62. }
       ELSE IF set_verb >= 0 { SET set_verb TO 97. SET set_noun TO 62. }          // a state change must not take the display off V97
     }
   }
@@ -262,7 +263,7 @@ FUNCTION j_p63_step {
   j_p63_log(prog, sq, gp, state, derived).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", sq["BLANK"],
                  "REQUEST", request, "FLASH", FALSE, "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
-                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 63).
+                 "EXTRA", extra, "MSG", msg, "WARN", warn, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 63).
 }
 
 // j_thr_percent: N92 R1, the thrust the guidance wants as a percent of the engine's rated thrust (J_DPS_RATED_KN, 10,500 lbf): the wanted fraction

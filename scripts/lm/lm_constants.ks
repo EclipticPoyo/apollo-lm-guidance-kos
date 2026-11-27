@@ -128,7 +128,7 @@ GLOBAL WINDOW_AXIS IS "BOTTOM".                  // config: RO LM crew window fa
 // P63 turn-then-warp (chosen, not Apollo: the real LM did not warp). After V37 E 63 E the ship turns to the burn attitude;
 // once it has stayed within P63_SETTLE_ERR_DEG of it and turned slower than P63_SETTLE_RATE_DEG_S for P63_SETTLE_HOLD_S,
 // P63 warps to P63_WARP_LEAD_S before ignition (once only: cancel it with KSP's own warp-cancel key and it does not restart).
-GLOBAL P63_WARP_LEAD_S IS 60.                  // config: stop the warp this long before ignition (TIG), s. Tune after flight test 1
+GLOBAL P63_WARP_LEAD_S IS 60.                  // config: stop the warp this long before ignition (TIG), s; P40, P41 and P12 (lift-off) use it too
 GLOBAL P63_WARP_MIN_S IS 10.                     // no warp when the stop time is less than this far ahead, s
 GLOBAL DVMON_ACCEL_MS2 IS 0.18.                 // Luminary DPSTHRSH: 36 cm/s gained in a 2 s pass (about 600 lbf on a 15 t LM): less than this is "no thrust" (V97)
 GLOBAL DVMON_PERIOD_S IS 4.                      // s between two thrust checks (Luminary checks every other 2 s pass)
@@ -138,7 +138,7 @@ GLOBAL P63_SETTLE_RATE_DEG_S IS 0.3.             // config: and turning slower t
 GLOBAL P63_SETTLE_HOLD_S IS 5.                   // config: for this long, s
 
 // Crew window in P63 (the planner window chooses it and saves it in the plan; this is the default and what a plan without it gets).
-//   "UP"   the window is held toward straight up from the Moon from the first turn: the profile of the later missions
+//   "UP"   the window is held towards straight up from the Moon from the first turn: the profile of the later missions
 //          (user's report; NOT verified in the source, which is Luminary 099, the Apollo 11 version). No stick roll in the burn.
 //   "KEEP" Luminary 099 (Apollo 11): the ship keeps the roll it had; no programmed roll; in AUTO the stick can roll it.
 GLOBAL DSKY_START IS "BLANK".                  // what the DSKY shows when it starts: BLANK (PROG 00, nothing else, as a real DSKY after a fresh start) or N60 (V16 N60, a descent monitor); config file setting
@@ -153,18 +153,19 @@ GLOBAL PAD_PROFILE IS "A11".
 GLOBAL IMU_ALIGN IS "AUTO".
 // The ENG THR CONT switch (release 1.4, lm_p40.ks): AUTO (the computer's throttle: 10 percent at ignition, full thrust ZOOMTIME later on a long burn) or MAN (the
 // pilot's throttle lever; P40 shows the checklist 203 prompt and says RAISE THROTTLE 15 s after ignition). The real computer reads the switch only for that prompt
-// (research section 7). A pilot setting (agc_config.txt); a clickable switch may follow.
-GLOBAL ENG_THR_CONT IS "AUTO".
-// The planner's KSP maneuver nodes are a visual aid only (release 1.4): TRUE leaves them on the ship after planning, FALSE removes them. P30 and P40 never read a node. A pilot setting.
+// (research section 7). A pilot setting (agc_config.txt), shipped on MAN; a clickable switch may follow.
+GLOBAL ENG_THR_CONT IS "MAN".
+// The planner's KSP manoeuvre nodes are a visual aid only (release 1.4): TRUE leaves them on the ship after planning, FALSE removes them. P30 and P40 never read a node. A pilot setting.
 GLOBAL PLAN_NODES IS TRUE.
 GLOBAL MAN_THROTTLE_AFTER_S IS 15.             // handbook: the DOI's manual throttle-up comes 15 s after ignition (the crew's "+15 s THROTTLE UP 40%")
 GLOBAL STAGED_THRUST_N IS 30000.                // alarm 1706 (descent stage gone) when no engine has at least this much vacuum thrust, N (the ascent engine gives 15.6 kN, the descent engine 46.7 kN)
 GLOBAL ALARMS IS "OFF".                        // scripted program alarms in the descent: OFF, A11 (the Apollo 11 pattern of 1202 and 1201) or a list code@seconds after ignition (lm_alarms.ks); config file setting
 // The uplink key file: the planner's SEND writes it (the simulated uplink) and the DSKY feeds it into its keys when it starts (core/dsky_uplink.ks).
 GLOBAL LM_UPLINK_FILE IS "0:/lm/uplink.txt".
+GLOBAL LM_LOG_FILE IS "0:/lm/logs/dsky.log".     // every terminal warning and message of the last DSKY run (written whatever LM_LOG says)
 // Window roll (Luminary: none in P63; the pilot may roll with the stick in AUTO, see lm_control.ks win_hold).
 GLOBAL P63_ROLL_DETENT IS 0.1.                   // config: roll stick (-1 to 1) beyond this overrides the roll, like the LM hand controller out of detent
-GLOBAL P63_ROLL_STICK_LEAD_DEG IS 30.          // config, CHOSEN: with the roll stick at full deflection the window command is this many degrees ahead of the ship's roll; the ship rolls toward it, so the rate depends on how fast kOS steering follows (tune: more = faster)
+GLOBAL P63_ROLL_STICK_LEAD_DEG IS 30.          // config, CHOSEN: with the roll stick at full deflection the window command is this many degrees ahead of the ship's roll; the ship rolls towards it, so the rate depends on how fast kOS steering follows (tune: more = faster)
 GLOBAL P63_ROLL_STICK_SIGN IS -1.                // config: -1 because milestone 5 flight 1 showed Q and E rolled the window the wrong way round with +1 (user, 2026-11-13); flip back if it is ever the other way
 
 // Steering tuning and the coast deadband (probe_steer.ks, 2026-11-12; Luminary's DAP deadbands: 0.3, 1.0 and 5.0 degrees,
@@ -177,7 +178,7 @@ GLOBAL P63_ROLL_STICK_SIGN IS -1.                // config: -1 because milestone
 GLOBAL P63_STEER_TS_MULT IS 2.                   // config: kOS PITCHTS, YAWTS, ROLLTS (default 2 s) multiplied by this
 GLOBAL P63_STEER_STOP_MULT IS 0.5.               // config: kOS MAXSTOPPINGTIME (default 2 s) multiplied by this: it brakes the turn earlier, less overshoot. UNTESTED in combination: flight test 2a showed a 13 degree overshoot with TS x2 alone; probe_steer's STOP1_EPS10 (this x0.5) had rebounds of 1.8 to 2.7 degrees
 GLOBAL P63_STEER_EPS_MULT IS 10.                // config: kOS TORQUEEPSILONMIN and MAX (defaults 0.0002, 0.001) multiplied by this
-GLOBAL P63_TURN_RATE_DEG_S IS 10.                // chosen (edit here, not in lm_config.txt): the commanded attitude is moved toward the wanted one no faster than this, degrees per second (0 = jump), as one rotation about a single axis (ctl_slew_att). Smooth turn instead of a big RCS burst, a chatter along the way and a settle; 10 is the fastest AGC maneuver rate (0.5, 2, 5, 10). NOT FLOWN: to be tested and tuned with the guidance-rate work (docs/superpowers/note-guidance-rate.md)
+GLOBAL P63_TURN_RATE_DEG_S IS 10.                // chosen (edit here, not in lm_config.txt): the commanded attitude is moved towards the wanted one no faster than this, degrees per second (0 = jump), as one rotation about a single axis (ctl_slew_att). Smooth turn instead of a big RCS burst, a chatter along the way and a settle; 10 is the fastest AGC manoeuvre rate (0.5, 2, 5, 10). NOT FLOWN: to be tested and tuned with the guidance-rate work (docs/superpowers/archive/notes/note-guidance-rate.md)
 GLOBAL P63_DB_RELEASE_DEG IS 0.5.                // config: drift freely once the error is below this, degrees
 GLOBAL P63_DB_RATE_DEG_S IS 0.15.                // config: and the ship is turning slower than this, degrees per second
 GLOBAL P63_DB_RELOCK_DEG IS 1.0.                 // config: steer again when the error passes this, degrees (Luminary's powered-flight deadband)
@@ -263,6 +264,122 @@ GLOBAL RCS_ULLAGE4_N IS 1779.2.                  // Luminary: four RCS jets, N (
 GLOBAL ULLAGE2_S IS 4.                           // Luminary 099: seconds of 2-jet ullage S40.13 allows for (P4:1005, 4SEC(17))
 GLOBAL ULLAGE4_S IS 6.5.                         // Luminary 210: seconds of 4-jet ullage S40.13 allows for (210 P40-P47.agc:1042, 6.5SECS)
 GLOBAL APSIDE_CAP_NM IS 9999.9.                  // Luminary: apogee and perigee are shown no larger than this, nmi (P30 PERIAPO1, N42)
+// P42, the ascent engine (1.5 rendezvous stage 2; 210 CONTROLLED_CONSTANTS.agc 28-62, P40-P47.agc 1035-1135, BBB table P42). APSVEX is ASC_VE
+// and ATDECAY is ASC_TAILOFF_A11 / ASC_TAILOFF_J below.
+GLOBAL APS_THRUST_N IS 15569.                    // Luminary: FAPS, ascent engine thrust, N (3500 lbf); also K3VAL
+GLOBAL APS_MDOT_KGS IS 5.135.                    // Luminary: MDOTAPS, ascent engine flow, kg/s
+GLOBAL APS_K1_A11 IS 12455.                      // Luminary 099: K1VAL, 2800 lb-s: a smaller burn than this impulse takes the K2 rule
+GLOBAL APS_K1_J IS 14012.                        // Luminary 210: K1VAL, 3150 lb-s
+GLOBAL APS_K2 IS 3113.8.                         // Luminary: K2VAL, 700 lb-s
+GLOBAL APS_ULLAGE_ON_A11 IS -3.5.                // Luminary 099: P42 ullage on, s from TIG (table word 2640 cs from TIG - 29.9)
+GLOBAL APS_ULLAGE_ON_J IS -6.0.                  // Luminary 210: P42 ullage on (word 2390 cs)
+GLOBAL AIM_CONE_DEG IS 10.                       // Luminary: aim-point burns treat a transfer this close to 180 degrees in the LM's plane (EPS1)
+GLOBAL AIM_CONE_ROTATED_DEG IS 45.               // Luminary: the cone when the targeting turned the aim point (EPS1 + EPS2)
+GLOBAL RNDZ_CONIC_ABORT IS 20607.               // alarm: no solution from the conic maths (Luminary's POODOO of the conic routines)
+
+// ---- Ascent (1.5): Luminary 210 constants, lm/ascent/. AG = ASCENT_GUIDANCE.agc, P12 = P12.agc, CC = CONTROLLED_CONSTANTS.agc. SI units. ----
+GLOBAL ASC_HINJECT_M IS 18288.                   // Luminary: HINJECT, insertion 60 000 ft above the landing-site radius (CC)
+GLOBAL ASC_VE IS 3030.                           // Luminary: APSVEX, APS exhaust velocity, m/s (CC:100)
+GLOBAL ASC_AT0 IS 3.2883.                        // Luminary: (AT)A, thrust acceleration before the first measurement, m/s^2 (CC:82)
+GLOBAL ASC_TBUP0 IS 919.02.                      // Luminary: (TBUP)A, mass / mass flow before the first measurement, s (CC:84)
+GLOBAL ASC_INVDV0 IS 0.152.                      // Luminary: (1/DV)A, one over the delta-V of 2 s, s/m (CC:73)
+GLOBAL ASC_TGO0 IS 370.                          // Luminary: (TGO)A, time to go before the first pass, s (P12:71)
+GLOBAL ASC_ZDOTD_NOM IS 1679.299.                // Luminary: VINJNOM, horizontal speed wanted until N76 is loaded, m/s (5509.5 ft/s, P12)
+GLOBAL ASC_RDOTD_NOM IS 5.9436.                  // Luminary: RDOTDNOM, radial speed wanted until N76 is loaded, m/s (19.5 ft/s, P12)
+GLOBAL ASC_TIPOVER_RDOT IS 14.9352.              // Luminary: 49FPS, the radial speed the pre-ignition pass assumes at pitchover, m/s (P12)
+GLOBAL ASC_TAILOFF_A11 IS 0.10.                  // Luminary 099: ATDECAY -10 cs, the engine's tail-off taken from TGO, s
+GLOBAL ASC_TAILOFF_J IS 0.18.                    // Luminary 210: ATDECAY -18 cs (CC:44)
+GLOBAL ASC_RISE_RDOT IS 12.192.                  // Luminary: 40FPS, the vertical rise ends at this radial speed, m/s (AG)
+GLOBAL ASC_RISE_YAW_DEG IS 5.                    // Luminary 099: and (A11) the yaw is within this many degrees
+GLOBAL ASC_RISE_ALT_M IS 7620.                   // Luminary: 25KFT, no vertical rise above this height (AG)
+GLOBAL ASC_T_NOPOS IS 10.                        // Luminary: T3, position control is off under this time to go, s (AG)
+GLOBAL ASC_T_HOLD IS 2.                          // Luminary: T2A, the guidance coefficients are held under this, s (AG)
+GLOBAL ASC_T_CUT IS 4.                           // Luminary: 4SEC, the timed engine cut-off is set under this time to go, s (AG)
+GLOBAL ASC_LOOKAHEAD_S IS 1.                     // Luminary: 100CS as read at D12's scale: the command is evaluated this long ahead, s (AG)
+GLOBAL ASC_XOVR_S IS 10.                         // Luminary: the pilot's yaw is allowed this long after the vertical rise, s (AG)
+GLOBAL ASC_PRLIMIT IS -0.03048.                  // Luminary: PRLIMIT, the least (radial rate term / TBUP), m/s^3 (-0.1 ft/s^3, AG)
+GLOBAL ASC_MINDV IS 3.56.                        // Luminary: MINABDV, no guidance from a pass with less delta-V than this in 2 s, m/s (AG)
+GLOBAL ASC_AT_RCS IS 0.785.                      // Luminary: AT/RCS, four jets on a dry ascent stage, m/s^2: time to go of the trim (CC:92)
+GLOBAL ASC_SIM_DT IS 1.                          // chosen: step of the ascent simulation (planner), s
+GLOBAL ASC_SIM_MAX_S IS 900.                     // chosen: the simulation gives up after this long, s
+GLOBAL TFF_LIMIT_M IS 10668.                     // Luminary: MINPERM, V82's free-fall time ends 35 000 ft above the landing site (R30.agc)
+// The ascent planner (lm/planner/lm_ascent_plan.ks): the flown rendezvous plans (research 1.5, section 10). Heights are above the landing-site radius.
+GLOBAL ASC_PLAN_FILE IS "0:/lm/ascent.json".     // config: the saved ascent plan (the CSM, the lift-off time and N76); P12 reads it
+GLOBAL ASC_PHASE_RDOT IS 9.81456.                // flown: radial speed at insertion on the PAD, m/s (32.2 ft/s)
+GLOBAL ASC_APO_BELOW_A11_M IS 27780.             // flown: coelliptic insertion apolune 15 nm under the CSM (45 for 60)
+GLOBAL ASC_APO_BELOW_J_M IS 25928.               // flown: short-rendezvous insertion apolune 14 nm under the CSM (46 for 60)
+GLOBAL ASC_CSI_S IS 3000.                        // flown: insertion to CSI, s (50 min, TN D-7388)
+GLOBAL ASC_CSI_TO_TPI_S IS 5940.                 // flown: CSI to TPI, s (59 + 40 min)
+GLOBAL ASC_TPI_ELEV_DEG IS 26.6.                 // flown: the CSM's elevation above the horizontal at the coelliptic TPI, degrees
+GLOBAL ASC_J_FB_CSI_TO_TPI_S IS 6712.           // flown: J's coelliptic fallback, CSI to TPI, s (Apollo 15 read-up: 172:35:08 and 174:27:00)
+GLOBAL ASC_J_TPI_S IS 2700.                      // flown: insertion to TPI of the short rendezvous, s (45 min)
+GLOBAL ASC_J_TPI_PHASE_DEG IS 1.590405.          // computed (reference_ascent.py): the CSM's lead at that TPI for 73 ft/s, 60 nm CSM ...
+GLOBAL ASC_J_TPI_DH_M IS 27773.1.                // ... at this height difference, m; the planner keeps the lead in proportion to it
+GLOBAL ASC_XRANGE_PAD_M IS 14816.                // flown: the PAD loads at most 8 nm of cross-range
+GLOBAL ASC_PLANE_MAX_DEG IS 30.                  // chosen: the planner refuses a site further than this from the CSM plane
+GLOBAL ASC_LEAD_S IS 600.                        // chosen: the first lift-off offered is at least this long ahead, s
+GLOBAL ASC_CSM_MIN_NM IS 50.                     // chosen: warn when the CSM's mean altitude is outside this range, nm
+GLOBAL ASC_CSM_MAX_NM IS 70.
+GLOBAL ASC_CSM_ECC_NM IS 10.                     // chosen: warn when the CSM's apolune and perilune differ by more, nm
+GLOBAL ASC_RCS_MARGIN_KG IS 50.                  // chosen: propellant the RCS may use during the ascent and trim, kg (probe: about 16 for the ascent, uncertain by about 20; about 1 per m/s of trim)
+GLOBAL ASC_STEER_STOP_MULT IS 1.                 // measured (probe_ascent_fly, J craft): kOS's default steering holds the ascent stage on RCS. MAXSTOPPINGTIME multiplied by this ...
+GLOBAL ASC_STEER_TS_MULT IS 1.                   // ... PITCHTS, YAWTS and ROLLTS by this ...
+GLOBAL ASC_STEER_EPS_MULT IS 1.                  // ... TORQUEEPSILONMIN and MAX by this (1 = kOS default)
+GLOBAL ASC_COAST_STOP_FACTOR IS 0.5.            // measured (probe_steer, ascent stage): P41 multiplies MAXSTOPPINGTIME by this again (0.5 s in all); big turns overshot 2 to 4 deg, not 12 to 13
+GLOBAL ASC_COAST_TS_MULT IS 0.5.                 // chosen: P40, P41 and P42 multiply kOS's default PITCHTS, YAWTS and ROLLTS (2 s) by this on the ascent stage (see ctl_ascent_coast_tune)
+GLOBAL ASC_DB_RATE_DEG_S IS 0.05.                // chosen: on the ascent stage P40, P41 and P42 stop steering only under this turn rate (P63_DB_RATE_DEG_S elsewhere), so less is left to drift through a warp
+// Rendezvous tracking, P20 and P25 (release 1.5; lm/rndz/lm_p20.ks). Luminary 210 P20-P25.agc, R61 and R65.
+GLOBAL TRK_NEAR_DEG IS 15.              // source: +Z within this of the CSM is held silently, further off asks with V50 N18
+GLOBAL TRK_PASS_S IS 6.                 // source: between two looks at the line of sight (R65)
+GLOBAL TRK_LEAD_S IS 3.                 // source: the line of sight is taken this far ahead
+GLOBAL TRK_MARK_S IS 30.                // chosen: between two marks (about 5 passes)
+GLOBAL TRK_MARK_DEG IS 30.              // source: a mark needs the CSM within this of +Z
+GLOBAL TRK_RANGE_M IS 740800.           // source: 400 nmi, beyond it alarm 526
+GLOBAL V89_LEAD_S IS 60.                // source (R63, DP1MIN): V89 aims at the line of sight this far ahead
+GLOBAL TRK_RECHECK_S IS 5.              // source: J: out of range, looked at again this often
+GLOBAL ASC_WARP_WAIT_S IS 30.                    // chosen: the longest the warp waits for ASC_DB_RATE_DEG_S before it starts anyway, s
+GLOBAL ASC_SPOT_MIN_S IS 30.                      // chosen (spec 6): P12, a lift-off less than this ahead when the countdown would start is moved (alarm 1703) ...
+GLOBAL ASC_SPOT_AHEAD_S IS 29.9.                  // ... to this long from now, s. Luminary 210 moves TIG when the state cannot be integrated to TIG - 29.9 s (research 1.5)
+GLOBAL ASC_DVMON_ACCEL_MS2 IS 1.54.               // Luminary: THRESH2, 308 cm/s in a 2 s pass (CC:122, P12.agc 55-58): less is "no thrust" (V97) in the ascent. Above the RCS alone (measured 0.67), below the ascent engine
+GLOBAL ASC_ROLL_LEAD_S IS 0.75.                   // chosen: on releasing the roll stick the attitude taken is this many seconds of the present turn ahead (flight log: about 1.5 s to stop from 20 deg/s), s
+GLOBAL ASC_LIGHT_FRAC IS 0.6.                    // chosen: the stages separate once the ascent engine gives this share of its vacuum thrust (more than the ascent stage weighs) ...
+GLOBAL ASC_LIGHT_MAX_S IS 1.                     // ... or after this long, s
+GLOBAL ASC_STAGE_PRESSES IS 5.                 // chosen: with no decoupler event, the stage list is pressed at most this often to light the ascent engine
+
+// ---- Aborts (1.5): Luminary 099 and 210 P70-P71.agc, ASCENT_GUIDANCE.agc, CONTROLLED_CONSTANTS.agc (CC) and the pad loads. SI units unless said.
+// The descent engine's exhaust velocity is DPSVEX above. The J targets are in lm_j_constants.ks.
+GLOBAL ABT_DPS_THRUST_N IS 43670.               // Luminary: K(1/DV), the descent engine's thrust assumed at P70 before anything is measured, N
+GLOBAL ABT_DPS_MDOT IS 14.80.                   // Luminary: MDOTDPS, its mass flow at that point, kg/s
+GLOBAL ABT_DPS_TAILOFF_A11 IS 0.38.             // Luminary 099: DTDECAY -38 cs, the descent engine's tail-off taken from TGO, s
+GLOBAL ABT_DPS_TAILOFF_J IS 0.24.               // Luminary 210: 100PCTTO 24 cs, s
+GLOBAL ABT_RDOTD IS 5.9436.                     // pad load: ABTRDOT, radial speed wanted at insertion, m/s (19.5 ft/s)
+GLOBAL ABT_YLIM_M IS 15186.4.                   // pad load: YLIM, the most cross-range an abort steers out, m (8.2 nm)
+GLOBAL ABT_COSTHET2 IS 0.8660254.               // pad load: COSTHET2, within this cosine of the vertical (30 deg) the rotation is over (COSTHET1 is 0: 90 deg)
+GLOBAL ABT_PLAN_TOL_A11_DEG IS 3.             // chosen: the deorbit planner warns when the CSM is further than this from its expected place at PDI (A11)
+GLOBAL ABT_PLAN_TOL_J_DEG IS 10.              // chosen: the same for J, whose abort targets follow the CSM (10 deg moves the apolune about 35 nm)
+GLOBAL ABT_VMIN_FPS IS 5515.                    // Apollo 11 pad load: VMIN, the least horizontal speed wanted, ft/s
+GLOBAL ABT_POLY_DPS IS LIST(5641.98, 0.17736, -1.144e-3, 8.122e-7).          // Apollo 11 pad load: ZDOTD = A + t(B + t(C + tD)), ft/s, t seconds from PDI (P70)
+GLOBAL ABT_POLY_APS IS LIST(5644.77, 0.13801, -1.062e-3, 7.670e-7).          // the same for a direct P71
+
+// The terminal phase (rendezvous stage 4: the drift gauge, the cross-pointer's stand-in, and the docking message).
+GLOBAL GAUGE_RANGE_M IS 74080.                // chosen (design 10): the gauge shows under this range, m (40 nmi)
+GLOBAL GAUGE_AXIS_DEG IS 30.                  // chosen: with +Z further than this from the CSM the needles stand at the middle, degrees
+GLOBAL GAUGE_HI_MRAD IS 20.                   // Apollo: cross-pointer full scale, HI MULT, mrad/s (ALSJ Cross-Pointer page)
+GLOBAL GAUGE_LO_MRAD IS 2.                    // Apollo: full scale, LO MULT, mrad/s
+GLOBAL GAUGE_PERIOD_S IS 0.5.                 // chosen: the CSM is found, the gauge shown or hidden and docking checked this often, s
+GLOBAL DOCK_RANGE_M IS 30.48.                 // chosen (design 10): the docking message under this range, m (100 ft) ...
+GLOBAL DOCK_SPEED_MS IS 0.1524.               // ... and this relative speed, m/s (0.5 ft/s) ...
+GLOBAL DOCK_ARM_M IS 152.4.                   // ... once the range has been over this, m (500 ft)
+// The braking gates the gauge names, each LIST(range ft, most closing speed ft/s) from the farthest in. The first three are the Apollo flight figures
+// (research features/2026-11-26-rendezvous, "Braking gates"), the fourth differs by software version, the last is the docking message's.
+GLOBAL TERM_GATES_A11 IS LIST(LIST(6000, 30), LIST(3000, 20), LIST(1500, 10), LIST(600, 5), LIST(100, 0.5)).
+GLOBAL TERM_GATES_J IS LIST(LIST(6000, 30), LIST(3000, 20), LIST(1500, 10), LIST(500, 5), LIST(100, 0.5)).
+GLOBAL TERM_FT_BELOW IS 10000.                // chosen: the gauge gives the range in feet under this, ft, else in nmi
+GLOBAL P47_TRACK_TEXT IS "P47: TRACKING OFF: POINT BY HAND.".        // ours: said when P47 starts over P20 or P25 (V37 switches tracking off)
+GLOBAL WARP_NEAR_M IS 2499.36.                // chosen: physics warp nearer the CSM than this is warned about, m (8200 ft; stock KSP loads a ship in orbit at 2.5 km)
+GLOBAL WARP_NEAR_TEXT IS "NO PHYSICS WARP WITHIN 2.5 KM OF THE CSM: KSP MAKES IT JUMP".
+GLOBAL WARP_NEAR_SHOW_S IS 8.                 // chosen: how long that stays on the screen, s
+GLOBAL DOCK_TEXT IS "WITHIN 100 FT: SAS ON, CLOSE THE DSKY, DOCK WITH THE KSP CONTROLS.".
 
 // The logs go in 0:/lm/logs/. Make the folder if it is missing (a fresh install, or a release zip unzipped without it).
 IF NOT EXISTS("0:/lm/logs") { CREATEDIR("0:/lm/logs"). }

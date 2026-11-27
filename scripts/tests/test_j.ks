@@ -10,6 +10,9 @@ RUNONCEPATH("0:/shared/lm_frame.ks").
 RUNONCEPATH("0:/lm/descent_j/lm_j_guidance.ks").
 RUNONCEPATH("0:/lm/descent_j/lm_j_ignition.ks").
 RUNONCEPATH("0:/lm/descent/lm_control.ks").
+RUNONCEPATH("0:/lm/descent_j/lm_j_p64.ks").          // j_redes_los (loaded here so that this test also runs on its own)
+RUNONCEPATH("0:/lm/descent_j/lm_j_p66.ks").          // j_p66_ms_text, j_p66_hz_due
+RUNONCEPATH("0:/core/dsky_display.ks").              // zero_pad, which j_p66_ms_text calls
 RUNONCEPATH("0:/tests/test_lib.ks").
 
 test_begin("0:/lm/logs/test_j.log").
@@ -168,12 +171,12 @@ SET jt_rt TO jt_ramp(jp["ROD"], jt_lever, 0, 12, jt_rt).
 SET jt_st TO jt_state(2002.5, jt_r, jt_v, 13.15).
 SET jt_out TO j_p66_step(jp, jt_st, nav_derived(jt_st, jt_land, jt_wm), jt_ks).
 assert_near("a ROD click in AUTO changes VDG by RODSCALE", jp["VDG"], jt_vdg + J_RODSCALE * P66_ROD_SIGN, 1e-9).
-assert_true("and no 'switch SAS on' message", NOT jt_out["MSG"]:CONTAINS("SWITCH")).
+assert_true("and no 'switch SAS on' message or warning", NOT jt_out["MSG"]:CONTAINS("SWITCH") AND NOT jt_out["WARN"]:CONTAINS("SWITCH")).
 
 // ---- the vehicle: programme table and profile (lm_vehicle.ks) -----------------------------------------------------------------------
 RUNONCEPATH("0:/lm/lm_vehicle.ks").
 LOCAL jt_veh IS lm_vehicle_new().
-LOCAL jt_is_j IS plan_profile_of(plan_read(PLAN_PLAN_FILE)) = "J".
+LOCAL jt_is_j IS lm_profile_for(plan_read(PLAN_PLAN_FILE)) = "J".          // plan, else the version saved with the PAD, else the default
 assert_true("vehicle: P64 hands over to P66 for J, P65 otherwise", jt_veh["PROGRAMMES"]["64"]["NEXT"] = (CHOOSE 66 IF jt_is_j ELSE 65)).
 assert_true("vehicle: P66 is in the table and not selectable by V37", jt_veh["PROGRAMMES"]["66"]["SELECTABLE"] = FALSE).
 assert_true("vehicle: P66 hands over to P68", jt_veh["PROGRAMMES"]["66"]["NEXT"] = 68).
@@ -267,6 +270,7 @@ SET jg_ks["PRO"] TO TRUE.
 SET jg_st TO jt_state(3002.5, jt_r, jt_v, 13.15).
 SET jg_out TO j_p66_step(jg_prog, jg_st, nav_derived(jg_st, jt_land, jt_wm), jg_ks).
 assert_true("J P66: PRO switches the horizontal law off", jg_prog["HZ_OFF"]).
+assert_true("J P66: and warns that nulling is off", jg_out["WARN"]:CONTAINS("HORIZONTAL NULLING OFF")).
 LOCAL jg_held IS jg_prog["BURN_DIR"].
 SET jg_st TO jt_state(3006, jt_r, jt_v, 13.15).
 SET jg_out TO j_p66_step(jg_prog, jg_st, nav_derived(jg_st, jt_land, jt_wm), jg_ks).

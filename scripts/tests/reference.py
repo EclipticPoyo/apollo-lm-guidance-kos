@@ -268,7 +268,7 @@ def sim_braking(mass0=15269.7, fmax=43454.7, isp=311.0, dt=1.0, leadtime=M3_LEAD
     rm = MOON_R_REF
     pos = (rm + M3_RIGNX, M3_RIGNZ)                      # inertial plane (X up at the site, Z downrange)
     rmag = math.hypot(*pos)
-    tang = (-pos[1] / rmag, pos[0] / rmag)                # unit vector perpendicular to R, pointing toward +Z (zero radial speed)
+    tang = (-pos[1] / rmag, pos[0] / rmag)                # unit vector perpendicular to R, pointing towards +Z (zero radial speed)
     vel = (M3_VIGN * tang[0], M3_VIGN * tang[1])
     rd = (M3_RBRFG[0], M3_RBRFG[2]); vd = (M3_VBRFG[0], M3_VBRFG[2]); ad = (M3_ABRFG[0], M3_ABRFG[2])
     t_now, tgo, mass, hist = 0.0, 600.0, mass0, []

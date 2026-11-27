@@ -81,7 +81,7 @@ FUNCTION pad_right {
 
 // display_lines: the screen as a LIST of text lines (pure text, so it can be tested without a terminal).
 // prog: text like "63"; verb, noun: numbers; flags: lexicon with "PROG" and "OPRERR" booleans (the two
-// alarm lights), "ENTRY" (typed text) and optionally "REGS" (the three register texts). Instruments: forward = toward the site (VGU Z), lateral =
+// alarm lights), "ENTRY" (typed text) and optionally "REGS" (the three register texts). Instruments: forward = towards the site (VGU Z), lateral =
 // sideways (VGU Y).
 FUNCTION display_lines {
   PARAMETER derived, prog, verb, noun, flags.

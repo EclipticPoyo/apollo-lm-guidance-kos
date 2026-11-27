@@ -88,6 +88,7 @@ FUNCTION p65_step {
   LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
+  LOCAL warn IS "".
   LOCAL terminating IS FALSE.          // P65 raises no flashing request, so V34 (Luminary VBTERM) does nothing here
   // PRO or ENTER (Task 0 reading) takes the steering target away: the steering lock is dropped and the coast deadband is not run until the attitude
   // mode changes. In AUTO only (in ATT HOLD the steering is not locked anyway).
@@ -97,7 +98,7 @@ FUNCTION p65_step {
       ctl_steer_release().
       SET prog["DB"]["LOCKED"] TO FALSE.
     }
-    SET msg TO "P" + prog["PROG_NO"] + ": STEERING TARGET DROPPED (CHANGE THE ATTITUDE MODE TO TAKE IT BACK).".
+    SET warn TO "P" + prog["PROG_NO"] + ": STEERING TARGET DROPPED (CHANGE THE ATTITUDE MODE TO TAKE IT BACK).".
   }
 
   // ---- mode: the first ROD click made with SAS on starts P66 ----
@@ -107,12 +108,12 @@ FUNCTION p65_step {
   IF clicks <> 0 AND NOT sas_now {
     rod_log("p65 mode " + prog["MODE"] + " clicks " + clicks + " sas FALSE -> SAS OFF").
     SET clicks TO 0.
-    SET msg TO "ROD CLICK IGNORED IN AUTO: SWITCH SAS ON (ATT HOLD) FIRST, AS IN THE LM.".
+    SET warn TO (warn + " ROD CLICK IGNORED IN AUTO: SWITCH SAS ON (ATT HOLD) FIRST, AS IN THE LM."):TRIM.
   }
   // A click while the navigation state is not valid cannot be used (P66 needs HDOT): say so instead of dropping it silently.
   IF clicks <> 0 AND NOT derived["VALID"] {
     SET clicks TO 0.
-    SET msg TO "ROD CLICK IGNORED: NO VALID STATE.".
+    SET warn TO (warn + " ROD CLICK IGNORED: NO VALID STATE."):TRIM.
     rod_log("p65 mode " + prog["MODE"] + " sas " + sas_now + " valid FALSE -> NO VALID STATE").
   }
   IF clicks <> 0 { rod_log("p65 mode " + prog["MODE"] + " clicks " + clicks + " sas " + sas_now + " -> USED"). }
@@ -178,7 +179,7 @@ FUNCTION p65_step {
   LOCAL pilot_stopped IS prog["ENGINE_LIT"] AND state["THRUST_NOW"] < 0.001.
   LOCAL ct_out IS contact_step(prog["CT"], contact_now, now_ut, pilot_stopped).
   LOCAL prog_no IS prog["PROG_NO"].
-  IF prog["CT"]["T_CONTACT"] >= 0 AND prog["CT"]["T_CONTACT"] = now_ut { SET msg TO "CONTACT: THE LANDER HAS TOUCHED DOWN. THE ENGINE CUTS OFF IN " + P66_CUTOFF_DELAY_S + " S UNLESS YOU STOP IT.". }
+  IF prog["CT"]["T_CONTACT"] >= 0 AND prog["CT"]["T_CONTACT"] = now_ut { SET warn TO (warn + " CONTACT: THE LANDER HAS TOUCHED DOWN. THE ENGINE CUTS OFF IN " + P66_CUTOFF_DELAY_S + " S UNLESS YOU STOP IT."):TRIM. }
   IF ct_out["DONE"] {
     IF ct_out["CUT_NOW"] { ctl_engine_off(prog["ENGINE"]). }       // not when the pilot has already stopped it
     SET CTL_THR TO 0.
@@ -206,7 +207,7 @@ FUNCTION p65_step {
   p65_log(prog, state, derived, ct_out["LAMP"]).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE,
                  "FLASH", FALSE, "ALARM", 0, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
-                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", ct_out["DONE"], "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
+                 "EXTRA", extra, "MSG", msg, "WARN", warn, "ENDED", prog["ENDED"], "HANDOVER", ct_out["DONE"], "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
                  "STATUS", p65_status(prog, derived)).
 }
 

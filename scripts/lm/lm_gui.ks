@@ -290,8 +290,8 @@ FUNCTION gui_key_spacer {
   SET gap_w:STYLE:HEIGHT TO FLOOR(GUI_KEY_SIZE / 2).
 }
 
-// gui_add_key: add one keypad button of the given size to a column and record it in ui["KEYS"] as
-// LIST(button, character sent to key_press).
+// gui_add_key: add one keypad button of the given size to a column. A click puts its character in ui["CLICKS"] (keys_click), which gui_poll
+// presses. The button is also recorded in ui["KEYS"] as LIST(button, character).
 FUNCTION gui_add_key {
   PARAMETER ui, column_w, caption, key_char.
   LOCAL key_w IS gui_keep(column_w:ADDBUTTON(caption)).
@@ -303,6 +303,7 @@ FUNCTION gui_add_key {
     SET key_w:STYLE:FONTSIZE TO 13.   // word keys (VERB, ENTR, ...)
   }
   gui_style_key(key_w).
+  SET key_w:ONCLICK TO keys_click@:BIND(ui["CLICKS"], key_char).
   ui["KEYS"]:ADD(LIST(key_w, key_char)).
 }
 
@@ -502,6 +503,7 @@ FUNCTION gui_fill {
   // VERB/NOUN and ENTR/RSET are two keys each, set half a key lower than the three-key columns
   // (a blank half-key spacer on top).
   SET ui["KEYS"] TO LIST().
+  SET ui["CLICKS"] TO QUEUE().          // keys clicked and not yet pressed, in click order
   LOCAL pad IS gui_keep(win_w:ADDHLAYOUT()).
   LOCAL col_verb IS gui_keep(pad:ADDVLAYOUT()).
   gui_key_spacer(col_verb).
@@ -529,13 +531,11 @@ FUNCTION gui_fill {
 }
 
 // gui_poll: handle typed keys and clicked buttons. Both go through key_press, so a click and a typed
-// key behave identically. TAKEPRESS is true once per click, then the button pops out again.
+// key behave identically. The keypad's clicks come queued (keys_drain). For the close cross, TAKEPRESS is true once per click.
 FUNCTION gui_poll {
   PARAMETER ui, ks.
   keys_poll(ks).
-  FOR key_entry IN ui["KEYS"] {
-    IF key_entry[0]:TAKEPRESS { key_press(ks, key_entry[1]). }
-  }
+  keys_drain(ks, ui["CLICKS"]).
   // The close cross: read its three buttons, let quit_step decide, then swap the bar when the state changes.
   LOCAL close_hit IS ui["CLOSE_BTN"]:TAKEPRESS.
   LOCAL yes_hit IS ui["YES_BTN"]:TAKEPRESS.

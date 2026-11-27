@@ -8,7 +8,10 @@
 // The ECADR the uplink (V71, V72) names is bank * 256 + (OFFSET - 768), see store_ecadr in core/dsky_store.ks.
 // Addresses are from the Virtual AGC listings (ibiblio.org/apollo/listings/Luminary099 and Luminary210, ERASABLE_ASSIGNMENTS);
 // scales from ERASABLE_ASSIGNMENTS.agc, R30.agc (RLS B-27 m), PINBALL_NOUN_TABLES.agc (N33 time, N81 VEL3).
-// Only the cells 1.3 uses are here. The ascent loads (RDOTD, ZDOTD, XRANGE) are added with P12 in 1.4, once their scales are checked.
+// The rendezvous cells (release 1.5: TCSI, TCDH, TTPI, TTPI0 and TPASS4 in centiseconds, NN a whole number, ELEV and CENTANG in
+// revolutions) come from the rendezvous plan, Task 7 (docs/superpowers/features/2026-11-26-rendezvous/plan.md); TPASS4's address is worked
+// out from the listing order (research.md section 15).
+// Only the cells the scripts use are here. The ascent loads (release 1.5, N76) are ZDOTD and RDOTD (2^7 m/cs) and XRANGE (2^29 m, P12.agc).
 // One cell per line in exactly this form: tests/reference_loads.py reads this file with a regular expression.
 
 RUNONCEPATH("0:/core/dsky_store.ks").       // dp_encode, dp_decode, store_put_all
@@ -18,13 +21,35 @@ LM_CELLS_099:ADD("RLS", LEXICON("BANK", 4, "OFFSET", 786, "WORDS", 6, "SCALE", 2
 LM_CELLS_099:ADD("TLAND", LEXICON("BANK", 5, "OFFSET", 768, "WORDS", 2, "SCALE", 28, "LABEL", "nominal time of landing, centiseconds")).
 LM_CELLS_099:ADD("TIG", LEXICON("BANK", 7, "OFFSET", 801, "WORDS", 2, "SCALE", 28, "LABEL", "time of ignition N33, centiseconds")).
 LM_CELLS_099:ADD("DELVLVC", LEXICON("BANK", 7, "OFFSET", 795, "WORDS", 6, "SCALE", 7, "LABEL", "delta-v local vertical N81, metres per centisecond")).
+LM_CELLS_099:ADD("ZDOTD", LEXICON("BANK", 4, "OFFSET", 958, "WORDS", 2, "SCALE", 7, "LABEL", "ascent horizontal speed wanted N76, metres per centisecond")).
+LM_CELLS_099:ADD("RDOTD", LEXICON("BANK", 4, "OFFSET", 954, "WORDS", 2, "SCALE", 7, "LABEL", "ascent radial speed wanted N76, metres per centisecond")).
+LM_CELLS_099:ADD("XRANGE", LEXICON("BANK", 7, "OFFSET", 930, "WORDS", 2, "SCALE", 29, "LABEL", "ascent cross-range N76, metres")).
+LM_CELLS_099:ADD("TCSI", LEXICON("BANK", 7, "OFFSET", 923, "WORDS", 2, "SCALE", 28, "LABEL", "time of CSI N11, centiseconds")).
+LM_CELLS_099:ADD("TCDH", LEXICON("BANK", 3, "OFFSET", 1022, "WORDS", 2, "SCALE", 28, "LABEL", "time of CDH N13, centiseconds")).
+LM_CELLS_099:ADD("TPASS4", LEXICON("BANK", 7, "OFFSET", 920, "WORDS", 2, "SCALE", 28, "LABEL", "time of intercept from P34, centiseconds")).
+LM_CELLS_099:ADD("TTPI", LEXICON("BANK", 7, "OFFSET", 925, "WORDS", 2, "SCALE", 28, "LABEL", "time of TPI N37, centiseconds")).
+LM_CELLS_099:ADD("TTPI0", LEXICON("BANK", 7, "OFFSET", 927, "WORDS", 2, "SCALE", 28, "LABEL", "TPI time kept for a P33 recycle, centiseconds")).
+LM_CELLS_099:ADD("NN", LEXICON("BANK", 7, "OFFSET", 822, "WORDS", 2, "SCALE", 14, "LABEL", "apsidal crossings from CSI to CDH N55, whole number")).
+LM_CELLS_099:ADD("ELEV", LEXICON("BANK", 4, "OFFSET", 942, "WORDS", 2, "SCALE", 0, "LABEL", "TPI elevation angle N55, revolutions")).
+LM_CELLS_099:ADD("CENTANG", LEXICON("BANK", 7, "OFFSET", 912, "WORDS", 2, "SCALE", 0, "LABEL", "central angle N55, revolutions")).
 
 GLOBAL LM_CELLS_210 IS LEXICON().
 LM_CELLS_210:ADD("RLS", LEXICON("BANK", 4, "OFFSET", 784, "WORDS", 6, "SCALE", 27, "LABEL", "landing site vector, Moon-fixed, metres")).
 LM_CELLS_210:ADD("TLAND", LEXICON("BANK", 4, "OFFSET", 790, "WORDS", 2, "SCALE", 28, "LABEL", "nominal time of landing, centiseconds")).
 LM_CELLS_210:ADD("TIG", LEXICON("BANK", 7, "OFFSET", 801, "WORDS", 2, "SCALE", 28, "LABEL", "time of ignition N33, centiseconds")).
 LM_CELLS_210:ADD("DELVLVC", LEXICON("BANK", 7, "OFFSET", 795, "WORDS", 6, "SCALE", 7, "LABEL", "delta-v local vertical N81, metres per centisecond")).
+LM_CELLS_210:ADD("ZDOTD", LEXICON("BANK", 4, "OFFSET", 951, "WORDS", 2, "SCALE", 7, "LABEL", "ascent horizontal speed wanted N76, metres per centisecond")).
+LM_CELLS_210:ADD("RDOTD", LEXICON("BANK", 4, "OFFSET", 947, "WORDS", 2, "SCALE", 7, "LABEL", "ascent radial speed wanted N76, metres per centisecond")).
+LM_CELLS_210:ADD("XRANGE", LEXICON("BANK", 7, "OFFSET", 930, "WORDS", 2, "SCALE", 29, "LABEL", "ascent cross-range N76, metres")).
 LM_CELLS_210:ADD("DLAND", LEXICON("BANK", 5, "OFFSET", 921, "WORDS", 6, "SCALE", 24, "LABEL", "landing site correction N69, guidance axes, metres (210 only)")).
+LM_CELLS_210:ADD("TCSI", LEXICON("BANK", 7, "OFFSET", 923, "WORDS", 2, "SCALE", 28, "LABEL", "time of CSI N11, centiseconds")).
+LM_CELLS_210:ADD("TCDH", LEXICON("BANK", 3, "OFFSET", 1020, "WORDS", 2, "SCALE", 28, "LABEL", "time of CDH N13, centiseconds")).
+LM_CELLS_210:ADD("TPASS4", LEXICON("BANK", 7, "OFFSET", 920, "WORDS", 2, "SCALE", 28, "LABEL", "time of intercept from P34, centiseconds")).
+LM_CELLS_210:ADD("TTPI", LEXICON("BANK", 7, "OFFSET", 925, "WORDS", 2, "SCALE", 28, "LABEL", "time of TPI N37, centiseconds")).
+LM_CELLS_210:ADD("TTPI0", LEXICON("BANK", 7, "OFFSET", 927, "WORDS", 2, "SCALE", 28, "LABEL", "TPI time kept for a P33 recycle, centiseconds")).
+LM_CELLS_210:ADD("NN", LEXICON("BANK", 7, "OFFSET", 822, "WORDS", 2, "SCALE", 14, "LABEL", "apsidal crossings from CSI to CDH N55, whole number")).
+LM_CELLS_210:ADD("ELEV", LEXICON("BANK", 4, "OFFSET", 935, "WORDS", 2, "SCALE", 0, "LABEL", "TPI elevation angle N55, revolutions")).
+LM_CELLS_210:ADD("CENTANG", LEXICON("BANK", 7, "OFFSET", 912, "WORDS", 2, "SCALE", 0, "LABEL", "central angle N55, revolutions")).
 
 // The update program's buffer addresses, which P27 shows in R3 while it asks for data (UPDATE_PROGRAM.agc: UPBUFF + the number of items
 // received, UPTEMP at the verify step). ECADRs below 1400 octal are the address itself. From the yaYUL listings of
@@ -106,6 +131,21 @@ FUNCTION lm_clock_zero_ut {
     IF saved > 0 AND saved <= TIME:SECONDS AND (TIME:SECONDS - saved) * 100 < LM_CLOCK_LIMIT_CS { RETURN saved. }
   }
   RETURN lm_clock_zero_now().
+}
+
+// lm_clock_text: seconds on the mission clock as h:mm:ss, for the DSKY log.
+FUNCTION lm_clock_text {
+  PARAMETER seconds.
+  LOCAL whole IS FLOOR(MAX(0, seconds)).
+  LOCAL hours IS FLOOR(whole / 3600).
+  LOCAL mins IS FLOOR((whole - hours * 3600) / 60).
+  LOCAL secs IS whole - hours * 3600 - mins * 60.
+  RETURN hours + ":" + (CHOOSE "0" IF mins < 10 ELSE "") + mins + ":" + (CHOOSE "0" IF secs < 10 ELSE "") + secs.
+}
+
+// lm_log_clock: the clock at the front of each DSKY log line (the vehicle's LOG_CLOCK).
+FUNCTION lm_log_clock {
+  RETURN lm_clock_text(TIME:SECONDS - lm_clock_zero_ut()).
 }
 
 // lm_hms_cs: a time in seconds as the three integers N33 shows: hours, minutes, and seconds in hundredths (0 to 5999).
@@ -208,18 +248,52 @@ FUNCTION lm_store_get_tland_ut {
   RETURN lm_tland_cs_to_ut(values[0], clock_zero).
 }
 
-// lm_store_put_tig: the time of ignition (N33) from seconds since the AGC clock zero.
-FUNCTION lm_store_put_tig {
-  PARAMETER vault, seconds.
-  RETURN lm_store_put_dp_list(vault, "TIG", LIST(ROUND(seconds * 100))).
+// lm_store_put_time: a burn time cell (TIG, TCSI, TCDH, TTPI, TTPI0, TPASS4) from seconds since the AGC clock zero.
+FUNCTION lm_store_put_time {
+  PARAMETER vault, cell, seconds.
+  RETURN lm_store_put_dp_list(vault, cell, LIST(ROUND(seconds * 100))).
 }
 
-// lm_store_get_tig: seconds since the clock zero, or -1 when TIG is not loaded.
-FUNCTION lm_store_get_tig {
-  PARAMETER vault.
-  LOCAL values IS lm_store_get_dp_list(vault, "TIG").
+// lm_store_get_time: seconds since the clock zero, or -1 when the cell is not loaded.
+FUNCTION lm_store_get_time {
+  PARAMETER vault, cell.
+  LOCAL values IS lm_store_get_dp_list(vault, cell).
   IF values:LENGTH < 1 { RETURN -1. }
   RETURN values[0] / 100.
+}
+
+// lm_store_put_tig / lm_store_get_tig: the time of ignition (N33).
+FUNCTION lm_store_put_tig {
+  PARAMETER vault, seconds.
+  RETURN lm_store_put_time(vault, "TIG", seconds).
+}
+FUNCTION lm_store_get_tig {
+  PARAMETER vault.
+  RETURN lm_store_get_time(vault, "TIG").
+}
+
+// lm_store_put_n55: the three N55 values: NN (a whole number), the TPI elevation angle and the central angle (degrees, kept
+// as revolutions). A negative value leaves that cell as it is.
+FUNCTION lm_store_put_n55 {
+  PARAMETER vault, nn, elev_deg, centang_deg.
+  LOCAL ok IS TRUE.
+  IF nn >= 0 { IF NOT lm_store_put_dp_list(vault, "NN", LIST(nn)) { SET ok TO FALSE. } }
+  IF elev_deg >= 0 { IF NOT lm_store_put_dp_list(vault, "ELEV", LIST(elev_deg / 360)) { SET ok TO FALSE. } }
+  IF centang_deg >= 0 { IF NOT lm_store_put_dp_list(vault, "CENTANG", LIST(centang_deg / 360)) { SET ok TO FALSE. } }
+  RETURN ok.
+}
+
+// lm_store_get_n55: LEXICON("NN", .., "ELEV", degrees, "CENTANG", degrees); a value that is not loaded is -1.
+FUNCTION lm_store_get_n55 {
+  PARAMETER vault.
+  LOCAL nn_list IS lm_store_get_dp_list(vault, "NN").
+  LOCAL elev_list IS lm_store_get_dp_list(vault, "ELEV").
+  LOCAL cent_list IS lm_store_get_dp_list(vault, "CENTANG").
+  LOCAL out IS LEXICON("NN", -1, "ELEV", -1, "CENTANG", -1).
+  IF nn_list:LENGTH > 0 { SET out["NN"] TO ROUND(nn_list[0]). }
+  IF elev_list:LENGTH > 0 { SET out["ELEV"] TO elev_list[0] * 360. }
+  IF cent_list:LENGTH > 0 { SET out["CENTANG"] TO cent_list[0] * 360. }
+  RETURN out.
 }
 
 // DLAND (Luminary 210 only, N69): the landing-site correction in guidance axes (X up, Y crossrange, Z downrange), metres, six words (ECADR 2631 octal,
@@ -240,6 +314,28 @@ FUNCTION lm_store_get_dland {
   LOCAL values IS lm_store_get_dp_list(vault, "DLAND").
   IF values:LENGTH < 3 { RETURN V(0, 0, 0). }
   RETURN V(values[0], values[1], values[2]).
+}
+
+// lm_store_put_asc: the ascent targets of N76 from horizontal and radial speed (m/s) and cross-range (m).
+FUNCTION lm_store_put_asc {
+  PARAMETER vault, zdotd_ms, rdotd_ms, xrange_m.
+  LOCAL ok_z IS lm_store_put_dp_list(vault, "ZDOTD", LIST(zdotd_ms / 100)).
+  LOCAL ok_r IS lm_store_put_dp_list(vault, "RDOTD", LIST(rdotd_ms / 100)).
+  LOCAL ok_x IS lm_store_put_dp_list(vault, "XRANGE", LIST(xrange_m)).
+  RETURN ok_z AND ok_r AND ok_x.
+}
+
+// lm_store_get_asc: LEXICON("ZDOTD", m/s, "RDOTD", m/s, "XRANGE", m); a value that is not loaded is zero.
+FUNCTION lm_store_get_asc {
+  PARAMETER vault.
+  LOCAL z_list IS lm_store_get_dp_list(vault, "ZDOTD").
+  LOCAL r_list IS lm_store_get_dp_list(vault, "RDOTD").
+  LOCAL x_list IS lm_store_get_dp_list(vault, "XRANGE").
+  LOCAL out IS LEXICON("ZDOTD", 0, "RDOTD", 0, "XRANGE", 0).
+  IF z_list:LENGTH > 0 { SET out["ZDOTD"] TO z_list[0] * 100. }
+  IF r_list:LENGTH > 0 { SET out["RDOTD"] TO r_list[0] * 100. }
+  IF x_list:LENGTH > 0 { SET out["XRANGE"] TO x_list[0]. }
+  RETURN out.
 }
 
 // lm_store_put_dv: the delta-v (N81, local vertical axes) from a vector in metres per second.

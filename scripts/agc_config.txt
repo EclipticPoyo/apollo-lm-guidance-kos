@@ -1,31 +1,31 @@
 // agc_config.txt -- settings for the Apollo guidance computer scripts.
 // Installed as Ships/Script/agc_config.txt, next to dsky.ks and plan.ks.
 //
-// Each line is NAME = value, followed by // and the choices. The values below are the
-// defaults: change the value, save, then start the program again (RUN dsky.).
+// Each line is NAME = value, followed by //, the default, and the choices.
+// Change the value, save, then start the program again (RUN dsky.).
 // Names and values are not case-sensitive. A bad line is skipped and the DSKY says so
-// on the terminal at start. Details of every setting are in the manual, section 8.
+// on the terminal at start. Every setting is described in the Pilot's Pack, page 2.4.
 //
 // [COMMON] is shared by every computer; [LM] and [CSM] hold the rest. A computer can
 // override a common setting in its own section. An old lm/lm_config.txt is still read
 // first; a setting in this file wins over it.
 
 [COMMON]
-LOG             = FALSE      // TRUE or FALSE: write diagnostic logs (the old name LM_LOG also works)
-DSKY_START      = BLANK      // BLANK or N60: what the DSKY shows at start (N60 = V16 N60 monitor)
-ALARMS          = OFF        // OFF, A11, or a list like 1202@315,1201@548: alarms replayed in descent
-IMU_ALIGN       = AUTO       // AUTO or REQUIRED: REQUIRED means run P51 before P40, P41 and P47
+LOG             = FALSE      // default FALSE | TRUE or FALSE: write diagnostic logs (the old name LM_LOG also works)
+DSKY_START      = BLANK      // default BLANK | BLANK or N60: what the DSKY shows at start (N60 = V16 N60 monitor)
+ALARMS          = OFF        // default OFF   | OFF, A11, or a list like 1202@315,1201@548: alarms replayed in descent
+IMU_ALIGN       = AUTO       // default AUTO  | AUTO or REQUIRED: REQUIRED means run P51 before P40, P41 and P47
 
 [LM]
-P63_WINDOW_MODE = UP         // UP or KEEP: UP turns the window to face the site, KEEP holds the roll
-P63_WARP_LEAD_S = 60         // 0 or more: seconds before ignition at which the P63 warp stops
-BODY_NAME       = Moon       // a body name: the body you land on (the DSKY runs over any body)
-P64_PITCH_SIGN  = 1          // 1 or -1: flip if a P64 redesignation key moves the aim point wrongly
-P64_YAW_SIGN    = -1         // 1 or -1: the same, for the yaw keys
-P66_ROD_SIGN    = 1          // 1 or -1: flip if H/N and Shift/Ctrl change the descent rate wrongly
-ROD_KEYS        = BOTH       // BOTH, HN or SHIFTCTRL: which keys give rate-of-descent clicks
-ENG_THR_CONT    = AUTO       // AUTO or MAN: the ENG THR CONT switch. MAN: P40 asks for checklist 203 and you set the throttle with the lever (Shift and Ctrl)
-PLAN_NODES      = TRUE       // TRUE or FALSE: leave the planner's KSP maneuver nodes on the ship as a visual aid (the burns never read them)
+P63_WINDOW_MODE = UP         // default UP    | UP or KEEP: UP turns the window to face the site, KEEP holds the roll
+P63_WARP_LEAD_S = 60         // default 60    | 0 or more: seconds before ignition or lift-off at which a warp stops (P63, P40, P41, P12)
+BODY_NAME       = Moon       // default Moon  | a body name: the body you land on (the DSKY runs over any body)
+P64_PITCH_SIGN  = 1          // default 1     | 1 or -1: flip if a P64 redesignation key moves the aim point wrongly
+P64_YAW_SIGN    = -1         // default -1    | 1 or -1: the same, for the yaw keys
+P66_ROD_SIGN    = 1          // default 1     | 1 or -1: flip if H/N and Shift/Ctrl change the descent rate wrongly
+ROD_KEYS        = BOTH       // default BOTH  | BOTH, HN or SHIFTCTRL: which keys give rate-of-descent clicks
+ENG_THR_CONT    = MAN        // default MAN   | AUTO or MAN: the ENG THR CONT switch. MAN: P40 asks for checklist 203 and you set the throttle with the lever (Shift and Ctrl)
+PLAN_NODES      = TRUE       // default TRUE  | TRUE or FALSE: leave the planner's KSP manoeuvre nodes on the ship as a visual aid (the burns never read them)
 
 [CSM]
 // Reserved, no settings of its own yet.

@@ -1,0 +1,10 @@
+- CUT-OFF | COMPUTER | Cuts the engine
+v: V16 N40 FL
+- | PRO |
+v: V16 N85 FL
+- | TRANSLATION | Trim R1-R3 to near zero
+- | PRO |
+if: ALARM
+  - 1703 | Ignition too close. Moved to about 50 s ahead
+  - 1706 | Descent stage gone
+end

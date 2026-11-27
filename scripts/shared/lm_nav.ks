@@ -8,6 +8,7 @@
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/shared/lm_frame.ks").
+RUNONCEPATH("0:/shared/lm_axes.ks").      // axes_mark
 
 // nav_state: a snapshot of everything the programmes need from the ship, taken once per cycle.
 // A LEXICON is kOS's key -> value dictionary: state["R"] reads the entry with key "R".
@@ -17,6 +18,8 @@ FUNCTION nav_state {
     "R", -SHIP:BODY:POSITION,
     // V: velocity relative to the Moon's centre in non-rotating axes (what Luminary calls V).
     "V", SHIP:VELOCITY:ORBIT,
+    // AX: how the raw axes sit as R and V are read, so a vector kept from an earlier cycle can be carried to these axes (lm_axes.ks).
+    "AX", axes_mark(),
     "T", TIME:SECONDS,
     // MASS is in tonnes and THRUST in kN (what kOS gives), so thrust/mass is directly m/s^2.
     "MASS", SHIP:MASS,

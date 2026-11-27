@@ -1,7 +1,6 @@
 // test_p41.ks -- pad test for P41, the RCS burn, and P47, the thrust monitor (lm/burn/lm_p41.ks), N83, N85 and the table entries. No flight: CTL_DRY is TRUE and the state is
-// made up (the DOI case, as test_p40.ks; the Moon's gravity is zero in it, so the measured delta-V is the made-up push alone). The ship faces world +X with its top toward +Y.
+// made up (the DOI case, as test_p40.ks; the Moon's gravity is zero in it, so the measured delta-V is the made-up push alone). The ship faces world +X with its top towards +Y.
 //   RUNPATH("0:/tests/test_p41.ks").   Log: 0:/lm/logs/test_p41.log.
-// Written in release 1.4 and not yet run in KSP.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/tests/test_lib.ks").
@@ -13,11 +12,12 @@ SET CTL_DRY TO TRUE.
 LOCAL keep_thr IS ENG_THR_CONT.
 SET ENG_THR_CONT TO "MAN".          // P41 must not care: no V50 N25 whatever the switch says
 GLOBAL T41_V0 IS V(0, 0, 1628.5834302711191).
+GLOBAL T41_AX IS LEXICON("P", V(1, 0, 0), "N", V(0, 1, 0)).    // one axes mark: the raw axes stand still
 
 FUNCTION t41_state {
   PARAMETER now_ut, v_vec.
   RETURN LEXICON("R", V(1848520, 0, 0), "V", v_vec, "T", now_ut, "MASS", 15.2697, "THRUST", 46.71, "THRUST_NOW", 0, "MU", 0,
-                 "BODY_OK", TRUE, "ALT_RADAR", 15000, "XNB", V(1, 0, 0)).
+                 "BODY_OK", TRUE, "ALT_RADAR", 15000, "XNB", V(1, 0, 0), "AX", T41_AX).
 }
 FUNCTION t41_keys {
   PARAMETER verb_no, noun_no.
@@ -36,7 +36,7 @@ FUNCTION t41_clear {
 FUNCTION t41_xd {
   PARAMETER dv_mag.
   LOCAL dir_vec IS V(-9.8 * 0.3048, 0, -75.8 * 0.3048):NORMALIZED.
-  RETURN LEXICON("DELVSIN", dir_vec * dv_mag, "RTIG", V(1848520, 0, 0), "VTIG", V(0, 0, 1628.5834302711191), "UT_TIG", 2500, "DELVSAB", dv_mag, "T0", 1100).
+  RETURN LEXICON("DELVSIN", dir_vec * dv_mag, "RTIG", V(1848520, 0, 0), "VTIG", V(0, 0, 1628.5834302711191), "UT_TIG", 2500, "DELVSAB", dv_mag, "AX0", T41_AX).
 }
 FUNCTION t41_vault {
   LOCAL vault IS store_new(lm_cells_for("A11")).
@@ -45,7 +45,7 @@ FUNCTION t41_vault {
 }
 FUNCTION t41_start {
   PARAMETER dv_mag.
-  RETURN p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, t41_xd(dv_mag), V(0, 0, 0), V(1, 0, 0), V(0, 1, 0)).
+  RETURN p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, t41_xd(dv_mag), V(1, 0, 0), V(0, 1, 0)).
 }
 FUNCTION t41_step {
   PARAMETER prog, now_ut, v_vec, key_state.
@@ -72,12 +72,41 @@ FUNCTION t41_to_burn {
 }
 
 // ---- P41: refusals and checks ----
-LOCAL refused IS p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, FALSE, V(0, 0, 0), V(1, 0, 0), V(0, 1, 0)).
+LOCAL refused IS p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, FALSE, V(1, 0, 0), V(0, 1, 0)).
 assert_true("P41 refuses before P30 has run", refused["REFUSED"]:CONTAINS("run P30 first")).
-SET refused TO p41_start(FALSE, store_new(lm_cells_for("A11")), 1000, "A11", 2000, 0, t41_xd(23.1), V(0, 0, 0), V(1, 0, 0), V(0, 1, 0)).
+SET refused TO p41_start(FALSE, store_new(lm_cells_for("A11")), 1000, "A11", 2000, 0, t41_xd(23.1), V(1, 0, 0), V(0, 1, 0)).
 assert_true("P41 refuses when TIG is not loaded", refused["REFUSED"]:CONTAINS("TIG is not loaded")).
-SET refused TO p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, t41_xd(0), V(0, 0, 0), V(1, 0, 0), V(0, 1, 0)).
+SET refused TO p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, t41_xd(0), V(1, 0, 0), V(0, 1, 0)).
 assert_true("P41 refuses a delta-V of zero", refused["REFUSED"]:CONTAINS("zero")).
+// P41 coasts on RCS: the coast steering, with a shorter stopping time on the ascent stage alone (probe_steer.ks, 2026-11-26). The
+// powered ascent tuning is never used. CTL_DRY_TUNES counts those, CTL_DRY_COAST_TUNES the ascent stage's coast ones.
+SET CTL_DRY_ATTACHED TO TRUE.
+SET CTL_DRY_TUNES TO 0.
+SET CTL_DRY_COAST_TUNES TO 0.
+t41_start(23.1).
+assert_true("P41 with the descent stage on keeps the descent steering", CTL_DRY_TUNES = 0 AND CTL_DRY_COAST_TUNES = 0).
+SET CTL_DRY_ATTACHED TO FALSE.
+t41_start(23.1).
+assert_true("P41 on the ascent stage alone takes the shorter stopping time", CTL_DRY_TUNES = 0 AND CTL_DRY_COAST_TUNES = 1).
+// the ascent stage holds on until it turns slower than ASC_DB_RATE_DEG_S, and the warp waits for that, at most ASC_WARP_WAIT_S
+LOCAL asc_prog IS p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, t41_xd(23.1), V(1, 0, 0), V(0, 1, 0)).
+db_step(asc_prog["DB"], 0.2, 0.1, FALSE).
+assert_true("ascent stage: still steering at 0.1 deg/s", asc_prog["DB"]["LOCKED"]).
+db_step(asc_prog["DB"], 0.2, 0.04, FALSE).
+assert_true("ascent stage: released at 0.04 deg/s", NOT asc_prog["DB"]["LOCKED"]).
+warp_step(asc_prog["WARP"], 100, 1000, 1, 0.1).
+assert_near("ascent stage: at 0.1 deg/s the warp waits", warp_step(asc_prog["WARP"], 100 + P63_SETTLE_HOLD_S, 1000, 1, 0.1), -1, 0).
+assert_near("ascent stage: but no longer than ASC_WARP_WAIT_S", warp_step(asc_prog["WARP"], 100 + ASC_WARP_WAIT_S, 1000, 1, 0.1), 1000 - P63_WARP_LEAD_S, 0).
+LOCAL asc_still IS p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, t41_xd(23.1), V(1, 0, 0), V(0, 1, 0))["WARP"].
+warp_step(asc_still, 100, 1000, 1, 0.04).
+assert_near("ascent stage: nearly still, it warps after the usual hold", warp_step(asc_still, 100 + P63_SETTLE_HOLD_S, 1000, 1, 0.04), 1000 - P63_WARP_LEAD_S, 0).
+SET CTL_DRY_ATTACHED TO TRUE.
+LOCAL des_prog IS p41_start(FALSE, t41_vault(), 1000, "A11", 2000, 0, t41_xd(23.1), V(1, 0, 0), V(0, 1, 0)).
+db_step(des_prog["DB"], 0.2, 0.1, FALSE).
+warp_step(des_prog["WARP"], 100, 1000, 1, 0.1).
+assert_true("descent stage on: released at 0.1 deg/s as before", NOT des_prog["DB"]["LOCKED"]).
+assert_near("descent stage on: warps after the usual hold as before", warp_step(des_prog["WARP"], 100 + P63_SETTLE_HOLD_S, 1000, 1, 0.1), 1000 - P63_WARP_LEAD_S, 0).
+SET CTL_DRY_ATTACHED TO TRUE.
 LOCAL pimu IS t41_start(23.1).
 SET pimu["IMU_OK"] TO FALSE.
 LOCAL out IS t41_step(pimu, 2000, T41_V0, t41_keys(16, 60)).
@@ -103,9 +132,12 @@ LOCAL vg_world IS pa["VG"].
 LOCAL regs IS t41_regs(85, out).
 assert_true("N85 R1 is VG along the nose in ft/s (0.1)", regs[0] = fmt_reg(ms_to_fps(VDOT(vg_world, V(1, 0, 0))), 1)).
 SET P40_DRY_FACING TO LOOKDIRUP(V(1, 0, 0), V(0, 0, 1)).
+LOCAL t41_window IS WINDOW_AXIS.
+SET WINDOW_AXIS TO "BOTTOM".                       // the window is the underside, so with the top towards +Z it faces -Z
 SET out TO t41_step(pa, 2002, T41_V0, ks_a).
 SET regs TO t41_regs(85, out).
-assert_true("rolled 90 degrees (top toward +Z): R3 is VG along world Z", regs[2] = fmt_reg(ms_to_fps(VDOT(vg_world, V(0, 0, 1))), 1)).
+assert_true("rolled 90 degrees (window towards -Z): R3 is VG towards the window", regs[2] = fmt_reg(ms_to_fps(VDOT(vg_world, V(0, 0, -1))), 1)).
+SET WINDOW_AXIS TO t41_window.
 SET P40_DRY_FACING TO LOOKDIRUP(V(1, 0, 0), V(0, 1, 0)).
 SET out TO t41_step(pa, 2465.2, T41_V0, ks_a).
 assert_true("blank from TIG - 34.9", out["BLANK"]).
@@ -121,8 +153,10 @@ SET ks_a["PRO"] TO TRUE.
 SET out TO t41_step(pa, 2499.5, T41_V0, ks_a).
 assert_true("PRO before TIG is ignored and consumed", pa["PHASE"] = "BURN" AND NOT ks_a["PRO"] AND NOT out["ENDED"]).
 SET out TO t41_step(pa, 2500, T41_V0, ks_a).
+LOCAL t41_tig_warn IS out["WARN"].
 SET out TO t41_step(pa, 2500.25, T41_V0, ks_a).
 assert_true("at TIG the display flashes V16 N85", pa["PHASE"] = "TIGNOW" AND out["REQUEST"]["VERB"] = 16 AND out["REQUEST"]["NOUN"] = 85).
+assert_true("at TIG a warning says to burn by hand", (t41_tig_warn + out["WARN"]):CONTAINS("BURN BY HAND")).
 assert_true("and the terminal says TIG has passed", out["STATUS"][0]:CONTAINS("TIG PASSED")).
 assert_true("the engine was never lit", pa["IGN_T"] = -1).
 // The pilot translates: 6 m/s along VG's direction over 6 s; VG falls by the same.
@@ -165,6 +199,7 @@ assert_true("V34 at the TIG display ends P41", out["ENDED"]).
 LOCAL ps IS t41_start(23.1).
 SET out TO t41_to_burn(ps, 2480).
 assert_true("TIG 20 s ahead is slipped: alarm 1703", out["ALARM"] = 1703 AND ABS(ps["TIG"] - 2529.9) < 1e-6).
+assert_true("and the slip is a warning", out["WARN"]:CONTAINS("SLIPPED")).
 LOCAL pc IS t41_start(23.1).
 t41_to_burn(pc, 2000).
 LOCAL ks_c IS t41_keys(16, 85).
@@ -174,7 +209,7 @@ SET out TO t41_step(pc, 2002, T41_V0, ks_c).
 assert_true("V34 in the coast, with no request up, does nothing", NOT out["ENDED"]).
 
 // ---- P47 ----
-LOCAL pt IS p47_start(FALSE, 2000, V(0, 0, 0)).
+LOCAL pt IS p47_start(FALSE, 2000, T41_AX).
 LOCAL ks_t IS t41_keys(16, 83).
 SET out TO p47_step(pt, t41_state(2000, T41_V0), LEXICON("VALID", FALSE), ks_t).
 assert_true("P47: no display at the start", NOT out["REQUEST"]:ISTYPE("Lexicon") AND out["SET_VERB"] < 0 AND out["PROG_NO"] = 47).
@@ -199,11 +234,11 @@ assert_true("V32 zeroes it too", t41_regs(83, out)[0] = "+00000").
 SET ks_t["PRO"] TO TRUE.
 SET out TO p47_step(pt, t41_state(2024.5, T41_V0 + V(1.8288, 0, 0)), LEXICON("VALID", FALSE), ks_t).
 assert_true("PRO ends P47", out["ENDED"]).
-LOCAL pt2 IS p47_start(FALSE, 2000, V(0, 0, 0)).
+LOCAL pt2 IS p47_start(FALSE, 2000, T41_AX).
 SET pt2["IMU_OK"] TO FALSE.
 SET out TO p47_step(pt2, t41_state(2000, T41_V0), LEXICON("VALID", FALSE), t41_keys(16, 83)).
 assert_true("P47: R02 alarm 220 ends it", out["ALARM"] = 220 AND out["ENDED"]).
-LOCAL pt3 IS p47_start(FALSE, 2000, V(0, 0, 0)).
+LOCAL pt3 IS p47_start(FALSE, 2000, T41_AX).
 LOCAL ks_t3 IS t41_keys(16, 83).
 p47_step(pt3, t41_state(2000, T41_V0), LEXICON("VALID", FALSE), ks_t3).
 p47_step(pt3, t41_state(2021, T41_V0), LEXICON("VALID", FALSE), ks_t3).

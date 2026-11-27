@@ -75,9 +75,9 @@ assert_true("request 0 ends the running programme once", CALLS["E1"] = 2 AND NOT
 core_request(crun, fake_vehicle, ks, 0).
 assert_true("request 0 with nothing running changes nothing", CALLS["E1"] = 2 AND NOT ks["OPRERR"]).
 
-// 6: a START that refuses lights OPR ERR and returns the reason in MSG; nothing is running.
+// 6: a START that refuses lights OPR ERR and returns the reason in WARN; nothing is running.
 LOCAL refused IS core_request(crun, fake_vehicle, ks, 4).
-assert_true("refused start sets OPRERR and returns the reason in MSG", ks["OPRERR"] AND refused["MSG"]:CONTAINS("no plan, plan first") AND NOT crun["PROG"]:ISTYPE("Lexicon")).
+assert_true("refused start sets OPRERR; a refusal is a warning", ks["OPRERR"] AND refused["WARN"]:CONTAINS("no plan, plan first") AND refused["MSG"] = "" AND NOT crun["PROG"]:ISTYPE("Lexicon")).
 SET ks["OPRERR"] TO FALSE.
 
 // 7: handover P1 to P2: P2's START gets the old programme, and END is not called on the old one.
@@ -91,13 +91,13 @@ assert_true("handover P1 to P2 passes the old programme to P2's START",
 assert_true("handover does not call END on the old programme", CALLS["E1"] = e1_before).
 core_end(crun, fake_vehicle).
 
-// 8: P3's NEXT is 99, which is not in the table: the programme ends cleanly with a message.
+// 8: P3's NEXT is 99, which is not in the table: the programme ends cleanly with a warning.
 core_request(crun, fake_vehicle, ks, 3).
 SET NEXT_OUT TO fake_out(3).
 SET NEXT_OUT["HANDOVER"] TO TRUE.
 LOCAL res8 IS core_step(crun, fake_vehicle, nav, ks).
-assert_true("handover to NEXT 99 ends the programme and gives a message, no crash",
-            NOT crun["PROG"]:ISTYPE("Lexicon") AND CALLS["E3"] = 1 AND res8["MSG"] <> "").
+assert_true("handover to NEXT 99 ends the programme and warns, no crash",
+            NOT crun["PROG"]:ISTYPE("Lexicon") AND CALLS["E3"] = 1 AND res8["WARN"]:CONTAINS("Handover failed")).
 
 // 9: ENDED with a PROG_NO in STICKY_PROGS leaves that number as the idle programme text.
 core_request(crun, fake_vehicle, ks, 1).
@@ -188,7 +188,11 @@ assert_true("no STATUS key gives an empty status list", core_step(crun, fake_veh
 SET NEXT_OUT["STATUS"] TO LIST("line one", "line two").
 LOCAL res_st IS core_step(crun, fake_vehicle, nav, ks).
 assert_true("STATUS lines are passed on", res_st["STATUS"]:LENGTH = 2 AND res_st["STATUS"][1] = "line two").
-assert_true("core_new has no status rows drawn", crun["STATUS_ROWS"] = 0).
+assert_true("a step with no WARN key gives an empty warning", res_st["WARN"] = "").
+SET NEXT_OUT["WARN"] TO "check the stage".
+SET NEXT_OUT["MSG"] TO "engine on".
+LOCAL res_wn IS core_step(crun, fake_vehicle, nav, ks).
+assert_true("the programme's WARN and MSG come back apart", res_wn["WARN"] = "check the stage" AND res_wn["MSG"] = "engine on").
 
 // 10c: alarm lights the PROG lamp, as 1406 does.
 SET NEXT_OUT TO fake_out(1).
@@ -210,8 +214,9 @@ SET LM_STORE_FILE TO "0:/lm/logs/test_core_no_store.txt".
 IF EXISTS(LM_STORE_FILE) { DELETEPATH(LM_STORE_FILE). }
 LOCAL lmv IS lm_vehicle_new().
 SET LM_STORE_FILE TO real_store_file.
-// Release 1.2: the saved plan's PROFILE ("A11" or "J"; none = A11) picks the programme set and the version.
-LOCAL veh_j IS plan_profile_of(plan_read(PLAN_PLAN_FILE)) = "J".
+// The programme set and the version come from the saved plan's PROFILE, with no plan from the version saved with the PAD (profile.txt), else the
+// default (lm_profile_for).
+LOCAL veh_j IS lm_profile_for(plan_read(PLAN_PLAN_FILE)) = "J".
 assert_true("LM vehicle: version follows the plan profile",
             lmv["VERSION"] = (CHOOSE "LUMINARY210" IF veh_j ELSE "LUMINARY099") AND LM_VEH["PROFILE"] = (CHOOSE "J" IF veh_j ELSE "A11")).
 assert_true("LM vehicle: only P63 is selectable by V37",
@@ -227,6 +232,12 @@ assert_true("ATT HOLD lamp: lit when the attitude mode is HOLD", lm_att_lamp(LEX
 assert_true("ATT HOLD lamp: dark in AUTO", NOT lm_att_lamp(LEXICON(), LEXICON("ATT", LEXICON("MODE", "AUTO")))["ATT_HOLD"]).
 assert_true("ATT HOLD lamp: dark when the programme has no attitude mode", NOT lm_att_lamp(LEXICON(), LEXICON())["ATT_HOLD"]).
 assert_true("ATT HOLD lamp: keeps the step's other keys", lm_att_lamp(LEXICON("MSG", "x"), LEXICON())["MSG"] = "x").
+FOR tc_abort IN LIST("70", "71") {
+  LOCAL tc_entry IS lmv["PROGRAMMES"][tc_abort].
+  assert_true("LM vehicle: P" + tc_abort + " is selectable and takes over", tc_entry["SELECTABLE"] AND tc_entry["TAKEOVER"] AND tc_entry["NEXT"] = -1).
+}
+assert_true("LM vehicle: P63 does not take over", NOT lmv["PROGRAMMES"]["63"]:HASKEY("TAKEOVER")).
+assert_true("LM vehicle: V37 accepts 70 and 71", LM_PROGS:CONTAINS(70) AND LM_PROGS:CONTAINS(71)).
 assert_true("LM vehicle: no CONTACT lamp idle before a landing", NOT lmv["IDLE_LAMPS"]:CALL("00")["CONTACT"]).
 SET LM_VEH["LANDED_POS"] TO LEXICON("LAT", 0, "LNG", 0, "ALT", 0).
 assert_true("LM vehicle: CONTACT stays lit after P68 (the landing position is kept)", lmv["IDLE_LAMPS"]:CALL("00")["CONTACT"]).
@@ -278,9 +289,153 @@ assert_true("a short message stays one line", core_wrap("hello there", 48):LENGT
 assert_true("an empty message gives no lines", core_wrap("", 48):LENGTH = 0).
 LOCAL wr_long IS core_wrap("ABCDEFGHIJ", 4).
 assert_true("a word longer than a line is cut", wr_long:LENGTH = 3 AND wr_long[0] = "ABCD" AND wr_long[2] = "IJ").
-LOCAL crun_m IS core_new(fake_vehicle).
-SET crun_m["STATUS_ROWS"] TO 3.
-FROM { LOCAL i IS 0. } UNTIL i >= 10 STEP { SET i TO i + 1. } DO { core_message(crun_m, "message number " + i). }
-assert_true("the message area keeps at most CORE_MSG_ROWS lines, the newest last", crun_m["MSGS"]:LENGTH <= CORE_MSG_ROWS AND crun_m["MSGS"][crun_m["MSGS"]:LENGTH - 1] = "message number 9").
+
+// ---- the terminal's three areas: the live rows, the warnings block and the messages block ----
+LOCAL tco_rows IS core_status_texts(LIST("a"), "u").
+assert_true("the second slot's line takes the first free live row", tco_rows:LENGTH = CORE_STATUS_ROWS AND tco_rows[0] = "a" AND tco_rows[1] = "u" AND tco_rows[2] = "").
+SET tco_rows TO core_status_texts(LIST("a", "b", "c"), "u").
+assert_true("three foreground lines leave it out", tco_rows:LENGTH = 3 AND tco_rows[0] = "a" AND tco_rows[2] = "c").
+assert_true("alone it takes the top row", core_status_texts(LIST(), "u")[0] = "u").
+assert_true("lines over the live rows are cut", core_status_texts(LIST("a", "b", "c", "d"), ""):LENGTH = 3).
+
+LOCAL tco_block IS LIST().
+FROM { LOCAL i IS 0. } UNTIL i >= 10 STEP { SET i TO i + 1. } DO { core_block_add(tco_block, "message number " + i, 6, FALSE). }
+LOCAL tco_lines IS core_block_lines(tco_block, 6).
+assert_true("a full block drops its oldest line, the newest last", tco_lines:LENGTH = 6 AND tco_lines[0] = "message number 4" AND tco_lines[5] = "message number 9").
+LOCAL tco_twice IS LIST().
+assert_true("a warning is added", core_block_add(tco_twice, "stage alarm", 6, TRUE)).
+assert_true("the same warning twice is one entry", NOT core_block_add(tco_twice, "stage alarm", 6, TRUE) AND tco_twice:LENGTH = 1).
+assert_true("a message may repeat", core_block_add(tco_twice, "stage alarm", 6, FALSE) AND tco_twice:LENGTH = 2).
+assert_true("an empty text adds nothing", NOT core_block_add(tco_twice, "", 6, FALSE) AND tco_twice:LENGTH = 2).
+LOCAL tco_long IS "".
+FROM { LOCAL i IS 0. } UNTIL i >= 8 STEP { SET i TO i + 1. } DO { SET tco_long TO tco_long + "word" + i + "_abcdefghijklmnopqrstuvwxyzabcdefgh ". }
+LOCAL tco_over IS LIST("short").
+core_block_add(tco_over, tco_long, 6, TRUE).
+SET tco_lines TO core_block_lines(tco_over, 6).
+assert_true("an over-long warning alone keeps its first lines, and the call returns", tco_over:LENGTH = 1 AND tco_lines:LENGTH = 6 AND tco_lines[0]:STARTSWITH("word0")).
+assert_true("the message block: 8 rows at height 36", core_message_rows(36) = 8).
+assert_true("the message block shrinks on a low terminal", core_message_rows(18) = 4 AND core_message_rows(10) = 1).
+
+assert_true("a log line: clock, two spaces, the text", core_log_line("1:02:03", "engine on", FALSE) = "1:02:03  engine on").
+assert_true("a warning is marked in the log", core_log_line("1:02:03", "no CSM", TRUE) = "1:02:03  WARNING: no CSM").
+LOCAL tco_log IS "0:/lm/logs/test_core_dsky.log".
+IF EXISTS(tco_log) { DELETEPATH(tco_log). }
+SET fake_vehicle["LOG_FILE"] TO tco_log.
+SET fake_vehicle["LOG_CLOCK"] TO { RETURN "0:00:05". }.
+LOCAL tco_cl IS core_new(fake_vehicle).
+core_message(tco_cl, "hello").
+core_warning(tco_cl, "trouble").
+core_warning(tco_cl, "trouble").
+LOCAL tco_text IS OPEN(tco_log):READALL:STRING.
+assert_true("messages and warnings are logged with the clock", tco_text:CONTAINS("0:00:05  hello") AND tco_text:CONTAINS("0:00:05  WARNING: trouble")).
+assert_true("a repeated warning is logged once", tco_text:SPLIT("trouble"):LENGTH = 2).
+fake_vehicle:REMOVE("LOG_FILE").
+fake_vehicle:REMOVE("LOG_CLOCK").
+assert_true("a vehicle with no log file logs nothing", core_new(fake_vehicle)["LOG"] = "").
+
+LOCAL tco_cv IS core_new(fake_vehicle).
+core_warning(tco_cv, "old").
+core_request(tco_cv, fake_vehicle, ks, 77).
+assert_true("a refused number leaves the warnings", tco_cv["WARNS"]:LENGTH = 1).
+LOCAL tco_ref IS core_request(tco_cv, fake_vehicle, ks, 4).
+core_warning(tco_cv, tco_ref["WARN"]).
+assert_true("V37 clears old warnings and keeps the refusal's", tco_cv["WARNS"]:LENGTH = 1 AND tco_cv["WARNS"][0]:CONTAINS("no plan")).
+core_message(tco_cv, "kept").
+core_request(tco_cv, fake_vehicle, ks, 0).
+assert_true("V37 00 clears the warnings and not the messages", tco_cv["WARNS"]:LENGTH = 0 AND tco_cv["MSGS"]:LENGTH = 1).
+SET ks["OPRERR"] TO FALSE.
+
+LOCAL tco_kr IS keys_new(LIST(60), LIST(6, 16, 34, 37), LIST(0)).
+assert_true("a fresh key state has no RSET", NOT tco_kr["RSET"]).
+key_press(tco_kr, "R").
+assert_true("R sets ks RSET", tco_kr["RSET"]).
+
+CORE_OUTBOX:CLEAR().
+LOCAL tco_cd IS core_new(fake_vehicle).
+core_say("said").
+core_warn("warned").
+core_drain(tco_cd).
+assert_true("core_say and core_warn reach their blocks", tco_cd["MSGS"]:LENGTH = 1 AND tco_cd["MSGS"][0] = "said" AND tco_cd["WARNS"]:LENGTH = 1 AND tco_cd["WARNS"][0] = "warned").
+assert_true("the queue is empty afterwards", CORE_OUTBOX:LENGTH = 0).
+SET tco_cd["LOG"] TO tco_log.
+core_note("for the log only").
+core_drain(tco_cd).
+assert_true("core_note goes to the log and to neither block", tco_cd["MSGS"]:LENGTH = 1 AND tco_cd["WARNS"]:LENGTH = 1 AND OPEN(tco_log):READALL:STRING:CONTAINS("for the log only")).
+LOCAL tco_av IS LEXICON("ALARM_SOURCE", { PARAMETER prog, now_ut. RETURN LIST(1202). }).
+core_scripted_alarms(ks, tco_av, FALSE, 0).
+assert_true("a scripted alarm is a warning", CORE_OUTBOX:LENGTH = 1 AND CORE_OUTBOX[0]["WARN"] AND CORE_OUTBOX[0]["TEXT"] = "ALARM 01202.").
+CORE_OUTBOX:CLEAR().
+
+// ---- 1.5: a programme that takes over the running one (TAKEOVER), and a vehicle that asks for a programme ----
+// P5 takes over: its START gets the running programme (FALSE when idle) and refuses with TCO_REFUSE when that is not "".
+GLOBAL TCO_REFUSE IS "".
+GLOBAL TCO_PREV IS 0.
+GLOBAL TCO_ASK IS -1.
+CALLS:ADD("S5", 0).
+CALLS:ADD("E5", 0).
+fake_vehicle["PROGRAMMES"]:ADD("5", LEXICON(
+  "START", { PARAMETER prev.
+             SET CALLS["S5"] TO CALLS["S5"] + 1.
+             SET TCO_PREV TO prev.
+             RETURN LEXICON("PROG_NO", 5, "REFUSED", TCO_REFUSE). },
+  "STEP", { PARAMETER prog, nav, ks. RETURN NEXT_OUT. },
+  "END", { PARAMETER prog. SET CALLS["E5"] TO CALLS["E5"] + 1. },
+  "SAMPLE", FALSE, "NEXT", -1, "SELECTABLE", TRUE, "TAKEOVER", TRUE)).
+SET fake_vehicle["PROGS"] TO LIST(0, 1, 3, 4, 5).
+fake_vehicle["NOUNS"]:ADD(33).
+fake_vehicle["VERBS"]:ADD(21).
+SET fake_vehicle["LOADS"] TO LEXICON("33", LEXICON("NCOMP", 3, "DIGITS", LIST(5, 5, 5))).
+SET fake_vehicle["LOAD_COMMIT"] TO { PARAMETER noun_no, comps, values. RETURN "". }.
+
+// tco_keys: a key state with the vehicle (so the keyed loaders work) and a V21 N33 load under way.
+FUNCTION tco_keys {
+  PARAMETER vehicle.
+  LOCAL kt IS keys_new(vehicle["NOUNS"], vehicle["VERBS"], vehicle["PROGS"]).
+  SET kt["VEHICLE"] TO vehicle.
+  FOR tco_char IN LIST("V", "2", "1", "N", "3", "3", "E") { key_press(kt, tco_char). }
+  RETURN kt.
+}
+
+LOCAL crun_t IS core_new(fake_vehicle).
+LOCAL ks_t IS tco_keys(fake_vehicle).
+assert_true("take-over set-up: a load is under way", load_active(ks_t)).
+core_request(crun_t, fake_vehicle, ks_t, 1).
+LOCAL tco_e1 IS CALLS["E1"].
+SET ks_t TO tco_keys(fake_vehicle).
+SET TCO_REFUSE TO "no engine".
+core_warning(crun_t, "old").
+LOCAL tco_res IS core_request(crun_t, fake_vehicle, ks_t, 5).
+assert_true("take-over refused: the running programme carries on, not ended", crun_t["PROG"]["PROG_NO"] = 1 AND CALLS["E1"] = tco_e1).
+assert_true("take-over refused: OPR ERR and the reason as a warning", ks_t["OPRERR"] AND tco_res["WARN"]:CONTAINS("no engine")).
+assert_true("take-over refused: the old warnings stay", crun_t["WARNS"]:LENGTH = 1).
+assert_true("take-over refused: the load and the display are left alone", load_active(ks_t) AND ks_t["VERB"] = 21 AND ks_t["NOUN"] = 33).
+SET TCO_REFUSE TO "".
+SET ks_t TO tco_keys(fake_vehicle).
+SET ks_t["PENDING"] TO LEXICON("VERB", 6, "NOUN", 60).
+SET ks_t["EXT"] TO LEXICON("VERB", 16, "NOUN", 60, "STEP", FALSE).
+SET ks_t["PRO"] TO TRUE.
+SET ks_t["ENTER"] TO TRUE.
+core_request(crun_t, fake_vehicle, ks_t, 5).
+assert_true("take-over: START gets the running programme, which is not ended", CALLS["E1"] = tco_e1 AND TCO_PREV:ISTYPE("Lexicon") AND TCO_PREV["PROG_NO"] = 1 AND crun_t["PROG"]["PROG_NO"] = 5).
+assert_true("take-over: the load, the request and the extended display are gone", NOT load_active(ks_t) AND NOT ks_t["PENDING"]:ISTYPE("Lexicon") AND NOT ks_t["EXT"]:ISTYPE("Lexicon")).
+assert_true("take-over: no answer left over for the new programme", NOT ks_t["PRO"] AND NOT ks_t["ENTER"] AND NOT ks_t["OPRERR"]).
+assert_true("take-over: the old warnings are cleared", crun_t["WARNS"]:LENGTH = 0).
+core_end(crun_t, fake_vehicle).
+core_request(crun_t, fake_vehicle, ks_t, 5).
+assert_true("take-over with nothing running: START gets FALSE", TCO_PREV:ISTYPE("Boolean") AND crun_t["PROG"]["PROG_NO"] = 5).
+core_end(crun_t, fake_vehicle).
+
+core_request(crun_t, fake_vehicle, ks_t, 1).
+LOCAL tco_s5 IS CALLS["S5"].
+LOCAL tco_none IS core_vehicle_request(crun_t, fake_vehicle, ks_t, 100).
+assert_true("a vehicle with no request source asks for nothing", tco_none["MSG"] = "" AND tco_none["WARN"] = "" AND CALLS["S5"] = tco_s5).
+SET fake_vehicle["REQUEST_SOURCE"] TO { PARAMETER prog, now_ut. RETURN TCO_ASK. }.
+core_vehicle_request(crun_t, fake_vehicle, ks_t, 100).
+assert_true("request source -1: nothing changes", CALLS["S5"] = tco_s5 AND crun_t["PROG"]["PROG_NO"] = 1).
+SET TCO_ASK TO 5.
+core_vehicle_request(crun_t, fake_vehicle, ks_t, 100).
+assert_true("request source 5: P5 takes over", CALLS["S5"] = tco_s5 + 1 AND crun_t["PROG"]["PROG_NO"] = 5).
+core_end(crun_t, fake_vehicle).
+fake_vehicle:REMOVE("REQUEST_SOURCE").
 
 test_end().

@@ -2,7 +2,7 @@
 //   RUNPATH("0:/tests/probe_throttle.ks").
 // Craft: the RO LM undocked in lunar orbit, descent engine OFF (not activated), RCS ON, SAS OFF, attitude steady.
 // Log: 0:/lm/logs/probe_throttle.log. The script walks through numbered phases; each waits for a press of AG1.
-// Why: design call 9 of release 1.4 (docs/superpowers/plans/2026-11-23-burn-programmes.md) assumes that with the engine shut
+// Why: design call 9 of release 1.4 (docs/superpowers/archive/plans/2026-11-23-burn-programmes.md) assumes that with the engine shut
 // down and RCS on, the throttle lever fires the RCS forward (KSP's "RCS responds to throttle"), and that a LOCK THROTTLE
 // blocks it. This probe measures it instead of assuming it. Tasks 5, 8 and 9 read the result.
 //

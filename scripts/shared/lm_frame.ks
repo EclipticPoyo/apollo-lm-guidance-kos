@@ -21,6 +21,15 @@ FUNCTION lm_cross {
   RETURN FRAME_SIGN * VCRS(a_vec, b_vec).
 }
 
+// window_face_in: the unit vector out of the crew window for a ship facing facing_dir (WINDOW_AXIS names the face).
+FUNCTION window_face_in {
+  PARAMETER facing_dir.
+  IF WINDOW_AXIS = "BOTTOM" { RETURN -facing_dir:TOPVECTOR. }
+  IF WINDOW_AXIS = "STAR" { RETURN facing_dir:STARVECTOR. }
+  IF WINDOW_AXIS = "PORT" { RETURN -facing_dir:STARVECTOR. }
+  RETURN facing_dir:TOPVECTOR.
+}
+
 // ---- The two functions that read kOS ---------------------------------------
 
 // LAND: the landing site as a vector from the Moon's centre.
@@ -55,8 +64,8 @@ FUNCTION land_update {
 // CGCALC: the guidance frame, a matrix whose rows are the guidance axes written in kOS raw axes.
 //   row 0 = unit(LAND)                  "up" at the landing site
 //   row 1 = unit(aim x LAND)            horizontal, sideways
-//   row 2 = row 0 x row 1               horizontal, toward the site
-// where aim = LAND + lead*ANGTERM - R, the direction from the ship toward the (lead-corrected)
+//   row 2 = row 0 x row 1               horizontal, towards the site
+// where aim = LAND + lead*ANGTERM - R, the direction from the ship towards the (lead-corrected)
 // landing point. Luminary's lead is TTF/8 * GAINBRAK; GAINBRAK is pad-loaded, so milestone 1 passes
 // lead = 0 and milestone 2 supplies the real value (the function does not change).
 // Degenerate cases never produce NaN: LAND = 0 gives the identity, and an aim that is zero or

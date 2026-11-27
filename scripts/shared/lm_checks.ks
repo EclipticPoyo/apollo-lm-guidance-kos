@@ -58,7 +58,7 @@ FUNCTION check_log {
 //   ALT_PDI, ALT_PDI_NOM   planned PDI altitude and the pad-geometry value, m
 //   V_PDI             speed at PDI on the planned descent orbit, m/s
 //   WARP_RATE         current time-warp rate (1 = none)
-//   NODES_OK          the game lets us make maneuver nodes
+//   NODES_OK          the game lets us make manoeuvre nodes
 //   TERRAIN_CLEAR_MIN smallest height above the terrain on the descent orbit, m (-999999 = not measured)
 //   VIGN              (optional) the profile's speed at PDI, m/s; the Apollo 11 VIGN when missing
 // Returns LEXICON("ERRORS", LIST, "WARNINGS", LIST) of strings. Any error means: do not use this plan.
@@ -80,7 +80,7 @@ FUNCTION check_plan_pre {
     errors:ADD("time warp is running (rate " + p["WARP_RATE"] + "): stop warp and run again").
   }
   IF NOT p["NODES_OK"] {
-    errors:ADD("maneuver nodes are not available (career: upgrade the Tracking Station)").
+    errors:ADD("manoeuvre nodes are not available (career: upgrade the Tracking Station)").
   }
   IF p["TERRAIN_CLEAR_MIN"] > -900000 AND p["TERRAIN_CLEAR_MIN"] < PLAN_TERRAIN_MIN_M {
     errors:ADD("descent orbit comes within " + ROUND(p["TERRAIN_CLEAR_MIN"]) + " m of the terrain (minimum "

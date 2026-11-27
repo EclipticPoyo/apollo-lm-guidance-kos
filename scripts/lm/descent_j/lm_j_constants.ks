@@ -63,3 +63,12 @@ GLOBAL J_TAUHZ IS 5.                   // pad load, s: horizontal velocity-nulli
 GLOBAL J_QHZ IS 0.4.                   // pad load: weight on the previous horizontal command
 GLOBAL J_HZ_PERIOD_S IS 2.             // Luminary's servicer pass, s: the horizontal law is evaluated this often and held in between (see lm_j_p66.ks)
 GLOBAL J_AHZLIM IS 0.591001104.            // pad load, m/s^2 (1.93898 ft/s^2): limit on the horizontal acceleration command
+
+// ---- P70 and P71: the abort orbit from the CSM's lead angle (pad load, Apollo 17; Luminary 210 ZDOTDCMP, research-1.5-aborts.md 5.2) ----
+GLOBAL J_ABT_J1 IS 6045737.6.          // J1PARM, ft: semi-major axis of the abort orbit, set 1 (the CSM's lead below THETCRIT)
+GLOBAL J_ABT_K1 IS -605981.9.          // K1PARM, ft/rad
+GLOBAL J_ABT_J2 IS 6036605.0.          // J2PARM, ft: set 2
+GLOBAL J_ABT_K2 IS -318029.5.          // K2PARM, ft/rad
+GLOBAL J_ABT_THETCRIT IS 6.4323.       // THETCRIT, deg
+GLOBAL J_ABT_RAMIN IS 5872844.9.       // RAMIN, ft: the least apolune radius
+GLOBAL J_ABT_SITE_R IS 1734484.        // m: the Apollo 17 landing-site radius (|RLS|); J, K and RAMIN are moved by our site radius less this

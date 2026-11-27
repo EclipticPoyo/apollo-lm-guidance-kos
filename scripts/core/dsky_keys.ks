@@ -26,8 +26,14 @@ RUNONCEPATH("0:/core/dsky_p27.ks").        // the update programme V71, V72, V33
 // Pending request: "PENDING" is FALSE or LEXICON("VERB", v, "NOUN", n), the display the running programme is asking the pilot about (the core sets it
 // from the programme's REQUEST). "KEYREL" is the KEY REL lamp: it lights when the pilot keys over a pending request (V, N, a digit, a sign, CLR or ENTR),
 // and goes out when the request ends or the pilot presses KEY REL, which puts the request (else "PROG_VN", the verb and noun the programme last set,
-// else nothing) back on the display. "RECYCLE" (V32), "TERMINATE" (V34 with a request pending) and "ENTER" (any ENTR) are TRUE for one cycle for the
+// else nothing) back on the display. The lamp is also lit, without this flag, while the pilot's display covers a programme's steady one
+// (key_covers_program). "RECYCLE" (V32), "TERMINATE" (V34 with a request pending) and "ENTER" (any ENTR) are TRUE for one cycle for the
 // programme to read; PRO is "PRO", cleared by the programme (V33 sets it too).
+// "EXT" is FALSE or an extended-verb display a vehicle's verb action has asked for (see dsky_core.ks).
+// "PRIO" is FALSE or the second slot's priority display, and a verb action sets "END_BACK" TRUE to end that slot (both in dsky_core.ks).
+// "OWN" is TRUE while a verb and noun the pilot entered are on the display (KEY REL, V37 or a programme's own display clears it): a priority
+// display waits for it, as Luminary's display lock does.
+// "RSET" is TRUE once R has been pressed, until the core has read it (core_run clears the terminal's warnings).
 FUNCTION keys_new {
   PARAMETER nouns, verbs, progs, start_vn IS LIST(), nonoun IS LIST().
   LOCAL first_noun IS 0.
@@ -39,7 +45,8 @@ FUNCTION keys_new {
                  "AWAIT_PROG", FALSE, "PBUF", "", "PROG_REQ", -1, "VERB_BEFORE", start_verb,
                  "NOUNS", nouns, "VERBS", verbs, "PROGS", progs,
                  "LOAD", load_new(), "P27", p27_new(), "VEHICLE", FALSE, "PROGRAM", FALSE, "QUIT", FALSE, "ALARM", alarm_new(),
-                 "PENDING", FALSE, "KEYREL", FALSE, "PROG_VN", LIST(-1, -1), "RECYCLE", FALSE, "TERMINATE", FALSE, "ENTER", FALSE, "NONOUN", nonoun, "LAMPTEST_UNTIL", -1).
+                 "PENDING", FALSE, "KEYREL", FALSE, "PROG_VN", LIST(-1, -1), "RECYCLE", FALSE, "TERMINATE", FALSE, "ENTER", FALSE, "NONOUN", nonoun, "LAMPTEST_UNTIL", -1,
+                 "EXT", FALSE, "PRIO", FALSE, "END_BACK", FALSE, "OWN", FALSE, "RSET", FALSE).
 }
 
 // quit_step: the DSKY window's close cross. state is "IDLE" (cross showing), "ASK" (the End DSKY? question showing) or "QUIT"
@@ -75,6 +82,7 @@ FUNCTION key_prog_cancel {
 FUNCTION key_rel_press {
   PARAMETER ks.
   SET ks["KEYREL"] TO FALSE.
+  SET ks["OWN"] TO FALSE.
   SET ks["MODE"] TO "".
   SET ks["VBUF"] TO "".
   SET ks["NBUF"] TO "".
@@ -87,6 +95,15 @@ FUNCTION key_rel_press {
     SET ks["VERB"] TO ks["PROG_VN"][0].
     SET ks["NOUN"] TO ks["PROG_VN"][1].
   }
+}
+
+// key_covers_program: is the pilot's display (a keyed verb and noun, or one half typed) over the verb and noun the programme last set? FALSE with a
+// request pending (KEYREL covers that), an extended-verb display, a keyed load or an update, or a programme number being keyed (V37 releases).
+FUNCTION key_covers_program {
+  PARAMETER ks.
+  IF ks["PENDING"]:ISTYPE("Lexicon") OR ks["EXT"]:ISTYPE("Lexicon") OR ks["AWAIT_PROG"] { RETURN FALSE. }
+  IF load_active(ks) OR p27_active(ks) OR ks["PROG_VN"][0] < 0 { RETURN FALSE. }
+  RETURN ks["MODE"] <> "" OR ks["VERB"] <> ks["PROG_VN"][0] OR ks["NOUN"] <> ks["PROG_VN"][1].
 }
 
 // key_enter_prog: ENTR while waiting for a programme number. Two digits naming a programme in the vehicle's list (ks["PROGS"]) make the
@@ -206,6 +223,8 @@ FUNCTION key_enter {
     }
     SET ks["VERB"] TO verb_new.
     SET ks["NOUN"] TO noun_new.
+    // A verb or noun keyed in makes the display the pilot's (not for V37 or V34); a bare ENTR, answering what is shown, changes nothing.
+    IF ks["VBUF"]:LENGTH > 0 OR ks["NBUF"]:LENGTH > 0 { SET ks["OWN"] TO verb_new <> 37 AND verb_new <> 34. }
     IF verb_new >= 21 AND verb_new <= 25 {
       IF NOT load_begin(ks, ks["VEHICLE"], verb_new, noun_new) { SET ks["OPRERR"] TO TRUE. }
     }
@@ -222,7 +241,7 @@ FUNCTION key_enter {
 FUNCTION key_press {
   PARAMETER ks, ch.
   LOCAL key IS ch:TOUPPER.
-  IF key = "R" { alarm_reset(ks["ALARM"]). }          // RSET also clears the alarm slots and the PROG lamp (Luminary ERROR), whatever else is active
+  IF key = "R" { alarm_reset(ks["ALARM"]). SET ks["RSET"] TO TRUE. }          // RSET also clears the alarm slots and the PROG lamp (Luminary ERROR), whatever else is active
   // Keying over a pending request lights KEY REL (Luminary: every key but RSET; PRO is not a key here, KEY REL itself releases).
   // Departure from Luminary, documented: V37 is an extended verb, which releases the display (RELDSP, PINBALL 2982, 3592), so while the
   // programme number is being keyed (AWAIT_PROG) its digits, CLR and ENTR do not light the lamp again. V or N keyed then still do.
@@ -268,6 +287,25 @@ FUNCTION key_press {
 FUNCTION keys_poll {
   PARAMETER ks.
   UNTIL NOT TERMINAL:INPUT:HASCHAR { key_press(ks, TERMINAL:INPUT:GETCHAR()). }
+  RETURN ks.
+}
+
+// keys_click: a keypad button's ONCLICK callback (the window binds the queue and the key's character). It only queues the key: kOS runs the
+// callback between the script's own instructions, once for each click, so clicks are not lost while a cycle is busy.
+FUNCTION keys_click {
+  PARAMETER click_queue, key_char.
+  click_queue:PUSH(key_char).
+}
+
+// keys_drain: press the queued clicks in click order. It stops after ENTR or PRO, leaving the rest for the next cycle, so the programme has
+// acted on that key before the following ones arrive. Returns the same lexicon.
+FUNCTION keys_drain {
+  PARAMETER ks, click_queue.
+  UNTIL click_queue:LENGTH = 0 {
+    LOCAL key_char IS click_queue:POP().
+    key_press(ks, key_char).
+    IF key_char = "E" OR key_char = "P" { BREAK. }
+  }
   RETURN ks.
 }
 

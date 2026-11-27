@@ -56,9 +56,9 @@ assert_true("nothing is keyed: no V25 and no KEYED heading", NOT pad_join(pad_pc
 
 // ---- PLAN_NODES: the planner's words about the nodes -------------------------------------------------------------------------
 LOCAL words_keep IS dp_node_text(2, TRUE).
-assert_true("PLAN_NODES TRUE: the planner says how many nodes it added and to fly the burns with P30 and P40", words_keep:CONTAINS("2 maneuver node") AND words_keep:CONTAINS("P30 and P40")).
+assert_true("PLAN_NODES TRUE: the planner says how many nodes it added and to fly the burns with P30 and P40", words_keep:CONTAINS("2 manoeuvre node") AND words_keep:CONTAINS("P30 and P40")).
 LOCAL words_none IS dp_node_text(2, FALSE).
-assert_true("PLAN_NODES FALSE: the planner says none were left and does not count nodes", words_none:CONTAINS("No maneuver nodes left") AND NOT words_none:CONTAINS("2 maneuver")).
+assert_true("PLAN_NODES FALSE: the planner says none were left and does not count nodes", words_none:CONTAINS("No manoeuvre nodes left") AND NOT words_none:CONTAINS("2 manoeuvre")).
 
 // ---- J profile uses the 210 addresses ----------------------------------------------------------------------------------------
 LOCAL pad_j IS pad_build(plan_a, "J", moon_r, zero_ut).

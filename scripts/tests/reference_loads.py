@@ -156,7 +156,7 @@ def pad_lines(profile_ver, site, rls_vec, tland_ut, burns, clock_zero_ut, plane_
     """The PAD text for a plan. site is (lat, lng, alt). burns is a list holding the DOI burn as (label, tig_ut, dv_lv_m_per_s), dv in
     local vertical axes as a list of 3 numbers (x along track, y opposite the normal, z down). The DOI burn is uplinked as one 8-word
     V71 block (DELVLVC six words, then TIG two words: the GSOP external delta-V update, see
-    docs/superpowers/ground-uplinks-research.md). A plane change (plane_change True) is the CSM's burn: it is not loaded in the LM
+    docs/superpowers/archive/notes/ground-uplinks-research.md). A plane change (plane_change True) is the CSM's burn: it is not loaded in the LM
     and the PAD only adds a note. Returns a list of text lines (pad_build in lm_pad.ks must match exactly)."""
     cells = LM_CELLS[profile_ver]
     lines = ["PAD " + ("LUMINARY210" if profile_ver == "210" else "LUMINARY099") + "     CLOCK ZERO UT " + str(round(clock_zero_ut)),
@@ -205,7 +205,7 @@ def check(name, cond):
 def selftest():
     check("ecadr E4,1422 = 2022 octal", ecadr(4, 0o1422) == 0o2022)
     check("ecadr UPSVFLAG E3,1501 = 1501 octal", ecadr(3, 0o1501) == 0o1501)
-    check("cells parsed", set(LM_CELLS) == {"099", "210"} and len(LM_CELLS["099"]) == 4)
+    check("cells parsed", set(LM_CELLS) == {"099", "210"} and len(LM_CELLS["099"]) == 15 and len(LM_CELLS["210"]) == 16)
     check("099 RLS ecadr 2022", ecadr(LM_CELLS["099"]["RLS"]["BANK"], LM_CELLS["099"]["RLS"]["OFFSET"]) == 0o2022)
     check("210 RLS ecadr 2020", ecadr(LM_CELLS["210"]["RLS"]["BANK"], LM_CELLS["210"]["RLS"]["OFFSET"]) == 0o2020)
     check("099 TLAND ecadr 2400", ecadr(5, 768) == 0o2400)
@@ -213,6 +213,20 @@ def selftest():
     c210 = LM_CELLS["210"]
     check("210 DELVLVC (DELVSLV) ecadr 3433 as in the GSOP table", ecadr(c210["DELVLVC"]["BANK"], c210["DELVLVC"]["OFFSET"]) == 0o3433)
     check("210 TLAND follows RLS by six words", ecadr(c210["TLAND"]["BANK"], c210["TLAND"]["OFFSET"]) == 0o2020 + 6)
+    # the ascent loads (release 1.5), addresses from the assembled ERASABLE_ASSIGNMENTS listings
+    for ver, zd, rd, xr in (("099", 0o2276, 0o2272, 0o3642), ("210", 0o2267, 0o2263, 0o3642)):
+        c = LM_CELLS[ver]
+        for name, want in (("ZDOTD", zd), ("RDOTD", rd), ("XRANGE", xr)):
+            check("%s %s ecadr %o" % (ver, name, want),
+                  name in c and ecadr(c[name]["BANK"], c[name]["OFFSET"]) == want)
+    # the rendezvous cells (release 1.5): ECADRs of the 099 and 210 listing addresses
+    for ver, tcdh, elev in (("099", 0o1776, 0o2256), ("210", 0o1774, 0o2247)):
+        c = LM_CELLS[ver]
+        for name, want, scale in (("TCSI", 0o3633, 28), ("TCDH", tcdh, 28), ("TTPI", 0o3635, 28), ("TTPI0", 0o3637, 28),
+                                  ("NN", 0o3466, 14), ("ELEV", elev, 0), ("CENTANG", 0o3620, 0), ("TPASS4", 0o3630, 28)):
+            check("%s %s ecadr %o scale %d" % (ver, name, want, scale),
+                  name in c and ecadr(c[name]["BANK"], c[name]["OFFSET"]) == want and c[name]["SCALE"] == scale)
+    check("NN is stored as its integer in the first word", dp_encode(99, 14) == [99, 0])
     check("octal_parse", octal_parse("12345") == 5349 and octal_parse("1289") == -1 and octal_parse("") == -1)
     # the worked state-vector example of UPDATE_PROGRAM.agc: V71 E 21 E <ecadr> E ... (21 octal = 17 = 15 words + 2)
     check("count for 15 words is 21 octal", octal_text(15 + 2, 2) == "21")

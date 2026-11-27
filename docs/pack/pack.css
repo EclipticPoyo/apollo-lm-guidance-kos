@@ -1,14 +1,15 @@
 /* Pilot's pack stylesheet. make_pack.py embeds the font files named below and the images, so the output is one file.
-   Look: NASA checklist and handbook pages. One ink; red only for CAUTION. */
+   Look: NASA checklist and handbook pages. One ink; red only for CAUTION, blue for J-class lines and for 210's version box,
+   bars and route, green for the bar of an optional section. */
 @font-face{font-family:Arimo;font-weight:400;src:url(fonts/Arimo-Regular.woff2) format("woff2")}
 @font-face{font-family:Arimo;font-weight:700;src:url(fonts/Arimo-Bold.woff2) format("woff2")}
 @font-face{font-family:"Courier Prime";font-weight:400;src:url(fonts/CourierPrime-Regular.woff2) format("woff2")}
 @font-face{font-family:"Courier Prime";font-weight:700;src:url(fonts/CourierPrime-Bold.woff2) format("woff2")}
 @font-face{font-family:Zerlina;src:url(fonts/Zerlina.otf) format("opentype")}
 
-:root{--ink:#111;--paper:#FBFBF9;--tint:#E9E9E4;--desk:#D8D7D3;--hair:#BDBDB5;--mute:#888;--white:#fff}
+:root{--j:#1F4E9C;--ink:#111;--paper:#FBFBF9;--tint:#E9E9E4;--desk:#D8D7D3;--hair:#BDBDB5;--mute:#888;--white:#fff}
 /* dark mode: only the web page, and only when the script in the page sets data-theme (the PDF build has no script, so it is always light) */
-:root[data-theme=dark]{--ink:#E8E8E4;--paper:#1B1C1E;--tint:#2C2D30;--desk:#101112;--hair:#45464A;--mute:#777;--white:#26272A}
+:root[data-theme=dark]{--j:#7FB0FF;--ink:#E8E8E4;--paper:#1B1C1E;--tint:#2C2D30;--desk:#101112;--hair:#45464A;--mute:#777;--white:#26272A}
 :root{--sans:Arimo,"Helvetica Neue",Helvetica,Arial,sans-serif;--type:"Courier Prime","Courier New",Courier,monospace}
 *{box-sizing:border-box}
 body{background:var(--desk);color:var(--ink);font:15px/1.5 var(--sans);margin:0;padding:18px max(16px,env(safe-area-inset-left,0px)) 56px}
@@ -23,6 +24,10 @@ body{background:var(--desk);color:var(--ink);font:15px/1.5 var(--sans);margin:0;
 .hdr b{display:block;font:700 .8rem var(--sans);letter-spacing:.08em;text-transform:uppercase}
 .hdr span{font:400 .7rem var(--type);letter-spacing:.04em}
 .hdr .sec{text-align:right;font:700 .72rem var(--sans);letter-spacing:.08em;text-transform:uppercase;line-height:1.35}
+/* a rendezvous route page: its version's number beside the page number */
+.hdr.v{grid-template-columns:1fr auto auto auto}
+.hdr .vbox{display:flex;align-items:center;justify-content:center;padding:0 10px;background:var(--ink);color:var(--paper);font:700 1.5rem var(--sans);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.hdr .vbox.j,.cl .band.j{background:#1F4E9C;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pb{padding:16px 18px 6px}
 .ftr{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--ink);padding:5px 12px;font:400 .68rem var(--type);letter-spacing:.05em;text-transform:uppercase}
 
@@ -35,7 +40,7 @@ body{background:var(--desk);color:var(--ink);font:15px/1.5 var(--sans);margin:0;
 
 /* inline: `keys` are typed, [[PRO]] is a button, ~V06 N62~ is a display, {{+01234}} is a register value */
 .page code{font:700 .95em var(--type);white-space:nowrap}
-.pro{font:700 .88em var(--type);border:1.5px solid var(--ink);padding:0 4px;white-space:nowrap}
+.pro{font:700 .88em var(--type);border:1.5px solid var(--ink);padding:.16em 4px 0;white-space:nowrap}
 .dsp{font:700 .92em var(--type);white-space:nowrap}
 .reg{font:400 1.7em/1 Zerlina,var(--type);letter-spacing:.06em;white-space:nowrap;vertical-align:-.08em}
 
@@ -44,7 +49,9 @@ body{background:var(--desk);color:var(--ink);font:15px/1.5 var(--sans);margin:0;
 .cap{font:700 .75rem var(--sans);letter-spacing:.06em;text-transform:uppercase;text-align:center;margin-top:6px}
 .cap span{font-weight:400}
 .photo{position:relative;max-width:540px;margin:0 auto;padding:0 40px}
-.photo img{display:block;width:100%;height:auto;border:1px solid var(--ink)}
+.photo.small{max-width:470px}
+.photo.gauge{max-width:300px}
+.photo img{display:block;width:100%;height:auto}
 .photo .co{position:absolute;width:24px;height:24px;border:1.6px solid var(--ink);border-radius:50%;background:var(--white);font:700 12px/21px Arial,sans-serif;text-align:center;transform:translateY(-50%)}
 .photo .co::before{content:"";position:absolute;top:50%;width:16px;border-top:1.4px solid var(--ink)}
 .photo .r{right:0}.photo .r::before{right:100%}
@@ -62,9 +69,9 @@ th{font:700 .7rem var(--sans);letter-spacing:.07em;text-transform:uppercase;back
 .vt td:first-child,.nt td:first-child{font:700 .9rem var(--type);white-space:nowrap;width:1%}
 .vt td:first-child{padding-right:18px}
 .nt td{font-size:.86rem}
-.regs{margin:6px 0 12px;border-top:1.5px solid var(--ink)}
-.regs div{display:flex;align-items:baseline;gap:18px;padding:6px 2px;border-bottom:1px solid var(--hair);font-size:.9rem}
-.regs .reg{min-width:130px}
+.regs{margin:8px 0 16px;display:flex;flex-direction:column;gap:6px}
+.regs div{display:flex;align-items:baseline;gap:12px;font-size:.9rem}
+.regs .reg{font-size:2.3em;min-width:4.6em}                       /* the register digits must read at print size */
 
 .topbar{font:700 .8rem var(--sans);letter-spacing:.05em;text-transform:uppercase;margin:0 0 14px}.topbar a{color:var(--ink)}
 /* cover, contents, flow strip */
@@ -73,18 +80,22 @@ th{font:700 .7rem var(--sans);letter-spacing:.07em;text-transform:uppercase;back
 .cover .t2{font:400 1rem var(--type);margin:6px 0 0;letter-spacing:.04em}
 .toc td:first-child{width:80px;font:700 .85rem var(--type)}
 .toc td:last-child{width:80px;text-align:center;font:700 .85rem var(--type)}
+.idx td:first-child{width:60px;font:700 .85rem var(--type);text-align:center}
+.idx td:last-child{width:170px}
 .flowrow{display:grid;grid-template-columns:repeat(6,1fr);margin:6px 8px 12px 0}
 .flowrow div{border:1px solid var(--ink);margin-left:-1px;padding:6px;text-align:center;font:700 .74rem var(--sans);letter-spacing:.05em;text-transform:uppercase;position:relative}
 .flowrow div span{display:block;font:400 .72rem var(--type);text-transform:none;letter-spacing:0;margin-top:2px}
 .flowrow div:not(:last-child)::after{content:"\25B6";position:absolute;right:-8px;top:50%;transform:translateY(-50%);font-size:.6rem;background:var(--paper);z-index:1;padding:1px 0}
-@media(max-width:640px){.flowrow{grid-template-columns:1fr 1fr 1fr}.flowrow div:not(:last-child)::after{display:none}}
+@media(max-width:640px){
+ .need ul{columns:1}.lampgrid{grid-template-columns:1fr}.ph{grid-template-columns:92px minmax(0,1fr)}.ph .nm{grid-column:1/-1;grid-row:auto}.flowrow{grid-template-columns:1fr 1fr 1fr}.flowrow div:not(:last-child)::after{display:none}}
 
 /* notes */
 .note,.caut{border:1.5px solid var(--ink);margin:10px 0;display:grid;grid-template-columns:auto minmax(0,1fr);font-size:.9rem}
 .note b,.caut b{font:700 .72rem var(--sans);letter-spacing:.1em;padding:7px 10px;border-right:1.5px solid var(--ink);background:var(--tint);display:flex;align-items:center}
 .caut{border-width:2.5px;border-color:#B3261E}
 .caut b{background:#B3261E;color:#fff;border-right-color:#B3261E}
-.note span,.caut span{padding:7px 10px}
+.note b .sign,.caut b .sign{width:15px;height:15px;flex:none;margin-right:6px}
+.note>span,.caut>span{padding:7px 10px}
 
 /* checklist: time tag in a left margin behind a rule, CONTROL - SETTING lines, check-mark verifies, boxed IF branches */
 .cl{text-transform:uppercase;font:400 .85rem/1.35 var(--type);letter-spacing:.01em;position:relative}
@@ -92,18 +103,105 @@ th{font:700 .7rem var(--sans);letter-spacing:.07em;text-transform:uppercase;back
 .cl .band{position:relative;z-index:1;background:var(--ink);color:var(--paper);font:700 .78rem var(--sans);letter-spacing:.1em;padding:4px 10px;margin:12px 0 4px}
 .cl .band:first-child{margin-top:0}
 .cl .band span{font:400 .7rem var(--type);letter-spacing:.03em;margin-left:10px}
-.cl .cln{display:grid;grid-template-columns:78px minmax(0,1fr);padding:2px 0;position:relative}
+/* a section that may be left out; the same colours in the dark theme, and the word reads in black and white */
+.cl .band.opt{background:#14532D;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cl .band .optmark{float:right;background:#fff;color:#14532D;font:700 .66rem/1.5 var(--sans);font-style:normal;letter-spacing:.1em;border-radius:2px;padding:0 5px}
+/* the version at the right end of a route page's bar */
+.vmark{float:right;background:var(--paper);color:var(--ink);font:700 .66rem/1.5 var(--sans);font-style:normal;letter-spacing:.1em;border-radius:2px;padding:0 5px}
+.j .vmark{background:#fff;color:#1F4E9C}
+/* where the versions part: a boxed question, one row for each */
+.fork{border:2.5px solid var(--ink);margin:0 0 12px;font:400 .9rem/1.35 var(--type);text-transform:uppercase}
+.fork .fh{background:var(--ink);color:var(--paper);font:700 .78rem var(--sans);letter-spacing:.1em;padding:4px 10px}
+.fork .fr{display:grid;grid-template-columns:60px minmax(0,1fr)}
+.fork .fr+.fr{border-top:1px solid var(--ink)}
+.fork .fr em{display:flex;align-items:center;justify-content:center;background:var(--ink);color:var(--paper);font:700 1rem var(--sans);font-style:normal}
+.fork .fr span{padding:6px 10px}
+.fork .fr.j span{color:var(--j)}
+/* one version's index bar */
+table tr.band.ver td{background:var(--ink);color:var(--paper)}
+.fork .fr.j em,table tr.band.ver.j td{background:#1F4E9C;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* the route timeline above the footer: one track for each version, drawn in the text's colour; a narrow screen scrolls it */
+.route{border-top:1px solid var(--ink);padding:5px 12px;overflow-x:auto;color:var(--ink)}
+.route svg{display:block;width:100%;height:auto;min-width:560px;font:700 11px var(--sans);letter-spacing:.04em}
+.route .j{color:var(--j)}
+.route text{fill:currentColor;dominant-baseline:central}
+.route .from{text-anchor:end}
+.route circle{fill:currentColor}
+.route .trk{fill:none;stroke:currentColor;stroke-width:2}
+.route .rv rect{fill:currentColor}
+.route .rv text{fill:var(--paper);text-anchor:middle}
+.route .stop rect{fill:var(--paper);stroke:currentColor;stroke-width:1.5}
+.route .stop text{text-anchor:middle}
+.route .stop.here rect{fill:currentColor}
+.route .stop.here text{fill:var(--paper)}
+.cl .cln{display:grid;grid-template-columns:78px minmax(0,1fr);align-items:baseline;padding:2px 0;position:relative}
 .cl .ctm{font:700 .76rem/1.35 var(--sans);letter-spacing:.03em;padding:1px 12px 0 0;text-align:right}
 .cl .cac{padding-left:14px;min-width:0}
 .cl .cac b{font-weight:700}
+/* PRO and ENTR written out: the key box, in the line's colour (210 blue), without making the line taller. The top padding centres the
+   capitals: Courier Prime sits them high (measured 2026-11-27) */
+.cl .pro{border-color:currentColor;font-style:normal;line-height:1;padding:.16em 3px 0;margin:-1px 0;display:inline-block;text-indent:0;vertical-align:baseline}
 .cl .cln.v .cac,.cl .cln.n .cac{padding-left:32px;text-indent:-18px}
 .cl .cln.n .cac{font-style:italic;text-transform:none;font-size:.82rem;text-indent:0;padding-left:32px}
 .cl .cln.v .cac i{font-style:normal;font-family:var(--sans);font-weight:700;display:inline-block;width:18px;text-indent:0}
+/* rows of figures in columns (gate:): a slot for the version tag, then each figure starting in the same column, the row level with the middle of
+   its margin's lines */
+.cl .cln.g{align-items:center}
+.cl .cln.g .cac{display:flex;flex-wrap:wrap;align-items:baseline}
+.cl .gtag{width:5ch;flex:none}
+.cl .gfig{width:8ch;flex:none;white-space:nowrap}
+.cl .gsi{width:11ch;flex:none;padding-left:1ch;white-space:nowrap}
+.cl .greg{margin-left:2ch;white-space:nowrap}
 .cl .cif{margin:5px 6px 7px 92px;border:1.5px solid var(--ink);border-left-width:5px;padding:4px 10px}
 .cl .cih{font:700 .76rem var(--sans);letter-spacing:.06em;margin-bottom:2px}
 .cl .cif .cln{grid-template-columns:minmax(0,1fr);padding:1px 0}
 .cl .cif .cln .cac{padding-left:0}
 .cl .cif .cln.v .cac{padding-left:18px}
+/* page links, and the lines or branches for one software version only: J-class in blue, both with a text tag for black and white */
+a.ref{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.cl .pj,.cl .pj .cih{color:var(--j)}
+.cl .cif.pj{border-color:var(--j)}
+.cl .tag,.jv .tag{display:inline-block;font:700 .66rem/1.2 var(--sans);font-style:normal;letter-spacing:.05em;border:1.5px solid currentColor;border-radius:2px;padding:0 3px;margin-right:6px;text-indent:0;vertical-align:1px}
+/* a jump to another checklist: one boxed step saying where to go and when to come back */
+.cl .cgo{margin:5px 6px 7px 92px;border:2.5px solid var(--ink);padding:4px 10px}
+.cl .cgo b{display:inline-block;min-width:62px;margin-right:6px;font:700 .76rem var(--sans);letter-spacing:.06em}
+/* the metric figure beside an Apollo one: m and km, not M and KM */
+.cl .si{text-transform:none}
+.cl .band span.si{margin-left:0}
+/* the way to the abort checklist, on each descent checklist */
+.cl .cabort{position:relative;z-index:1;display:flex;align-items:stretch;margin:0 0 8px;border:2.5px solid #B3261E;background:var(--paper)}
+.cl .cabort b,.cl .cabort em{display:flex;align-items:center;background:#B3261E;color:#fff;font:700 .76rem var(--sans);font-style:normal;letter-spacing:.1em;padding:4px 10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cl .cabort span{flex:1;padding:4px 10px}
+.cl .cabort .sign{width:15px;height:15px;flex:none;margin-right:6px}
+.cl .cabort em a{color:#fff}
+/* the foot of a sheet whose page goes on */
+.onward{font:700 .72rem var(--sans);letter-spacing:.08em;text-transform:uppercase;text-align:right;margin:8px 0 4px}
+/* reference pages: a J-class note in a cell, the key nouns */
+.jv{display:block;color:var(--j)}
+.nt tr.key td{background:var(--tint)}.nt tr.key td:first-child{border-left:5px solid var(--ink)}
+.nt .band td{background:var(--ink);color:var(--paper);padding-top:6px}
+/* ---- the light style of the reference and appendix pages: black bars, thin rules, no boxes ---- */
+.lite table{border:0;margin:0 0 12px}
+.lite th{background:none;border:0;border-bottom:2px solid var(--ink);color:var(--mute);padding:3px 10px;font-size:.66rem}
+.lite td{border:0;border-bottom:1px solid var(--hair);padding:7px 10px}
+.lite .band td{background:var(--ink);color:var(--paper);border:0;border-left:6px solid var(--ink);padding:5px 10px}
+.lite .nt tr:not(.band):not(.key) td:first-child{border-left:6px solid transparent}
+.lite .nt tr.key td{background:var(--tint)}.lite .nt tr.key td:first-child{border-left:6px solid var(--ink)}
+.lite .nt td:first-child{font-size:1rem}
+.lite .pb h3,.lite .bar{display:flex;justify-content:space-between;align-items:baseline;background:var(--ink);color:var(--paper);font:700 .78rem var(--sans);letter-spacing:.12em;text-transform:uppercase;padding:5px 10px;margin:14px 0 6px}
+.lite .bar span{font:400 .7rem var(--type);letter-spacing:.04em}
+.ph{display:grid;grid-template-columns:128px 92px minmax(0,1fr);border-bottom:1px solid var(--hair);padding:6px 0;align-items:start}
+.ph .nm{grid-row:span 2;align-self:stretch;border-left:6px solid var(--ink);padding:0 8px;font:700 .8rem/1.35 var(--sans);letter-spacing:.05em;text-transform:uppercase}
+.ph .nm small{display:block;font:400 .75rem var(--type);letter-spacing:0}
+.ph .who{font:700 .64rem/2.1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.ph .what{font-size:.86rem;line-height:1.45}
+.ph.j,.ph.j .who{color:var(--j)}.ph.j .nm{border-left-color:var(--j)}
+.ph+p{margin-top:12px}
+.need ul{columns:2;column-gap:26px;margin:0 0 8px;padding-left:18px;font-size:.84rem}.need li{break-inside:avoid}
+.lampgrid{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;margin:0 0 8px}
+.lampitem{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;align-items:center;border-bottom:1px solid var(--hair);padding:6px 0;font-size:.82rem;line-height:1.4}
+.lamp{display:flex;align-items:center;justify-content:center;text-align:center;min-height:38px;padding:2px 4px;border:2px solid #111;color:#111;font:700 .68rem/1.2 var(--sans);letter-spacing:.04em;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.lamp.white{background:#DCE6F0}.lamp.amber{background:#E0A820}.lamp.green{background:#3DDC97}
 .cl .chg::before{content:"";position:absolute;left:-12px;top:0;bottom:0;border-left:3px solid var(--ink)}
 .cl-legend{font:400 .72rem var(--type);text-transform:uppercase;border:1px solid var(--ink);padding:4px 8px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:2px 18px}
 
@@ -111,7 +209,9 @@ th{font:700 .7rem var(--sans);letter-spacing:.07em;text-transform:uppercase;back
  .cl::before{display:none}
  .cl .cln{grid-template-columns:1fr;padding:4px 0;border-bottom:1px dotted var(--mute)}
  .cl .ctm{text-align:left;padding:0 0 1px 14px}
- .cl .cif{margin-left:0}
+ .cl .cif,.cl .cgo{margin-left:0}
+ .hdr.v{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto}      /* the two text cells share what the numbers leave */
+ .hdr.v .vbox{padding:0 8px;font-size:1.2rem}
 }
 
 /* ---------------- print and sheet mode ---------------- */
@@ -122,7 +222,7 @@ th{font:700 .7rem var(--sans);letter-spacing:.07em;text-transform:uppercase;back
  .page{box-shadow:none;margin:0;break-after:page;break-inside:avoid}
  .page:last-child{break-after:auto}
  .tw{overflow:visible}.tw table{min-width:0!important}
- .figbox svg{min-width:0}
+ .figbox svg,.route svg{min-width:0}
 }
 /* make_pack.py --pdf lays each page out at the sheet's width and scales it to fit one sheet (see the script) */
 body.sheets{background:#fff;padding:0}

@@ -1,0 +1,13 @@
+- TIG-0:05 | V99 N40 FL | PRO (enable engine)
+- TIG | ENGINE | Full thrust. No throttle
+n: A very short burn is timed, not steered
+- CUT-OFF | COMPUTER | Cuts the engine
+v: V16 N40 FL
+- | PRO |
+v: V16 N85 FL
+- | TRANSLATION | Trim R1-R3 to near zero (RCS)
+- | PRO |
+if: ALARM 1706
+  - | The descent stage is still on
+  - | PRO looks again. V34E ends
+end

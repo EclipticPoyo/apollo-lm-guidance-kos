@@ -43,7 +43,7 @@ FUNCTION att_step {
 // warp_new: bookkeeping for the one warp P63 makes. DONE is TRUE once the warp was started, or ruled out because the
 // stop time is too close; SINCE is the time the attitude first counted as settled (-1 = not settled now).
 FUNCTION warp_new {
-  RETURN LEXICON("DONE", FALSE, "SINCE", -1).
+  RETURN LEXICON("DONE", FALSE, "SINCE", -1, "QUIET", 0, "WAIT", 0).     // WAIT: s settled before a warp starts even at QUIET deg/s or more (ctl_ascent_hold)
 }
 
 // warp_step: called every cycle until DONE. Returns the time (UT) to warp to, or -1 for "do not warp now".
@@ -62,7 +62,8 @@ FUNCTION warp_step {
   }
   IF att_err_deg < P63_SETTLE_ERR_DEG AND rate_deg_s < P63_SETTLE_RATE_DEG_S {
     IF wrp["SINCE"] < 0 { SET wrp["SINCE"] TO now_ut. }
-    IF now_ut - wrp["SINCE"] >= P63_SETTLE_HOLD_S {
+    LOCAL held IS now_ut - wrp["SINCE"].
+    IF held >= P63_SETTLE_HOLD_S AND (rate_deg_s < wrp["QUIET"] OR held >= wrp["WAIT"]) {
       SET wrp["DONE"] TO TRUE.
       RETURN stop_ut.
     }
@@ -80,7 +81,7 @@ FUNCTION warp_step {
 
 // db_new: LOCKED is TRUE while the steering lock is on (it starts on: the first turn needs it).
 FUNCTION db_new {
-  RETURN LEXICON("LOCKED", TRUE).
+  RETURN LEXICON("LOCKED", TRUE, "RATE", P63_DB_RATE_DEG_S).     // RATE: the lock is released only under this turn rate
 }
 
 // db_step: one cycle. att_err_deg is the error to the commanded attitude, rate_deg_s the ship's turn rate, must_lock TRUE
@@ -90,7 +91,7 @@ FUNCTION db_step {
   IF must_lock {
     SET dbs["LOCKED"] TO TRUE.
   } ELSE IF dbs["LOCKED"] {
-    IF att_err_deg < P63_DB_RELEASE_DEG AND rate_deg_s < P63_DB_RATE_DEG_S { SET dbs["LOCKED"] TO FALSE. }
+    IF att_err_deg < P63_DB_RELEASE_DEG AND rate_deg_s < dbs["RATE"] { SET dbs["LOCKED"] TO FALSE. }
   } ELSE {
     IF att_err_deg > P63_DB_RELOCK_DEG { SET dbs["LOCKED"] TO TRUE. }
   }
@@ -118,13 +119,13 @@ FUNCTION win_rot {
 
 // win_exnorm: the direction the crew window should face in the approach (P64), Luminary's EXNORM
 // (LUNAR_LANDING_GUIDANCE_EQUATIONS.agc 748-815). land_vec and r_vec as in lm_frame.ks, xnb_vec the ship's +X axis (up
-// through the top hatch = the kOS fore vector), cg the guidance axes (rows: up, crossrange, horizontal toward the site).
+// through the top hatch = the kOS fore vector), cg the guidance axes (rows: up, crossrange, horizontal towards the site).
 //   u    = unit(LAND - R), the line of sight to the site
 //   PROJ = (u x XNB) . crossrange axis: the sine of the angle between the line of sight and the ship's X axis, as seen along
 //          the crossrange direction
-//   window = a * (horizontal axis toward the site) + b * u, with a = max(0, PROJMAX - PROJ) and b = max(0, PROJ - PROJMIN)
+//   window = a * (horizontal axis towards the site) + b * u, with a = max(0, PROJMAX - PROJ) and b = max(0, PROJ - PROJMIN)
 //          (PROJMAX = sin 25 deg, PROJMIN = sin 15 deg), then made unit length.
-// So with the site nearly straight below the ship's axis (PROJ small) the window faces the horizon toward the site, with a
+// So with the site nearly straight below the ship's axis (PROJ small) the window faces the horizon towards the site, with a
 // shallow view of the site (PROJ large) it faces the site itself, and in between the two are blended. A zero vector is
 // returned if the ship is exactly at the site or the two terms cancel.
 FUNCTION win_exnorm {
@@ -169,7 +170,7 @@ FUNCTION win_min_rotation {
 // face_vec (the roll is held where it is) projected onto the plane perpendicular to the thrust axis dir_vec, then turned
 // about dir_vec to lead the ship by stick * P63_ROLL_STICK_LEAD_DEG degrees when the roll stick (-1 to 1) is out of its
 // detent (|stick| above P63_ROLL_DETENT): the X-axis override. The command stays a fixed angle ahead of the ship while the
-// stick is held, so the ship keeps rolling toward it at the rate kOS steering gives for that error (a command only a
+// stick is held, so the ship keeps rolling towards it at the rate kOS steering gives for that error (a command only a
 // small step ahead each cycle gave a very slow roll in flight). If the window vector is parallel to the thrust axis,
 // the old command w_old is kept.
 FUNCTION win_hold {
@@ -240,11 +241,13 @@ FUNCTION radar_step {
 // rod_new: REF the lever value a click is measured from, LAST the lever at the last sample, HELD 0 (armed) or the direction
 // of the click being held, QUIET_SINCE the time the lever last became still (-1 = not still), CLICKS the waiting clicks.
 // ---- the thrust monitor (Luminary DVMON and COMFAIL, V97) -----------------------------------------------------------------------------------
-// Every DVMON_PERIOD_S the acceleration gained since the last check is compared with DVMON_ACCEL_MS2. Enough resets the count to 1; too little
+// Every DVMON_PERIOD_S the acceleration gained since the last check is compared with the monitor's threshold MIN (DVMON_ACCEL_MS2 for the descent
+// engine; the ascent passes its own, Luminary loading DVTHRUSH per programme). Enough resets the count to 1; too little
 // counts it down, and a low check with the count already zero is the failure: 5 low checks before any thrust has been seen (count starts at 4), 2 after.
 // dvmon_step(mon, dv_total, now) takes the delta-v gained since ignition (m/s) and the UT; mon["FAILED"] says the V97 display is due.
 FUNCTION dvmon_new {
-  RETURN LEXICON("COUNT", 4, "FAILED", FALSE, "T0", -1, "DV0", 0).
+  PARAMETER min_accel IS DVMON_ACCEL_MS2.
+  RETURN LEXICON("COUNT", 4, "FAILED", FALSE, "T0", -1, "DV0", 0, "MIN", min_accel).
 }
 FUNCTION dvmon_step {
   PARAMETER mon, dv_total, now.
@@ -258,7 +261,7 @@ FUNCTION dvmon_step {
   LOCAL accel IS (dv_total - mon["DV0"]) / (now - mon["T0"]).
   SET mon["T0"] TO now.
   SET mon["DV0"] TO dv_total.
-  IF accel >= DVMON_ACCEL_MS2 { SET mon["COUNT"] TO 1. }
+  IF accel >= mon["MIN"] { SET mon["COUNT"] TO 1. }
   ELSE IF mon["COUNT"] <= 0 { SET mon["FAILED"] TO TRUE. }
   ELSE { SET mon["COUNT"] TO mon["COUNT"] - 1. }
 }
@@ -423,7 +426,7 @@ FUNCTION contact_step {
 // steering first, then turns SAS on in "stability assist" mode, which holds whatever attitude the pilot leaves the ship in.
 
 GLOBAL CTL_DIR IS V(0, 0, 1).      // the direction the ship's nose (thrust axis) should point, raw axes
-GLOBAL CTL_UP IS V(0, 1, 0).       // a direction the "up" side of the ship should lean toward (sets the roll)
+GLOBAL CTL_UP IS V(0, 1, 0).       // a direction the "up" side of the ship should lean towards (sets the roll)
 GLOBAL CTL_GOAL_DIR IS V(0, 0, 1).  // what guidance wants (CTL_DIR and CTL_UP follow it no faster than P63_TURN_RATE_DEG_S, see ctl_set_command)
 GLOBAL CTL_GOAL_UP IS V(0, 1, 0).
 GLOBAL CTL_SLEW_T IS 0.            // UT of the last slew step
@@ -435,9 +438,18 @@ GLOBAL CTL_THR_LOCKED IS FALSE.    // the programme holds the throttle (LOCK THR
 GLOBAL CTL_DRY IS FALSE.
 GLOBAL CTL_DRY_STATUS IS "FLYING".   // what ctl_status returns on the pad (tests set it to "LANDED")
 GLOBAL CTL_DRY_LEVER IS 0.5.         // what ctl_pilot_throttle returns on the pad (tests set it to move the lever)
+GLOBAL CTL_DRY_STAGES IS 0.          // how often ctl_stage_ascent was called on the pad (tests read it)
+GLOBAL CTL_DRY_FORE IS TRUE.         // on the pad: FALSE between ctl_rcs_fore_off and ctl_rcs_fore_restore (tests read it)
+GLOBAL CTL_DRY_ATTACHED IS TRUE.     // what ctl_descent_attached returns on the pad (tests set it to FALSE: the descent stage is gone)
+GLOBAL CTL_DRY_TUNES IS 0.           // how often ctl_ascent_tune was called on the pad (tests read it)
+GLOBAL CTL_DRY_COAST_TUNES IS 0.    // how often ctl_ascent_coast_tune was called on the pad (tests read it)
+GLOBAL CTL_DRY_TRACKS IS 0.          // how often ctl_track_start was called on the pad (tests read it)
+GLOBAL CTL_DRY_UNTRACKS IS 0.        // how often ctl_track_release was called on the pad (tests read it)
+GLOBAL CTL_DRY_ABORT IS FALSE.       // what ctl_abort_key returns on the pad (tests toggle it: a press of Backspace)
+GLOBAL CTL_DRY_AG10 IS FALSE.        // what ctl_ag10 returns on the pad (tests toggle it: a press of the 0 key)
 
 // ctl_roll_for_window: the extra roll (degrees about the thrust axis) that puts the crew window face (WINDOW_AXIS in
-// lm_constants.ks) toward the roll reference instead of the ship's "top". "TOP" needs none, "BOTTOM" a half turn.
+// lm_constants.ks) towards the roll reference instead of the ship's "top". "TOP" needs none, "BOTTOM" a half turn.
 // "STAR" and "PORT" are a quarter turn each way; which sign is which depends on kOS's left-handed rotations and is
 // UNVERIFIED: if the window comes out facing the wrong way, swap them (flight test 1).
 FUNCTION ctl_roll_for_window {
@@ -451,11 +463,7 @@ FUNCTION ctl_roll_for_window {
 // (CTL_DRY) there is no ship: a fixed vector.
 FUNCTION ctl_window_face_vec {
   IF CTL_DRY { RETURN V(0, 1, 0). }
-  LOCAL facing_dir IS SHIP:FACING.
-  IF WINDOW_AXIS = "BOTTOM" { RETURN -facing_dir:TOPVECTOR. }
-  IF WINDOW_AXIS = "STAR" { RETURN facing_dir:STARVECTOR. }
-  IF WINDOW_AXIS = "PORT" { RETURN -facing_dir:STARVECTOR. }
-  RETURN facing_dir:TOPVECTOR.
+  RETURN window_face_in(SHIP:FACING).
 }
 
 // ctl_pilot_roll: the roll stick, -1 to 1 (SHIP:CONTROL:PILOTROLL, what the player is doing; probe_control.ks read 0 still, 1 moved).
@@ -516,12 +524,15 @@ FUNCTION ctl_status {
   RETURN SHIP:STATUS.
 }
 
-// ctl_engine_off: shut the engine down (Engine:SHUTDOWN) and the throttle command to zero. Nothing on the pad.
+// ctl_engine_off: shut the engine down (Engine:SHUTDOWN) and the throttle command to zero. Nothing on the pad. An engine no longer on the ship
+// (destroyed, or left behind) is not touched: SHUTDOWN on a destroyed engine stopped the script (flight, 2026-11-27).
 FUNCTION ctl_engine_off {
   PARAMETER eng.
   SET CTL_THR TO 0.
   IF CTL_DRY { RETURN. }
-  eng:SHUTDOWN().
+  LOCAL eng_list IS LIST().
+  LIST ENGINES IN eng_list.
+  IF eng_list:CONTAINS(eng) { eng:SHUTDOWN(). }
 }
 
 // ctl_steer_lock: (re)create the steering lock. A function so ctl_start and ctl_auto share it.
@@ -545,15 +556,18 @@ FUNCTION ctl_steer_release {
 // ctl_release puts them back (STEERINGMANAGER:RESETTODEFAULT, as the probe did between configurations).
 FUNCTION ctl_start {
   IF CTL_DRY { RETURN. }
-  STEERINGMANAGER:RESETTODEFAULT().
-  SET STEERINGMANAGER:MAXSTOPPINGTIME TO STEERINGMANAGER:MAXSTOPPINGTIME * P63_STEER_STOP_MULT.
-  SET STEERINGMANAGER:PITCHTS TO STEERINGMANAGER:PITCHTS * P63_STEER_TS_MULT.
-  SET STEERINGMANAGER:YAWTS TO STEERINGMANAGER:YAWTS * P63_STEER_TS_MULT.
-  SET STEERINGMANAGER:ROLLTS TO STEERINGMANAGER:ROLLTS * P63_STEER_TS_MULT.
-  SET STEERINGMANAGER:TORQUEEPSILONMAX TO STEERINGMANAGER:TORQUEEPSILONMAX * P63_STEER_EPS_MULT.
-  SET STEERINGMANAGER:TORQUEEPSILONMIN TO STEERINGMANAGER:TORQUEEPSILONMIN * P63_STEER_EPS_MULT.
+  ctl_coast_tune().
   RCS ON.
   SAS OFF.
+  ctl_command_present().
+  SET CTL_THR TO 0.
+  ctl_steer_lock().
+  LOCK THROTTLE TO CTL_THR.
+  SET CTL_THR_LOCKED TO TRUE.
+}
+
+// ctl_command_present: the command and its goal become the attitude the ship has now.
+FUNCTION ctl_command_present {
   SET CTL_DIR TO SHIP:FACING:FOREVECTOR.
   // The roll reference is the window face, not the top: the steering lock adds CTL_ROLL (180 for a bottom window) to it, so the two cancel and the
   // ship holds the attitude it has. With the top vector here, a BOTTOM window made the ship roll 180 degrees before PRO (1.3.1 holds until PRO).
@@ -562,10 +576,37 @@ FUNCTION ctl_start {
   SET CTL_GOAL_DIR TO CTL_DIR.
   SET CTL_GOAL_UP TO CTL_UP.
   SET CTL_SLEW_T TO TIME:SECONDS.
-  SET CTL_THR TO 0.
+}
+
+// ctl_track_start: steering only, for the rendezvous tracker (P20, P25, V89), which never writes SAS or the throttle: the coast tuning (the
+// ascent stage's when the descent stage is gone), RCS on, the command at the present attitude, steering locked. Call with SAS off.
+FUNCTION ctl_track_start {
+  IF CTL_DRY { SET CTL_DRY_TRACKS TO CTL_DRY_TRACKS + 1. RETURN. }
+  ctl_coast_tune().
+  IF NOT ctl_descent_attached() { ctl_ascent_coast_tune(). }
+  RCS ON.
+  ctl_command_present().
   ctl_steer_lock().
-  LOCK THROTTLE TO CTL_THR.
-  SET CTL_THR_LOCKED TO TRUE.
+}
+
+// ctl_track_release: let the attitude go again: steering unlocked, its tuning back to the defaults, no jet command left.
+FUNCTION ctl_track_release {
+  IF CTL_DRY { SET CTL_DRY_UNTRACKS TO CTL_DRY_UNTRACKS + 1. RETURN. }
+  UNLOCK STEERING.
+  STEERINGMANAGER:RESETTODEFAULT().
+  SET SHIP:CONTROL:NEUTRALIZE TO TRUE.
+}
+
+// ctl_coast_tune: the steering tuning of ctl_start (the descent's, measured), from the defaults.
+FUNCTION ctl_coast_tune {
+  IF CTL_DRY { RETURN. }
+  STEERINGMANAGER:RESETTODEFAULT().
+  SET STEERINGMANAGER:MAXSTOPPINGTIME TO STEERINGMANAGER:MAXSTOPPINGTIME * P63_STEER_STOP_MULT.
+  SET STEERINGMANAGER:PITCHTS TO STEERINGMANAGER:PITCHTS * P63_STEER_TS_MULT.
+  SET STEERINGMANAGER:YAWTS TO STEERINGMANAGER:YAWTS * P63_STEER_TS_MULT.
+  SET STEERINGMANAGER:ROLLTS TO STEERINGMANAGER:ROLLTS * P63_STEER_TS_MULT.
+  SET STEERINGMANAGER:TORQUEEPSILONMAX TO STEERINGMANAGER:TORQUEEPSILONMAX * P63_STEER_EPS_MULT.
+  SET STEERINGMANAGER:TORQUEEPSILONMIN TO STEERINGMANAGER:TORQUEEPSILONMIN * P63_STEER_EPS_MULT.
 }
 
 // ctl_set_command: the new command from guidance. dir_vec is the direction the thrust axis must point (a zero vector is
@@ -575,7 +616,7 @@ FUNCTION ctl_set_command {
   IF dir_vec:MAG > 0 { SET CTL_GOAL_DIR TO dir_vec:NORMALIZED. }
   IF up_vec:MAG > 0 { SET CTL_GOAL_UP TO up_vec:NORMALIZED. }
   SET CTL_THR TO MAX(0, MIN(1, thr_frac)).
-  // The command the steering lock follows is moved toward the goal at no more than P63_TURN_RATE_DEG_S. Handed the whole 180 degree jump, kOS fired a big burst,
+  // The command the steering lock follows is moved towards the goal at no more than P63_TURN_RATE_DEG_S. Handed the whole 180 degree jump, kOS fired a big burst,
   // chattered all the way round and settled; a goal that moves smoothly gives a smooth turn. No limit on the pad (CTL_DRY) or when the rate is 0.
   LOCAL now_t IS TIME:SECONDS.
   LOCAL step_deg IS P63_TURN_RATE_DEG_S * MIN(1, MAX(0, now_t - CTL_SLEW_T)).
@@ -590,7 +631,7 @@ FUNCTION ctl_set_command {
   }
 }
 
-// ctl_slew_att: the attitude (nose cur_dir, roll reference cur_up) turned toward the goal attitude by at most max_deg degrees, as ONE rotation about a single fixed
+// ctl_slew_att: the attitude (nose cur_dir, roll reference cur_up) turned towards the goal attitude by at most max_deg degrees, as ONE rotation about a single fixed
 // axis (what Luminary's KALCMANU does), so the body rates stay constant along the turn. Slewing the nose and the roll reference separately made the roll rate
 // change all the way round and the roll chattered. Returns LIST(new_dir, new_up). Pure (the goal is returned when it is within the step).
 // The rotation between the two attitudes is found from their axis triads (nose, up, nose x up): the sum of cur x goal over the three is 2 sin(angle) times
@@ -695,6 +736,243 @@ FUNCTION ctl_find_engine {
     }
   }
   RETURN best.
+}
+
+// ctl_find_descent_engine (1.5 aborts): of the engines that leave with a staging (Part:DECOUPLEDIN 0 or more), the one with the most vacuum
+// thrust; 0 when there is none (the stage has gone, or its engine is destroyed: ctl_find_engine would then hand back the ascent engine).
+FUNCTION ctl_find_descent_engine {
+  LOCAL eng_list IS LIST().
+  LIST ENGINES IN eng_list.
+  LOCAL best IS 0.
+  LOCAL best_thrust IS 0.
+  FOR eng IN eng_list {
+    IF eng:DECOUPLEDIN >= 0 {
+      LOCAL thrust_kn IS eng:POSSIBLETHRUSTAT(0).
+      IF thrust_kn > best_thrust {
+        SET best TO eng.
+        SET best_thrust TO thrust_kn.
+      }
+    }
+  }
+  RETURN best.
+}
+
+// ctl_find_ascent_engine (release 1.5): the ascent engine: of the engines that are never decoupled (Part:DECOUPLEDIN below 0), the one with the most
+// vacuum thrust; 0 when there is none. ctl_find_engine (most thrust) finds the descent engine and must not be used for the ascent.
+FUNCTION ctl_find_ascent_engine {
+  LOCAL eng_list IS LIST().
+  LIST ENGINES IN eng_list.
+  LOCAL best IS 0.
+  LOCAL best_thrust IS 0.
+  FOR eng IN eng_list {
+    IF eng:DECOUPLEDIN < 0 {
+      LOCAL thrust_kn IS eng:POSSIBLETHRUSTAT(0).
+      IF thrust_kn > best_thrust {
+        SET best TO eng.
+        SET best_thrust TO thrust_kn.
+      }
+    }
+  }
+  RETURN best.
+}
+
+// ---- Ascent control layer (release 1.5): staging and ascent steering ----------------------------------------------------------
+// Probed in KSP (J craft, from the surface; research-1.5-ascent.md section 10a): shutting the descent engine down, the decoupler's
+// event and the ascent engine's ACTIVATE in one tick separate the stages, and kOS steering on RCS alone holds the ascent stage.
+
+// ctl_core_stays: this kOS processor is never decoupled, so it goes up with the ascent stage.
+FUNCTION ctl_core_stays {
+  RETURN CORE:PART:DECOUPLEDIN < 0.
+}
+
+// ctl_find_decoupler: the LM decoupler's separate event as LEXICON MODULE, EVENT, or FALSE: a part whose name contains "LEMDecoupler"
+// (ROC-LEMDecouplerBDB on both craft), a module containing "Decouple" (ModuleDecouple), an event containing "decouple" and not "staging".
+FUNCTION ctl_find_decoupler {
+  FOR prt IN SHIP:PARTS {
+    IF prt:NAME:CONTAINS("LEMDecoupler") {
+      FOR module_name IN prt:MODULES {
+        IF module_name:CONTAINS("Decouple") {
+          LOCAL mdl IS prt:GETMODULE(module_name).
+          FOR event_name IN mdl:ALLEVENTNAMES {
+            IF event_name:CONTAINS("decouple") AND NOT event_name:CONTAINS("staging") {
+              RETURN LEXICON("MODULE", mdl, "EVENT", event_name).
+            }
+          }
+        }
+      }
+    }
+  }
+  RETURN FALSE.
+}
+
+// ctl_descent_attached (1.5 aborts): is the descent stage still on the ship: an engine that can be decoupled, or the decoupler's separate event
+// still there. Both are gone after a staging; an engine destroyed in a hard landing leaves the event, so it does not read as a staging (the
+// computer must not start the ascent engine by itself then). CTL_DRY_ATTACHED on the pad (CTL_DRY).
+FUNCTION ctl_descent_attached {
+  IF CTL_DRY { RETURN CTL_DRY_ATTACHED. }
+  LOCAL eng_list IS LIST().
+  LIST ENGINES IN eng_list.
+  FOR eng IN eng_list { IF eng:DECOUPLEDIN >= 0 { RETURN TRUE. } }
+  RETURN ctl_find_decoupler():ISTYPE("Lexicon").
+}
+
+// ctl_stage_ascent: at ignition: shut down the engines that will be left behind, activate the ascent engine, and a fraction of a second later fire
+// the decoupler's event. Returns "", or why it failed (for the first two reasons nothing has been touched). With no event the stage list is pressed
+// instead until the ascent engine is lit, at most ASC_STAGE_PRESSES times (the H craft needs two: decoupler, then engine); that takes a few
+// ticks. The throttle is the caller's (ctl_ascent_start). On the pad (CTL_DRY) it is only counted.
+// Departure from Apollo: the crew's ABORT STAGE and ENGINE ARM ASCENT presses are not made.
+FUNCTION ctl_stage_ascent {
+  PARAMETER asc_eng.
+  IF CTL_DRY {
+    SET CTL_DRY_STAGES TO CTL_DRY_STAGES + 1.
+    RETURN "".
+  }
+  IF NOT asc_eng:ISTYPE("Engine") { RETURN "no ascent engine found". }
+  IF NOT ctl_core_stays() { RETURN "this kOS processor would be left on the descent stage". }
+  LOCAL decoupler IS ctl_find_decoupler().
+  LOCAL eng_list IS LIST().
+  LIST ENGINES IN eng_list.
+  FOR eng IN eng_list { IF eng:DECOUPLEDIN >= 0 { eng:SHUTDOWN(). } }
+  IF decoupler:ISTYPE("Lexicon") {
+    // Lit first, still attached, and separated once the thrust has built up, so the ascent stage does not drop back while the engine spools up.
+    // With no thrust after ASC_LIGHT_MAX_S the stages separate anyway (V97 then shows).
+    asc_eng:ACTIVATE().
+    LOCAL give_up IS TIME:SECONDS + ASC_LIGHT_MAX_S.
+    WAIT UNTIL asc_eng:THRUST >= ASC_LIGHT_FRAC * asc_eng:POSSIBLETHRUSTAT(0) OR TIME:SECONDS >= give_up.
+    decoupler["MODULE"]:DOEVENT(decoupler["EVENT"]).
+    RETURN "".
+  }
+  LOCAL lit_eng IS asc_eng.
+  LOCAL presses IS 0.
+  UNTIL lit_eng:IGNITION OR presses >= ASC_STAGE_PRESSES {
+    WAIT UNTIL STAGE:READY.
+    STAGE.
+    SET presses TO presses + 1.
+    LOCAL found IS ctl_find_ascent_engine().            // looked up again: the ship has just changed
+    IF found:ISTYPE("Engine") { SET lit_eng TO found. }
+  }
+  IF NOT lit_eng:IGNITION { RETURN "the ascent engine is not lit after staging". }
+  RETURN "".
+}
+
+// ctl_ascent_tune: the ascent stage's steering tuning, from the defaults (the descent's is dropped).
+FUNCTION ctl_ascent_tune {
+  IF CTL_DRY { SET CTL_DRY_TUNES TO CTL_DRY_TUNES + 1. RETURN. }
+  STEERINGMANAGER:RESETTODEFAULT().
+  SET STEERINGMANAGER:MAXSTOPPINGTIME TO STEERINGMANAGER:MAXSTOPPINGTIME * ASC_STEER_STOP_MULT.
+  SET STEERINGMANAGER:PITCHTS TO STEERINGMANAGER:PITCHTS * ASC_STEER_TS_MULT.
+  SET STEERINGMANAGER:YAWTS TO STEERINGMANAGER:YAWTS * ASC_STEER_TS_MULT.
+  SET STEERINGMANAGER:ROLLTS TO STEERINGMANAGER:ROLLTS * ASC_STEER_TS_MULT.
+  SET STEERINGMANAGER:TORQUEEPSILONMAX TO STEERINGMANAGER:TORQUEEPSILONMAX * ASC_STEER_EPS_MULT.
+  SET STEERINGMANAGER:TORQUEEPSILONMIN TO STEERINGMANAGER:TORQUEEPSILONMIN * ASC_STEER_EPS_MULT.
+}
+
+// ctl_ascent_coast_tune: for a coast on the ascent stage alone, after ctl_start: the coast tuning with a shorter stopping time.
+FUNCTION ctl_ascent_coast_tune {
+  IF CTL_DRY { SET CTL_DRY_COAST_TUNES TO CTL_DRY_COAST_TUNES + 1. RETURN. }
+  // KSP's RCS ignores a control input under 0.05 (RCS:DEADBAND in the kOS docs). The ascent stage turns so readily on RCS that kOS's command for a
+  // small turn rate falls under that, and the ship goes on turning (0.3 to 0.4 deg/s held, with the descent's settings). A shorter settling time makes
+  // kOS command more for the same rate. So only the stopping time is kept from the coast tuning: the settling time and dead zone start from the defaults.
+  LOCAL stop_s IS STEERINGMANAGER:MAXSTOPPINGTIME * ASC_COAST_STOP_FACTOR.
+  STEERINGMANAGER:RESETTODEFAULT().
+  SET STEERINGMANAGER:MAXSTOPPINGTIME TO stop_s.
+  SET STEERINGMANAGER:PITCHTS TO STEERINGMANAGER:PITCHTS * ASC_COAST_TS_MULT.
+  SET STEERINGMANAGER:YAWTS TO STEERINGMANAGER:YAWTS * ASC_COAST_TS_MULT.
+  SET STEERINGMANAGER:ROLLTS TO STEERINGMANAGER:ROLLTS * ASC_COAST_TS_MULT.
+}
+
+// ctl_ascent_hold: the ascent stage's coast limits (pure). A warp carries the leftover turn rate on for its whole length, so the lock is kept on until
+// the ship is nearly still, and the warp waits for that too, but never beyond ASC_WARP_WAIT_S (it must still warp if the jets cannot get there).
+FUNCTION ctl_ascent_hold {
+  PARAMETER dbs, wrp.
+  SET dbs["RATE"] TO ASC_DB_RATE_DEG_S.
+  SET wrp["QUIET"] TO ASC_DB_RATE_DEG_S.
+  SET wrp["WAIT"] TO ASC_WARP_WAIT_S.
+}
+
+// ctl_ascent_start: take control for the ascent: ctl_start, then the ascent stage's steering tuning in place of the descent's, and the
+// throttle command at 1 (the ascent engine is not throttled). sas_was_on: SAS (ATT HOLD) was on before the call (ctl_start turns it off),
+// so the attitude is handed back at once. Nothing on the pad (CTL_DRY).
+FUNCTION ctl_ascent_start {
+  PARAMETER sas_was_on.
+  IF CTL_DRY { RETURN. }
+  ctl_start().
+  ctl_ascent_tune().
+  SET CTL_THR TO 1.
+  IF sas_was_on { ctl_hold(). }
+}
+
+// ---- Abort control layer (release 1.5, P70 / P71) ------------------------------------------------------------------------------------------
+// ctl_abort_key: KSP's Abort action group (Backspace), a boolean every press toggles (kOS ABORT). ctl_ag10: action group 10 (the 0 key), the
+// same. Read from KSP, so the press is not seen while the kOS terminal has the keyboard. On the pad (CTL_DRY) the CTL_DRY_ values.
+FUNCTION ctl_abort_key {
+  IF CTL_DRY { RETURN CTL_DRY_ABORT. }
+  RETURN ABORT.
+}
+FUNCTION ctl_ag10 {
+  IF CTL_DRY { RETURN CTL_DRY_AG10. }
+  RETURN AG10.
+}
+
+// ctl_abort_take: take the controls from whatever the descent was doing, in ATT HOLD or not: the throttle command at 1 first and never 0
+// (Realism Overhaul shuts an engine down at 0), the ullage off and the raw controls neutral, RCS on, SAS off, the present attitude commanded,
+// steering and throttle locked. ascent_stage TRUE also puts the ascent stage's steering tuning in place; FALSE leaves the descent's. ctl_start
+// is not used: it sets the throttle to 0. On the pad (CTL_DRY) only the throttle command is set.
+FUNCTION ctl_abort_take {
+  PARAMETER ascent_stage.
+  SET CTL_THR TO 1.
+  IF CTL_DRY { RETURN. }
+  IF NOT CTL_THR_LOCKED {
+    LOCK THROTTLE TO CTL_THR.
+    SET CTL_THR_LOCKED TO TRUE.
+  }
+  ctl_ullage(FALSE).
+  RCS ON.
+  SAS OFF.
+  SET CTL_DIR TO SHIP:FACING:FOREVECTOR.
+  SET CTL_UP TO ctl_window_face_vec().          // the window face, as in ctl_start
+  SET CTL_ROLL TO ctl_roll_for_window().
+  SET CTL_GOAL_DIR TO CTL_DIR.
+  SET CTL_GOAL_UP TO CTL_UP.
+  SET CTL_SLEW_T TO TIME:SECONDS.
+  IF ascent_stage { ctl_ascent_tune(). }
+  ctl_steer_lock().
+}
+
+// ctl_rcs_fore_off: stop the main throttle firing the RCS forward (RCS:FOREBYTHROTTLE, kOS docs) on every thruster part that has it on, and return
+// those parts for ctl_rcs_fore_restore. Seen in flight: with the ascent engine out and the throttle full, the RCS pushed forward on ascent
+// propellant. The probe of 1.4 (research 16) did not prove this setting is the only cause. On the pad only CTL_DRY_FORE changes.
+FUNCTION ctl_rcs_fore_off {
+  LOCAL changed IS LIST().
+  IF CTL_DRY { SET CTL_DRY_FORE TO FALSE. RETURN changed. }
+  LOCAL rcs_list IS LIST().
+  LIST RCS IN rcs_list.
+  FOR thruster IN rcs_list {
+    IF thruster:FOREBYTHROTTLE {
+      SET thruster:FOREBYTHROTTLE TO FALSE.
+      changed:ADD(thruster).
+    }
+  }
+  RETURN changed.
+}
+
+// ctl_rcs_fore_restore: put the setting back on the parts ctl_rcs_fore_off changed.
+FUNCTION ctl_rcs_fore_restore {
+  PARAMETER changed.
+  IF CTL_DRY { SET CTL_DRY_FORE TO TRUE. RETURN. }
+  FOR thruster IN changed { SET thruster:FOREBYTHROTTLE TO TRUE. }
+}
+
+// ctl_rcs_still_here: of the parts ctl_rcs_fore_off returned earlier, those still on this ship (after a staging some have gone with the descent
+// stage). On the pad the list is returned as it is.
+FUNCTION ctl_rcs_still_here {
+  PARAMETER parts.
+  IF CTL_DRY { RETURN parts:COPY. }
+  LOCAL rcs_list IS LIST().
+  LIST RCS IN rcs_list.
+  LOCAL kept IS LIST().
+  FOR thruster IN parts { IF rcs_list:CONTAINS(thruster) { kept:ADD(thruster). } }
+  RETURN kept.
 }
 
 // ctl_engine_on: switch the engine on (Engine:ACTIVATE). It then burns at whatever the throttle lock says; the ignition

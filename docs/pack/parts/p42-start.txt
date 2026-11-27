@@ -1,0 +1,8 @@
+- BEFORE | SHIP | **RCS on, SAS off**, descent stage gone
+- | DSKY | V37E 42E
+v: V50 N18 FL
+- | PRO | Ship turns (V06 N18 steady)
+- | ENTR | When V50 N18 returns
+n: ENTR at the first display skips the turn
+- TIG-1:00 | SHIP | Warps by itself
+v: V06 N40

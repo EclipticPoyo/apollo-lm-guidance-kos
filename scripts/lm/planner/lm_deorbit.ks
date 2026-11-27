@@ -3,13 +3,13 @@
 //   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng).                    plan to the site at lat, lng (degrees)
 //   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng, alt_m).             ...with the site height above sea level (m)
 //   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng, alt_m, 300).        ...accepting a plane change up to 300 m/s
-//   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng, -999999, 200, TRUE). replace existing maneuver nodes
+//   RUNPATH("0:/lm/planner/lm_deorbit.ks", lat, lng, -999999, 200, TRUE). replace existing manoeuvre nodes
 //
-// It adds up to two maneuver nodes to the ship (a plane change, then the DOI burn that puts PDI at the
+// It adds up to two manoeuvre nodes to the ship (a plane change, then the DOI burn that puts PDI at the
 // Apollo 11 pad-loaded ignition geometry before the site) and writes a report. The PILOT flies the
 // burns; nothing here steers or throttles. Design: docs/superpowers/specs/2026-11-12-site-selection-deorbit-planner-design.md.
 //
-// Needs a bound lunar orbit, no time warp, and (career) a Tracking Station that allows maneuver nodes.
+// Needs a bound lunar orbit, no time warp, and (career) a Tracking Station that allows manoeuvre nodes.
 // Never deletes the pilot's own nodes unless replace = TRUE; on any failure it removes the nodes it added.
 //
 // Parameter names are in_lat etc. because kOS names are case-insensitive: SITE_LAT already exists
@@ -24,12 +24,13 @@ RUNONCEPATH("0:/shared/lm_frame.ks").
 RUNONCEPATH("0:/lm/planner/lm_site.ks").
 RUNONCEPATH("0:/lm/planner/lm_plan.ks").
 RUNONCEPATH("0:/shared/lm_checks.ks").
+RUNONCEPATH("0:/lm/planner/lm_ascent_plan.ks").      // abt_plan_check, and through it abt_csm_lead
 
 GLOBAL DP_LOG IS "0:/lm/logs/lm_deorbit.log".
 GLOBAL dp_nodes IS LIST().        // nodes THIS script added (only these are ever removed)
 GLOBAL dp_intended IS LIST().     // the delta-v vector the planner meant for each, same order
 GLOBAL DP_QUIET IS FALSE.         // TRUE = print nothing; the full report still goes to DP_LOG (lm_plan_ui.ks sets it)
-GLOBAL DP_RESULT IS LEXICON().    // the plan for a window: DOI, PDI, LDG as the game's UT clock, "HH:MM", and WARN (list of warnings); empty when the plan failed
+GLOBAL DP_RESULT IS LEXICON().    // the plan for a window: DOI, PDI, LDG as the game's UT clock, "HH:MM", WARN (list of warnings) and CSM (dp_csm_check); empty when the plan failed
 GLOBAL DP_REASON IS "".          // why the last plan failed, in one sentence (no "PLAN FAILED" prefix), for a window to show
 GLOBAL DP_SUMMARY IS LIST().      // the result in one or two short lines, for a window to show (set by deorbit_run)
 
@@ -82,8 +83,8 @@ FUNCTION dp_clear {
 // ship (setting PLAN_NODES). With keep FALSE it does not mention nodes beyond saying none were left.
 FUNCTION dp_node_text {
   PARAMETER count, keep.
-  IF NOT keep { RETURN "No maneuver nodes left on the ship (PLAN_NODES is FALSE): fly the burns with P30 and P40.". }
-  RETURN count + " maneuver node(s) added, as a visual aid. Fly the burns with P30 and P40.".
+  IF NOT keep { RETURN "No manoeuvre nodes left on the ship (PLAN_NODES is FALSE): fly the burns with P30 and P40.". }
+  RETURN count + " manoeuvre node(s) added, as a visual aid. Fly the burns with P30 and P40.".
 }
 
 // dp_fail: report a reason, remove our nodes, end the run unsuccessfully.
@@ -92,15 +93,15 @@ FUNCTION dp_fail {
   dp_clear().
   SET DP_RESULT TO LEXICON().
   SET DP_REASON TO reason.
-  SET DP_SUMMARY TO LIST("PLAN FAILED: " + reason, "No maneuver nodes were left by this run.").
+  SET DP_SUMMARY TO LIST("PLAN FAILED: " + reason, "No manoeuvre nodes were left by this run.").
   dp_say("PLAN FAILED: " + reason).
-  dp_say("No maneuver nodes were left on the ship by this run.").
+  dp_say("No manoeuvre nodes were left on the ship by this run.").
   RETURN FALSE.
 }
 
 // The orbit prediction as the planner needs it: Moon-centred position and velocity at UT t.
 // POSITIONAT is measured from the ship's centre NOW, so the body position is read in the same call.
-// Both include any maneuver nodes already added (kOS docs, commands/prediction).
+// Both include any manoeuvre nodes already added (kOS docs, commands/prediction).
 FUNCTION dp_pos_at {
   PARAMETER t.
   RETURN POSITIONAT(SHIP, t) - SHIP:BODY:POSITION.
@@ -147,6 +148,22 @@ FUNCTION dp_terrain_min {
   RETURN least.
 }
 
+// dp_csm_check: the targeted CSM, if it orbits the Moon, against where an abort expects it at PDI (abt_plan_check); else one line saying aborts
+// are not timed. lm_pos is the LM's place at PDI (from the Moon's centre), read while the planned nodes are still on the ship. The plan is not
+// changed by this.
+FUNCTION dp_csm_check {
+  PARAMETER t_pdi, lm_pos, site_radius, mu.
+  LOCAL untimed IS LIST(LEXICON("TEXT", "No CSM targeted: aborts will not be timed.", "WARN", FALSE)).
+  IF NOT HASTARGET { RETURN untimed. }
+  IF NOT TARGET:ISTYPE("Vessel") { RETURN untimed. }
+  LOCAL csm_ves IS TARGET.
+  IF csm_ves:BODY:NAME <> BODY_NAME OR csm_ves:STATUS <> "ORBITING" { RETURN untimed. }
+  LOCAL csm_r IS POSITIONAT(csm_ves, t_pdi) - SHIP:BODY:POSITION.
+  LOCAL csm_v IS VELOCITYAT(csm_ves, t_pdi):ORBIT.
+  RETURN abt_plan_check(PAD_PROFILE, abt_csm_lead(lm_pos:NORMALIZED, csm_r, csm_v), site_radius,
+                        csm_ves:ORBIT:APOAPSIS + SHIP:BODY:RADIUS, csm_ves:ORBIT:PERIAPSIS + SHIP:BODY:RADIUS, lm_pos:MAG, mu).
+}
+
 // deorbit_run: the whole plan. Returns TRUE when a plan was made and passed its checks.
 FUNCTION deorbit_run {
   PARAMETER lat_in, lng_in, alt_in, max_pc, replace_nodes.
@@ -162,9 +179,9 @@ FUNCTION deorbit_run {
   // The prediction functions follow the orbit across patches. An orbit that leaves the Moon's sphere of
   // influence first would give positions on another body's patch.
   IF SHIP:ORBIT:TRANSITION <> "FINAL" { RETURN dp_fail("the orbit ends with a transition (" + SHIP:ORBIT:TRANSITION + "): it must stay in the " + BODY_NAME + "'s sphere of influence."). }
-  // POSITIONAT and VELOCITYAT need the same career upgrade as maneuver nodes (kOS docs, commands/prediction),
+  // POSITIONAT and VELOCITYAT need the same career upgrade as manoeuvre nodes (kOS docs, commands/prediction),
   // so this is checked before any prediction call.
-  IF NOT CAREER():CANMAKENODES { RETURN dp_fail("maneuver nodes are not available (career: upgrade the Tracking Station)."). }
+  IF NOT CAREER():CANMAKENODES { RETURN dp_fail("manoeuvre nodes are not available (career: upgrade the Tracking Station)."). }
   IF KUNIVERSE:TIMEWARP:RATE > 1 { RETURN dp_fail("time warp is running (rate " + KUNIVERSE:TIMEWARP:RATE + "): stop warp and run again."). }
   IF NOT POSITIONAT_INCLUDES_NODES {
     RETURN dp_fail("POSITIONAT_INCLUDES_NODES is FALSE in lm_constants.ks (probe result): this planner cannot run, see the plan Task 2.").
@@ -172,9 +189,9 @@ FUNCTION deorbit_run {
   LOCAL site IS site_resolve(lat_in, lng_in, alt_in).
   IF NOT site["VALID"] { RETURN dp_fail("bad site: " + site["WHY"]). }
   IF ALLNODES:LENGTH > 0 {
-    dp_say("The ship already has " + ALLNODES:LENGTH + " maneuver node(s):").
+    dp_say("The ship already has " + ALLNODES:LENGTH + " manoeuvre node(s):").
     FOR nd IN ALLNODES { dp_say("  in " + ROUND(nd:ETA) + " s, " + ROUND(nd:BURNVECTOR:MAG, 1) + " m/s"). }
-    IF NOT replace_nodes { RETURN dp_fail("the ship already has maneuver nodes. Delete them, or tick Replace nodes."). }
+    IF NOT replace_nodes { RETURN dp_fail("the ship already has manoeuvre nodes. Delete them, or tick Replace nodes."). }
     LOCAL old_nodes IS ALLNODES:COPY.
     FOR nd IN old_nodes { REMOVE nd. }
     dp_say("replace = TRUE: removed the existing nodes.").
@@ -346,6 +363,9 @@ FUNCTION deorbit_run {
   plan_write(PLAN_PLAN_FILE, LEXICON("SITE_LAT", site["LAT"], "SITE_LNG", site["LNG"], "SITE_ALT", site["ALT"],
       "T_MADE", t_start, "T_DOI", t_doi, "T_PDI", t_pdi, "T_LAND", t_land, "T_PC", t_pc, "WINDOW_MODE", P63_WINDOW_MODE,
       "PROFILE", PAD_PROFILE, "DV_DOI", doi["DV"]:MAG, "DV_PC", dv_pc:MAG, "LV_DOI", lv_doi, "LV_PC", lv_pc, "V_PDI", doi["V_PDI"], "ALT_PDI", geo["ALT_PDI"])).
+  // Where the CSM will be at PDI, for the aborts (read before the nodes go).
+  LOCAL csm_checks IS dp_csm_check(t_pdi, p_pdi, site_radius, mu).
+  FOR one_check IN csm_checks { dp_say((CHOOSE "WARNING: " IF one_check["WARN"] ELSE "") + one_check["TEXT"]). }
   // The nodes were needed for the predictions above (each burn changes the orbit the next is planned on). They are only a visual aid
   // for the pilot (P30 and P40 never read a node), so PLAN_NODES FALSE removes them now that the plan is checked and saved.
   LOCAL node_count IS dp_nodes:LENGTH.
@@ -354,7 +374,7 @@ FUNCTION deorbit_run {
   dp_say("PLAN OK. " + node_text + " Plan saved to " + PLAN_PLAN_FILE + "." + (CHOOSE " Report: " + DP_LOG IF LM_LOG ELSE "")).
   LOCAL pc_text IS "no plane change".
   IF t_pc > 0 { SET pc_text TO "plane change at " + dp_met(t_pc) + ", " + ROUND(dv_pc:MAG, 1) + " m/s". }
-  SET DP_RESULT TO LEXICON("DOI", dp_met_hm(t_doi), "PDI", dp_met_hm(t_pdi), "LDG", dp_met_hm(t_land), "WARN", pre_all["WARNINGS"]).
+  SET DP_RESULT TO LEXICON("DOI", dp_met_hm(t_doi), "PDI", dp_met_hm(t_pdi), "LDG", dp_met_hm(t_land), "WARN", pre_all["WARNINGS"], "CSM", csm_checks).
   SET DP_SUMMARY TO LIST("PLAN OK: " + dp_node_text(node_count, PLAN_NODES) + " " + pc_text + ".",
                          "DOI at " + dp_met(t_doi) + ", " + ROUND(doi["DV"]:MAG, 1) + " m/s. PDI at " + dp_met(t_pdi) + ".").
   RETURN TRUE.

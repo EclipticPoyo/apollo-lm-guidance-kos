@@ -10,7 +10,7 @@
 //
 // Guidance-frame vectors are V(up, crossrange, downrange), as in lm_frame.ks.
 //
-// SIGN CONVENTION. Luminary stores the time-to-go TTF as a NEGATIVE number that grows toward zero as time passes
+// SIGN CONVENTION. Luminary stores the time-to-go TTF as a NEGATIVE number that grows towards zero as time passes
 // (TTFINCR adds the elapsed time). Its published acceleration law "ACG = ADG + 6 (VDG + VG)/TTF + 12 (RDG - RG)/TTF^2"
 // is written for that negative TTF. Here the time-to-go "tgo" is the plain positive number of seconds left, so the
 // same law reads
@@ -194,7 +194,7 @@ FUNCTION j_thr_for_thrust {
   RETURN 1.
 }
 
-// j_trim_step: the throttle trim (a thrust fraction added to the wanted thrust) after one more cycle of dt seconds: it moves toward
+// j_trim_step: the throttle trim (a thrust fraction added to the wanted thrust) after one more cycle of dt seconds: it moves towards
 // the difference between the thrust wanted and the thrust measured (both fractions of full thrust), THR_TRIM_GAIN per second, and
 // never beyond +-THR_TRIM_MAX. No change when nothing is wanted (wanted < 0) or no thrust is measured (under 0.05: the engine is
 // not lit or is starting up).

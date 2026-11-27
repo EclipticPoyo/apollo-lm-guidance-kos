@@ -6,6 +6,8 @@
 // Not modelled (documented departure): the finite-burn correction of S40.1 (thrust is treated as impulsive at TIG).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
+RUNONCEPATH("0:/shared/lm_frame.ks").        // lm_cross, window_face_in
+RUNONCEPATH("0:/shared/lm_conics.ks").       // conic_lambert (the aim point)
 
 // s40_1: thrust direction and velocity to be gained at TIG (Luminary S40.1, P4:662-740). Luminary rotates DELVSIN
 // by the finite-burn angle THETAT; we leave it out, so VG is the delta-V vector and UT is its unit vector. DELVREF (the delta-V
@@ -52,6 +54,50 @@ FUNCTION s40_13 {
   RETURN LEXICON("BURN_S", burn_s, "NOTHROTL", nothrotl_flag, "IMPULSE", impulse_flag).
 }
 
+// s40_13_aps: S40.13 for the ascent engine (210 P40-P47.agc:1035-1135; 099 the same but for the ullage and K1). The
+// ullage's delta-V is taken off VG as in s40_13. A small burn is an impulse burn whose time allows for the engine's
+// start and stop impulse: under K1 / mass, (mass x VG / 2 + K2) / F; up to what 5 s of burning adds above that,
+// 1 s + 5 s x the excess / that 5 s delta-V; beyond it mass x VG / F, steered. There is no throttle-up to skip
+// (NOTHROTL always set).
+FUNCTION s40_13_aps {
+  PARAMETER mass_kg, vg_mag, profile.
+  LOCAL k1 IS APS_K1_A11.
+  LOCAL ullage_dv IS 0.
+  IF profile = "J" { SET k1 TO APS_K1_J. }
+  IF mass_kg <= 0 { RETURN LEXICON("BURN_S", 0, "NOTHROTL", TRUE, "IMPULSE", TRUE). }
+  IF profile = "J" { SET ullage_dv TO ULLAGE4_S * RCS_ULLAGE4_N / mass_kg. } ELSE { SET ullage_dv TO ULLAGE2_S * RCS_ULLAGE2_N / mass_kg. }
+  LOCAL vg_left IS vg_mag - ullage_dv.
+  LOCAL burn_s IS 0.
+  LOCAL impulse_flag IS TRUE.
+  IF vg_left < k1 / mass_kg {
+    SET burn_s TO (mass_kg * vg_left / 2 + APS_K2) / APS_THRUST_N.
+  } ELSE {
+    LOCAL excess IS vg_left - k1 / mass_kg.
+    LOCAL five_s_dv IS 5 * APS_THRUST_N / (mass_kg - 3.5 * APS_MDOT_KGS).
+    IF excess < five_s_dv {
+      SET burn_s TO 1 + 5 * excess / five_s_dv.
+    } ELSE {
+      SET burn_s TO mass_kg * vg_left / APS_THRUST_N.
+      SET impulse_flag TO FALSE.
+    }
+  }
+  RETURN LEXICON("BURN_S", MAX(0, burn_s), "NOTHROTL", TRUE, "IMPULSE", impulse_flag).
+}
+
+// s40_aim: the velocity to gain for a burn on an aim point (XDELVFLG clear: Luminary S40.1B at ignition, and RASTEER1
+// with S40.9 during the burn, P40-P47.agc 759-801, 1151-1260): the velocity that reaches aim_vec in tof_s seconds from
+// pos_vec, less vel_vec. The cone is 10 degrees, or 45 when the targeting turned the aim point into the orbit plane.
+// Departure: every call solves the Lambert problem from the present state (RASTEER1's shortcut is not copied).
+// Returns LEXICON("OK", "WHY", "VG"); VG is zero when it fails.
+FUNCTION s40_aim {
+  PARAMETER pos_vec, vel_vec, aim_vec, tof_s, mu_val, rotated.
+  LOCAL cone IS AIM_CONE_DEG.
+  IF rotated { SET cone TO AIM_CONE_ROTATED_DEG. }
+  LOCAL arc IS conic_lambert(pos_vec, aim_vec, tof_s, mu_val, vel_vec, cone).
+  IF NOT arc["OK"] { RETURN LEXICON("OK", FALSE, "WHY", arc["WHY"], "VG", V(0, 0, 0)). }
+  RETURN LEXICON("OK", TRUE, "WHY", "", "VG", arc["V1"] - vel_vec).
+}
+
 // s40_8: VG update and time to go (Luminary S40.8, P4:904-961). vg_vec is the previous VG (VGPREV), delvref_vec the delta-V measured
 // in the last servicer pass (DELVREF, BURN_PASS_S seconds). New VG = VGPREV - DELVREF. With dv the part of VG along DELVREF and
 // a = |DELVREF| / pass the measured acceleration, the time to go is  pass * dv / |DELVREF| * (1 - dv / (2 vex)) + tdecay:
@@ -69,7 +115,13 @@ FUNCTION s40_8 {
 // measures the delta-V over the time that really passed). Same maths, with pass_s in place of BURN_PASS_S.
 FUNCTION s40_8_pass {
   PARAMETER vg_vec, delvref_vec, pass_s, tdecay_s, vex.
-  LOCAL new_vg IS vg_vec - delvref_vec.
+  RETURN s40_8_tgo(vg_vec - delvref_vec, delvref_vec, pass_s, tdecay_s, vex).
+}
+
+// s40_8_tgo: the time to go from a velocity to gain already brought up to date (new_vg), with the delta-V measured in
+// the pass: the second half of S40.8 (TGOCALC), which an aim-point burn reaches with the VG of s40_aim.
+FUNCTION s40_8_tgo {
+  PARAMETER new_vg, delvref_vec, pass_s, tdecay_s, vex.
   LOCAL ref_mag IS delvref_vec:MAG.
   IF ref_mag <= 0 OR VDOT(new_vg, delvref_vec) <= 0 {
     RETURN LEXICON("VG", new_vg, "TGO", -1, "ALARM", 1407, "STEER", TRUE, "IMPULSE", FALSE).
@@ -80,12 +132,15 @@ FUNCTION s40_8_pass {
   RETURN LEXICON("VG", new_vg, "TGO", tgo_s, "ALARM", 0, "STEER", steer_flag, "IMPULSE", NOT steer_flag).
 }
 
-// s41_1: VG (or any vector) in the current body axes (Luminary S41.1, P4:1467-1471: REFSMMAT, then the CDU angles). Here the ship's own
-// facing does it: X along the nose (the thrust axis), Y starboard, Z top. The Y and Z mapping to the LM's own Y and Z is a placeholder
-// until the burn display is flown (the burn programmes show N85/N83 from this).
+// s41_1: VG (or any vector) in the current body axes (Luminary S41.1, P4:1467-1471: REFSMMAT, then the CDU angles). Here the
+// ship's own facing does it, in the LM's axes: X along the nose (the thrust axis), Y to the crew's right, Z out of the
+// windows. The windows are the ship's underside on the RO LM (WINDOW_AXIS), so Z is not kOS's "top" (checked in KSP,
+// 2026-11-26: translating towards the windows must read positive).
 FUNCTION s41_1 {
   PARAMETER vg_vec, facing_dir.
-  RETURN V(VDOT(vg_vec, facing_dir:FOREVECTOR), VDOT(vg_vec, facing_dir:STARVECTOR), VDOT(vg_vec, facing_dir:TOPVECTOR)).
+  LOCAL z_axis IS window_face_in(facing_dir).
+  LOCAL y_axis IS lm_cross(z_axis, facing_dir:FOREVECTOR).     // right = Z x X, right-handed
+  RETURN V(VDOT(vg_vec, facing_dir:FOREVECTOR), VDOT(vg_vec, y_axis), VDOT(vg_vec, z_axis)).
 }
 
 // p41spot: the TIG timing check (Luminary P41SPOT, BURN_BABY_BURN--MASTER_IGNITION_ROUTINE.agc:188-221; NOTIME and alarm 1703, INTEGRATION_INITIALIZATION.agc:1015-1025; the stale "45 s" in the P40-P47.agc header comment is not what the code does). The servicer must start at TIG - 29.9 s. If that is
@@ -112,6 +167,38 @@ FUNCTION p30_apsides {
   LOCAL apo_m IS cap_m.
   IF energy < 0 AND ecc < 1 { SET apo_m TO MIN(cap_m, semi_p / (1 - ecc) - radius). }
   RETURN LEXICON("APO_M", apo_m, "PERI_M", MIN(cap_m, semi_p / (1 + ecc) - radius)).
+}
+
+// s30_tff: the time of free fall (Luminary CALCTFF, R30.agc): seconds until the path next comes DOWN through limit_radius, or -1 when it never does
+// (perigee at or above it, or no closed orbit) or the ship is already below it. Two-body: the time between the two true anomalies by Kepler's equation.
+FUNCTION s30_tff {
+  PARAMETER r_vec, v_vec, mu, limit_radius.
+  LOCAL r_mag IS r_vec:MAG.
+  IF r_mag < limit_radius { RETURN -1. }
+  LOCAL energy IS v_vec:SQRMAGNITUDE / 2 - mu / r_mag.
+  IF energy >= 0 { RETURN -1. }
+  LOCAL semi_p IS VCRS(r_vec, v_vec):SQRMAGNITUDE / mu.
+  LOCAL semi_a IS -mu / (2 * energy).
+  LOCAL ecc IS SQRT(MAX(0, 1 - semi_p / semi_a)).
+  IF ecc < 1e-9 OR semi_a * (1 - ecc) >= limit_radius { RETURN -1. }
+  // True anomaly now (rising from perigee: 0 to 180) and at the descending crossing of the limit radius (180 to 360), degrees.
+  LOCAL nu_now IS ARCCOS(MAX(-1, MIN(1, (semi_p / r_mag - 1) / ecc))).
+  IF VDOT(r_vec, v_vec) < 0 { SET nu_now TO 360 - nu_now. }
+  LOCAL nu_cross IS 360 - ARCCOS(MAX(-1, MIN(1, (semi_p / limit_radius - 1) / ecc))).
+  LOCAL mean_rate IS SQRT(mu / semi_a ^ 3).                // radians per second
+  LOCAL gap_rad IS s30_mean_anomaly(nu_cross, ecc) - s30_mean_anomaly(nu_now, ecc).
+  LOCAL two_pi IS 2 * CONSTANT:PI.
+  IF gap_rad < 0 { SET gap_rad TO gap_rad + two_pi. }
+  RETURN gap_rad / mean_rate.
+}
+
+// s30_mean_anomaly: the mean anomaly (radians, -pi to pi) at true anomaly nu_deg on an ellipse of eccentricity ecc.
+FUNCTION s30_mean_anomaly {
+  PARAMETER nu_deg, ecc.
+  LOCAL ecc_deg IS 2 * ARCTAN2(SQRT(1 - ecc) * SIN(nu_deg / 2), SQRT(1 + ecc) * COS(nu_deg / 2)).
+  IF ecc_deg > 180 { SET ecc_deg TO ecc_deg - 360. }
+  IF ecc_deg < -180 { SET ecc_deg TO ecc_deg + 360. }
+  RETURN ecc_deg * CONSTANT:DEGTORAD - ecc * SIN(ecc_deg).
 }
 
 // p30_mga: the middle gimbal angle shown by N45 R3, degrees (Luminary GET+MGA, P34-35_P74-75.agc:1406-1415): arcsin of the unit thrust

@@ -66,14 +66,14 @@ LOCAL over_vec IS V(0, 1737100, 0).
 LOCAL cg_over IS guidance_cg(site_vec, over_vec, V(0, 0, 0), 0).
 assert_vec("rgu 100 m above LAND", rgu(cg_over, over_vec, site_vec), V(100, 0, 0), 1e-6).
 
-// Orientation: ship 500 m back along -X and 100 m higher. Row 0 is up, row 2 points toward the
+// Orientation: ship 500 m back along -X and 100 m higher. Row 0 is up, row 2 points towards the
 // site (+X), row 1 is sideways with its sign set by FRAME_SIGN (the handedness check).
 LOCAL back_vec IS V(-500, 1737100, 0).
 LOCAL cg_back IS guidance_cg(site_vec, back_vec, V(0, 0, 0), 0).
 assert_vec("cg row 0 is up",          cg_back[0], V(0, 1, 0),          1e-9).
 assert_vec("cg row 1 handedness",     cg_back[1], V(0, 0, FRAME_SIGN), 1e-9).
-assert_vec("cg row 2 toward site",    cg_back[2], V(1, 0, 0),          1e-9).
-assert_vec("vgu 3 m/s toward site",   vgu(cg_back, V(3, 0, 0), back_vec, V(0, 0, 0)), V(0, 0, 3), 1e-9).
+assert_vec("cg row 2 towards site",    cg_back[2], V(1, 0, 0),          1e-9).
+assert_vec("vgu 3 m/s towards site",   vgu(cg_back, V(3, 0, 0), back_vec, V(0, 0, 0)), V(0, 0, 3), 1e-9).
 
 // Rows orthonormal.
 assert_near("cg row 0 length",   cg_back[0]:MAG, 1, 1e-9).

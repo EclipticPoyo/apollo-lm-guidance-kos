@@ -29,7 +29,7 @@ assert_near("S40.1 DELVREF starts at zero", s1["DELVREF"]:MAG, 0, 0).
 // ---- S40.2,3 ----
 // Source gate (re-read in Luminary099 P40-P47.agc 825-860): X = UT, Y = unit(UT x RTIG), Z = X x Y. For the DOI (a retrograde burn
 // in a prograde orbit) that gives X = -V-hat, Y = unit(X x R) = the orbit normal (R x V direction) and Z = X x Y = -R-hat, which is
-// the window side (+Z) TOWARD the Moon. The research note says "face up"; that is NOT what the source arithmetic gives, so this test
+// the window side (+Z) TOWARDS the Moon. The research note says "face up"; that is NOT what the source arithmetic gives, so this test
 // asserts the source result and the question is open (see the task report).
 LOCAL ax IS s40_2_3(s1["UT"], r_doi, v_doi).
 assert_vec("S40.2,3 DOI: X = -V-hat", ax["X"], V(0, 0, -1), 1e-12).
@@ -93,6 +93,15 @@ assert_vec("S41.1 a vector along the nose is all +X", body_a, V(7, 0, 0), 1e-4).
 LOCAL body_b IS s41_1(V(3, -4, 5), face_a).
 assert_near("S41.1 keeps the length", body_b:MAG, V(3, -4, 5):MAG, 1e-4).
 assert_near("S41.1 X is the part along the nose", body_b:X, -5, 1e-4).
+// Luminary's other two: +Y the crew's right, +Z out of the windows (WINDOW_AXIS says which face of the ship that is).
+LOCAL tb_window IS WINDOW_AXIS.
+SET WINDOW_AXIS TO "BOTTOM".
+assert_vec("S41.1 window underneath: towards it is +Z, starboard +Y",
+    s41_1(face_a:STARVECTOR * 2 - face_a:TOPVECTOR * 3, face_a), V(0, 2, 3), 1e-4).
+SET WINDOW_AXIS TO "TOP".
+assert_vec("S41.1 window on top: towards it is +Z, port +Y",
+    s41_1(face_a:TOPVECTOR * 3 - face_a:STARVECTOR * 2, face_a), V(0, 2, 3), 1e-4).
+SET WINDOW_AXIS TO tb_window.
 
 // ---- P41SPOT ----
 LOCAL sp_a IS p41spot(1030, 1000).
@@ -122,5 +131,37 @@ assert_near("MGA: a burn perpendicular to Y is 0", p30_mga(V(0, 0, 1), V(0, 1, 0
 assert_near("MGA: a negative angle has one revolution added", p30_mga(V(0, -1, 0), V(0, 1, 0)), 270, 1e-9).
 assert_near("MGA: rounding noise below zero shows 0, not 360", p30_mga(V(0, -1e-7, 1), V(0, 1, 0)), 0, 1e-9).
 assert_near("MGA: 30 degrees", p30_mga(V(0, 0.5, 0.8660254037844386), V(0, 1, 0)), 30, 1e-9).
+
+// ---- S40.13, ascent engine (210 P40-P47.agc:1035-1135): the three regimes ----
+LOCAL a3 IS s40_13_aps(4700, 3, "J").
+assert_near("S40.13 APS J |VG| 3: the smallest burn", a3["BURN_S"], 0.281418, 0.001).
+assert_true("S40.13 APS J |VG| 3: impulse, no throttle-up", a3["IMPULSE"] AND a3["NOTHROTL"]).
+LOCAL a12 IS s40_13_aps(4700, 12, "J").
+assert_near("S40.13 APS J |VG| 12", a12["BURN_S"], 2.972210, 0.001).
+assert_true("S40.13 APS J |VG| 12: impulse", a12["IMPULSE"]).
+LOCAL a25 IS s40_13_aps(4700, 25, "J").
+assert_near("S40.13 APS J |VG| 25", a25["BURN_S"], 6.804239, 0.001).
+assert_true("S40.13 APS J |VG| 25: steered", NOT a25["IMPULSE"]).
+assert_near("S40.13 APS A11 |VG| 25 (2-jet ullage, the smaller K1)", s40_13_aps(4700, 25, "A11")["BURN_S"], 7.318492, 0.001).
+assert_near("S40.13 APS: a delta-V the ullage covers gives no burn time", s40_13_aps(4700, 1, "J")["BURN_S"], 0, 0).
+
+// ---- S40.8 on a velocity to gain already brought up to date (the aim point) ----
+LOCAL r8t IS s40_8_tgo(ref_dir * 5, ref_dir * 0.62, 2, TDECAY_S, DPSVEX).
+assert_near("S40.8 TGO from the new VG", r8t["TGO"], 15.735390817194977, 0.05).
+assert_vec("S40.8 TGO keeps the VG it is given", r8t["VG"], ref_dir * 5, 1e-12).
+assert_true("S40.8 TGO: VG against the delta-V is alarm 1407", s40_8_tgo(ref_dir * (-5), ref_dir * 0.62, 2, TDECAY_S, DPSVEX)["ALARM"] = 1407).
+
+// ---- the aim point (S40.1B, S40.9): the case of reference_rndz.py ----
+LOCAL ta IS V(905666.125472, 0, -1579536.104075).
+LOCAL tva IS V(1423.5500524, 0, 816.2276615).
+LOCAL aim IS V(586581.134, 0, 1752982.819).
+LOCAL at_tig IS s40_aim(ta, tva, aim, 2575.3417, mu_b, FALSE).
+assert_true("aim: solved (" + at_tig["WHY"] + ")", at_tig["OK"]).
+assert_vec("aim: velocity to gain at TIG", at_tig["VG"], V(7.47049, 0, 0.43098), 0.001).
+assert_vec("aim: nothing left once it is gained", s40_aim(ta, tva + at_tig["VG"], aim, 2575.3417, mu_b, FALSE)["VG"], V(0, 0, 0), 0.001).
+LOCAL early IS conic_kepler(ta, tva, -30, mu_b).
+assert_vec("aim: 30 s before TIG", s40_aim(early["R"], early["V"], aim, 2605.3417, mu_b, FALSE)["VG"], V(7.32165, 0, 0.56143), 0.001).
+LOCAL late IS s40_aim(ta, tva, aim, -5, mu_b, FALSE).
+assert_true("aim: an intercept time gone by fails with no velocity to gain", NOT late["OK"] AND late["VG"]:MAG = 0).
 
 test_end().

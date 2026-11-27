@@ -100,12 +100,13 @@ FUNCTION j_p66_step {
   LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
+  LOCAL warn IS "".
   // Luminary 210 P66 flashes V06 N60 all the time; V34 answers it (ends the programme), and PRO or V32 turn the horizontal law off (Task 0 reading;
   // the engine-arm switch of the real LM is treated as off, J4): the ship then holds the last commanded direction.
   LOCAL terminating IS ks["TERMINATE"].
   IF (pro_pressed OR ks["RECYCLE"]) AND NOT prog["HZ_OFF"] {
     SET prog["HZ_OFF"] TO TRUE.
-    SET msg TO "P66: HORIZONTAL NULLING OFF. THE LAST COMMANDED DIRECTION IS HELD.".
+    SET warn TO "P66: HORIZONTAL NULLING OFF. THE LAST COMMANDED DIRECTION IS HELD.".
   }
 
   // ---- the commanded descent rate: the rate now at the start, then the pilot's ROD clicks (in any attitude mode) ----
@@ -156,7 +157,7 @@ FUNCTION j_p66_step {
   LOCAL pilot_stopped IS prog["ENGINE_LIT"] AND state["THRUST_NOW"] < 0.001.
   LOCAL ct_out IS contact_step(prog["CT"], contact_now, now_ut, pilot_stopped).
   LOCAL prog_no IS prog["PROG_NO"].
-  IF prog["CT"]["T_CONTACT"] >= 0 AND prog["CT"]["T_CONTACT"] = now_ut { SET msg TO "CONTACT: THE LANDER HAS TOUCHED DOWN. THE ENGINE CUTS OFF IN " + P66_CUTOFF_DELAY_S + " S UNLESS YOU STOP IT.". }
+  IF prog["CT"]["T_CONTACT"] >= 0 AND prog["CT"]["T_CONTACT"] = now_ut { SET warn TO (warn + " CONTACT: THE LANDER HAS TOUCHED DOWN. THE ENGINE CUTS OFF IN " + P66_CUTOFF_DELAY_S + " S UNLESS YOU STOP IT."):TRIM. }
   IF ct_out["DONE"] {
     IF ct_out["CUT_NOW"] { ctl_engine_off(prog["ENGINE"]). }       // not when the pilot has already stopped it
     SET CTL_THR TO 0.
@@ -186,7 +187,7 @@ FUNCTION j_p66_step {
   j_p66_log(prog, state, derived, vgu_vec, ct_out["LAMP"]).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE, "REQUEST", request,
                  "FLASH", FALSE, "ALARM", 0, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
-                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", ct_out["DONE"], "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
+                 "EXTRA", extra, "MSG", msg, "WARN", warn, "ENDED", prog["ENDED"], "HANDOVER", ct_out["DONE"], "PROG_NO", prog_no, "CONTACT", ct_out["LAMP"],
                  "STATUS", j_p66_status(prog, derived, vgu_vec)).
 }
 

@@ -5,7 +5,7 @@
 // UPLINK_KEY_PERIOD_S through key_press, the same handler the keypad uses. UPLINK ACTY (ks["P27"]["ACTY"], see dsky_p27.ks) comes
 // on with the first key and the feed counts as active until the last key is pressed.
 // The DSKY can take the file only when the vehicle allows an update (the LM: P00, no programme running) and no keyed load or update
-// is already active; otherwise the file stays, untouched, and one message says why. The same keys typed by hand have the same effect.
+// is already active; otherwise the file stays, untouched, and one warning says why. The same keys typed by hand have the same effect.
 // Needs dsky_keys.ks (key_press) and dsky_p27.ks.
 
 GLOBAL UPLINK_KEY_PERIOD_S IS 0.2.

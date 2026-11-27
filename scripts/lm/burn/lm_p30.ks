@@ -14,9 +14,9 @@
 //   VN1645 / GET45 (P34-35_P74-75.agc 930-984): flashing V16 N45, TRKMKCNT (marks), TTOGO, +MGA; the three returns are terminate (KILCLOCK, to P00),
 //                           proceed (N45PROC) and recycle (CLUPDATE); GET+MGA (1406-1415) is p30_mga in lm_burn_s.ks.
 // Our version, and where it departs:
-//   * The state at TIG comes from the vehicle's predict delegate (kOS orbit prediction, which includes maneuver nodes still ahead) in place of LEMPREC.
-//     predict:CALL(ut) returns LEXICON("R", vec, "V", vec) plus, for the apsides, "MU" and "RADIUS" of the body (an addition to the brief; the vehicle
-//     adds them). The vectors are in the raw axes of the moment of the call, so the delta-V (a vector) is in the same axes.
+//   * The state at TIG comes from the vehicle's predict delegate (kOS orbit prediction, which includes manoeuvre nodes still ahead) in place of LEMPREC.
+//     predict:CALL(ut) returns LEXICON("R", vec, "V", vec, "AX", mark) plus, for the apsides, "MU" and "RADIUS" of the body (an addition to the brief;
+//     the vehicle adds them). The vectors, and so the delta-V, are in the raw axes of the moment of the call; AX is that moment's axes mark (lm_axes.ks).
 //   * S30.1 runs when the pilot answers the N81 display with PRO, as in the source (after the loads), so a V25 load keyed over a display (the store changes)
 //     is seen; it reads TIG and the delta-V from the store then. P30 refuses to start (V37) while TIG or the delta-V is not loaded, or TIG has passed
 //     (the source would take the loads at its own two displays; the brief makes the refusal).
@@ -75,7 +75,7 @@ FUNCTION p30_solve {
   LOCAL apsides IS p30_apsides(r_tig, v_tig, dv_vec, mu_body, radius_body).
   LOCAL mga_deg IS 0.
   IF dv_vec:MAG > 0 { SET mga_deg TO p30_mga(s40_1(dv_vec)["UT"], VCRS(r_tig, v_tig)). }       // no direction with no delta-V: zero, not NaN
-  LOCAL xd IS LEXICON("DELVSIN", dv_vec, "RTIG", r_tig, "VTIG", v_tig, "UT_TIG", tig_ut, "DELVSAB", dv_vec:MAG, "T0", prog["NOW_UT"]).       // T0: the UT these vectors are in the raw axes of (the axes turn with the Moon; P40 turns them to its own time)
+  LOCAL xd IS LEXICON("DELVSIN", dv_vec, "RTIG", r_tig, "VTIG", v_tig, "UT_TIG", tig_ut, "DELVSAB", dv_vec:MAG, "AX0", state_tig["AX"]).       // AX0: the axes mark these vectors are in (the raw axes can turn; P40 and P41 carry them to the live axes)
   IF DEFINED LM_VEH { IF LM_VEH:HASKEY("XDELV") { IF LM_VEH["XDELV"]:ISTYPE("Lexicon") { SET LM_VEH["XDELV"] TO xd. } } }       // the flag is up already: new erasables
   RETURN LEXICON("OK", TRUE, "WHY", "", "XD", xd, "APO_M", apsides["APO_M"], "PERI_M", apsides["PERI_M"], "MGA", mga_deg).
 }
@@ -105,7 +105,7 @@ FUNCTION p30_step {
   LOCAL state_now IS prog["STATE"].
   LOCAL vn_now IS p30_state_vn(state_now).
   LOCAL redisplay IS ans["V32"] OR lm_entr_on_request(ks, vn_now[0], vn_now[1]).
-  LOCAL message IS "".
+  LOCAL warn IS "".
   IF ans["TERM"] {
     SET prog["ENDED"] TO TRUE.
   } ELSE IF ans["PRO"] {
@@ -122,7 +122,7 @@ FUNCTION p30_step {
           + ROUND(sol["PERI_M"] / 185.2) + " (0.1 nm), apo " + ROUND(sol["APO_M"]) + " m, peri " + ROUND(sol["PERI_M"]) + " m, dv " + ROUND(sol["XD"]["DELVSAB"], 3) + " m/s" TO "0:/lm/logs/p30.log".
         IF prog["PROFILE"] = "J" { p30_flag_set(prog). }          // 210: XDELVFLG before N42
       } ELSE {
-        SET message TO "P30: " + sol["WHY"] + ".".
+        SET warn TO "P30: " + sol["WHY"] + ".".
         SET prog["ENDED"] TO TRUE.
       }
     } ELSE IF state_now = "N42" {
@@ -159,7 +159,7 @@ FUNCTION p30_step {
   IF NOT prog["ENDED"] { SET request TO LEXICON("VERB", vn_out[0], "NOUN", vn_out[1]). }
   LOCAL extra IS LEXICON("P30_APO", apo_m, "P30_PERI", peri_m, "P30_DV", dv_ms, "P30_TTOGO", ttogo_s, "P30_MGA", mga_deg).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE, "FLASH", FALSE, "REQUEST", request,
-                 "ALARM", 0, "ALT_LAMP", FALSE, "VEL_LAMP", FALSE, "EXTRA", extra, "MSG", message, "ENDED", prog["ENDED"], "HANDOVER", FALSE,
+                 "ALARM", 0, "ALT_LAMP", FALSE, "VEL_LAMP", FALSE, "EXTRA", extra, "MSG", "", "WARN", warn, "ENDED", prog["ENDED"], "HANDOVER", FALSE,
                  "PROG_NO", 30, "CONTACT", FALSE, "STATUS", LIST()).
 }
 

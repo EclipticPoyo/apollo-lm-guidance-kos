@@ -11,6 +11,7 @@
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/shared/lm_frame.ks").
 RUNONCEPATH("0:/lm/descent_j/lm_j_constants.ks").   // J_RIGNX, J_RIGNZ, J_VIGN for the J-class profile
+RUNONCEPATH("0:/lm/lm_cells.ks").                   // lm_profile_saved, for lm_profile_for
 
 // ---- Pad-load profile (release 1.2) -----------------------------------------------
 // "A11" = Luminary 099 (Apollo 11), "J" = Luminary 210 (Apollo 15 to 17, the Apollo 17 values). The planner window sets
@@ -28,6 +29,17 @@ FUNCTION plan_profile_of {
     }
   }
   RETURN "A11".
+}
+
+// lm_profile_for: the software version ("A11" or "J") for a saved plan (or FALSE): the plan's own PROFILE when there is a plan (a plan wins),
+// else the version the planner saved with its PAD (lm_profile_saved), else the default PAD_PROFILE (lm_constants.ks, no longer a pilot setting).
+// The DSKY and the ascent planner both ask it.
+FUNCTION lm_profile_for {
+  PARAMETER plan.
+  IF plan:ISTYPE("Lexicon") { RETURN plan_profile_of(plan). }
+  LOCAL saved IS lm_profile_saved().
+  IF saved <> "" { RETURN saved. }
+  RETURN PAD_PROFILE.
 }
 
 // plan_pdi_values: the ignition position and speed of a profile as a lexicon (RIGNX, RIGNZ, VIGN).
@@ -154,7 +166,7 @@ FUNCTION plan_doi {
                  "T_HALF", CONSTANT:PI * SQRT(a ^ 3 / mu)).
 }
 
-// ---- Spec 7: delta-v vector <-> maneuver node components ----------------------------
+// ---- Spec 7: delta-v vector <-> manoeuvre node components ----------------------------
 // A kOS node takes three numbers in m/s: radial, normal, prograde, measured along axes that depend on
 // the orbit at the node: prograde = along the velocity, normal = along r x v, radial = the third axis
 // (pointing away from the Moon: VCRS(prograde, normal)). NODE_NORMAL_SIGN and NODE_RADIAL_SIGN

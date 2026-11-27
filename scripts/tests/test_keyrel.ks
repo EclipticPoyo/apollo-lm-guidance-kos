@@ -146,5 +146,55 @@ assert_true("a verb in NO_NOUN_VERBS is accepted with no noun", NOT ks["OPRERR"]
 kr_type(ks, "V57E").
 assert_true("another verb with no noun is still OPR ERR", ks["OPRERR"]).
 
+// a programme's steady display covered by the pilot's (Luminary: the programme finds the display held and lights KEY REL)
+SET ks TO kr_fresh().
+SET crun TO core_new(fake_vehicle).
+core_request(crun, fake_vehicle, ks, 1).
+SET KR_NEXT TO kr_out(FALSE).
+SET KR_NEXT["SET_VERB"] TO 6.
+SET KR_NEXT["SET_NOUN"] TO 61.
+SET res TO kr_step(crun, ks, nav).
+SET KR_NEXT["SET_VERB"] TO -1.
+SET KR_NEXT["SET_NOUN"] TO -1.
+assert_true("the programme's own display leaves KEY REL dark", NOT res["FLAGS"]["KEYREL"]).
+kr_type(ks, "V16N60E").
+SET res TO kr_step(crun, ks, nav).
+assert_true("a monitor over the programme's steady display lights KEY REL", res["FLAGS"]["KEYREL"] AND ks["VERB"] = 16 AND ks["NOUN"] = 60).
+SET res TO kr_step(crun, ks, nav).
+assert_true("the lamp stays while the monitor is up", res["FLAGS"]["KEYREL"]).
+kr_type(ks, "R").
+SET res TO kr_step(crun, ks, nav).
+assert_true("RSET leaves the monitor and the lamp", res["FLAGS"]["KEYREL"] AND ks["VERB"] = 16).
+kr_type(ks, "K").
+SET res TO kr_step(crun, ks, nav).
+assert_true("KEY REL brings the programme's display back and puts the lamp out", ks["VERB"] = 6 AND ks["NOUN"] = 61 AND NOT res["FLAGS"]["KEYREL"]).
+kr_type(ks, "V1").
+SET res TO kr_step(crun, ks, nav).
+assert_true("a half-typed verb over a steady display lights KEY REL", res["FLAGS"]["KEYREL"]).
+kr_type(ks, "K").
+kr_type(ks, "V37E").
+SET res TO kr_step(crun, ks, nav).
+assert_true("keying the programme number does not light it (V37 releases the display)", NOT res["FLAGS"]["KEYREL"]).
+SET ks TO kr_fresh().
+SET crun TO core_new(fake_vehicle).
+kr_type(ks, "V16N60E").
+SET res TO kr_step(crun, ks, nav).
+assert_true("with no programme running a monitor leaves KEY REL dark", NOT res["FLAGS"]["KEYREL"]).
+
+// Clicked keys: queued by the button callbacks, pressed in click order, one ENTR or PRO a cycle.
+SET ks TO kr_fresh().
+LOCAL kr_clicks IS QUEUE().
+FOR kr_key IN LIST("V", "3", "7", "E", "0", "0") { keys_click(kr_clicks, kr_key). }
+keys_drain(ks, kr_clicks).
+assert_true("clicks are pressed in click order and stop after ENTR (V37, programme not yet keyed)", ks["AWAIT_PROG"] AND ks["PBUF"] = "").
+assert_near("the keys after ENTR wait for the next cycle", kr_clicks:LENGTH, 2, 0).
+keys_drain(ks, kr_clicks).
+assert_true("the next cycle presses them, the same key twice", ks["PBUF"] = "00" AND kr_clicks:LENGTH = 0).
+SET ks TO kr_fresh().
+keys_click(kr_clicks, "P").
+keys_click(kr_clicks, "V").
+keys_drain(ks, kr_clicks).
+assert_true("clicks stop after PRO too", ks["PRO"] AND kr_clicks:LENGTH = 1).
+
 // V34 during a load or update is covered in test_load.ks and test_p27.ks; the PROG alarm in test_alarm.ks
 test_end().

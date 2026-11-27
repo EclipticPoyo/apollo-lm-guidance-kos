@@ -1,0 +1,15 @@
+- | DSKY | V37E 41E
+if: P41 REFUSES
+  - | No burn set by P30 or P32 to P35, or time and delta-v not loaded
+end
+v: V50 N18 FL
+- | PRO | Ship turns (V06 N18 steady)
+- | ENTR | When V50 N18 returns
+n: ENTR at the first display skips the turn
+- TIG-1:00 | SHIP | Warps by itself
+v: V16 N85 (blank for a few s before TIG)
+v: Terminal counts down: TIG in M:SS
+- TIG | N85 | Flashes
+- | TRANSLATION | H / N along the nose. Drive R1-R3 to near zero
+- | PRO | Or V34E. Ends P41
+n: ENTR shows the display again. The engine is never lit

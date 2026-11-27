@@ -1,4 +1,4 @@
-// lm_r60.ks -- R60, the attitude manoeuvre routine of the burn programmes (release 1.4).
+// lm_r60.ks -- R60, the attitude manoeuvre routine of the burn programmes (release 1.4); P20, P25 and V89 use it too (release 1.5).
 //   r60_new(burn_dir, burn_up)                          a fresh R60 state for a burn attitude
 //   r60_step(r60, ks, att_err_deg, rate_deg_s)          one cycle; returns what to display and command
 //   r60_cdu_angles(ref_dir, ref_up, cmd_dir, cmd_up)    the N18 angles (roll, pitch, yaw) of an attitude against the reference
@@ -26,6 +26,7 @@
 //   * N18 shows the Euler angles of the burn attitude against the reference attitude (r60_cdu_angles): our vehicle has no gimbal angles.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
+RUNONCEPATH("0:/shared/lm_axes.ks").        // axes_carry
 
 GLOBAL R60_VERB_ASK IS 50.          // flashing V50: "please perform" (a request verb; see the header)
 GLOBAL R60_NOUN_ANGLES IS 18.       // N18: roll, pitch, yaw
@@ -40,7 +41,7 @@ FUNCTION lm_entr_on_request {
 
 // r60_cdu_angles: the roll, pitch and yaw (degrees, 0 to 360) of the attitude (cmd_dir = thrust axis, cmd_up = roll reference) against the reference
 // attitude (ref_dir, ref_up). The reference axes are e1 = ref_dir, e2 = ref_up made square to it, e3 = e1 x e2. The thrust axis f gets
-// yaw about e2 and pitch toward e2: f = (cos p cos y, sin p, cos p sin y) in (e1, e2, e3); roll is the signed angle about f from the top direction of that
+// yaw about e2 and pitch towards e2: f = (cos p cos y, sin p, cos p sin y) in (e1, e2, e3); roll is the signed angle about f from the top direction of that
 // yaw and pitch alone (t0 = (-sin p cos y, cos p, -sin p sin y)) to cmd_up made square to f. The attitude equal to the reference is 0, 0, 0. Pure.
 // Assumed convention (documented departure): the real N18 is three gimbal angles against REFSMMAT.
 FUNCTION r60_cdu_angles {
@@ -58,6 +59,13 @@ FUNCTION r60_cdu_angles {
   LOCAL t_vec IS VECTOREXCLUDE(f_vec, cmd_up):NORMALIZED.
   LOCAL roll_deg IS ARCTAN2(VDOT(f_vec, VCRS(t_zero, t_vec)), VDOT(t_zero, t_vec)).
   RETURN LIST(r60_wrap_deg(roll_deg), r60_wrap_deg(pitch_deg), r60_wrap_deg(yaw_deg)).
+}
+
+// r60_ref_in: the reference attitude (LEXICON "DIR", "UP", and "AX", the axes mark it was taken in) in the axes of the mark ax_to. The raw axes can turn
+// (lm_axes.ks), so r60_cdu_angles must be given the reference and the commanded attitude in the same axes. Pure.
+FUNCTION r60_ref_in {
+  PARAMETER ref_att, ax_to.
+  RETURN LEXICON("DIR", axes_carry(ref_att["DIR"], ref_att["AX"], ax_to), "UP", axes_carry(ref_att["UP"], ref_att["AX"], ax_to), "AX", ax_to).
 }
 
 // r60_wrap_deg: an angle in 0 to 360 degrees; one that rounds to 360.00 on the display (a hair under a full turn) is shown as 0. Pure.

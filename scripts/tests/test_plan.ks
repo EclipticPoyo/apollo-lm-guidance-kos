@@ -287,6 +287,6 @@ FOR lvd_dv IN lvd_in {
 // An out-of-plane burn (along the node normal) comes back along the normal, and a burn of x = 10 is along the horizontal track.
 assert_vec("LV to dv: y = -4 is along the node normal", plan_lv_to_dv(LIST(0, -4, 0), lv_r, lv_v), lv_axes[1] * 4, 1e-9).
 assert_vec("LV to dv: x = 10 is along the local horizontal", plan_lv_to_dv(LIST(10, 0, 0), lv_r, lv_ev), V(0, 10, 0), 1e-9).
-assert_vec("LV to dv: z = 3 is toward the Moon (down)", plan_lv_to_dv(LIST(0, 0, 3), lv_r, lv_v), V(-3, 0, 0), 1e-9).
+assert_vec("LV to dv: z = 3 is towards the Moon (down)", plan_lv_to_dv(LIST(0, 0, 3), lv_r, lv_v), V(-3, 0, 0), 1e-9).
 
 test_end().

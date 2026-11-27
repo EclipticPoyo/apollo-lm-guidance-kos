@@ -1,7 +1,7 @@
 // lm_pad.ks -- the planner's uplink mode: turns a deorbit plan into a PAD, the list of what Mission Control would read up to the
 // crew, written as keystrokes: the UPLINK section (what the ground sent: a V71 block each for the landing site RLS and the landing
 // time TLAND, and one V71 block for the DOI burn's delta-v and ignition time, the GSOP's "external delta-v update"). A plane-change
-// burn is the CSM's and is not loaded in the LM; the PAD only notes it. Why: docs/superpowers/ground-uplinks-research.md.
+// burn is the CSM's and is not loaded in the LM; the PAD only notes it. Why: docs/superpowers/archive/notes/ground-uplinks-research.md.
 // Pure logic (no flight data): every input is a parameter, so tests/test_pad.ks checks it against tests/reference_loads.py, whose
 // pad_lines must give the same lines.
 // Needs lm_cells.ks (the cell table and conversions), core/dsky_store.ks and core/dsky_display.ks (zero_pad).

@@ -557,6 +557,7 @@ assert_near("prompt sets noun 62", dout["SET_NOUN"], 62, 0).
 assert_true("the prompt is a V99 N62 request (not a KEY_REL or FLASH output)", dout["REQUEST"]:ISTYPE("Lexicon") AND dout["REQUEST"]["VERB"] = 99 AND dout["REQUEST"]["NOUN"] = 62 AND NOT dout["KEY_REL"]).
 assert_true("prompt: ullage on", dp["ULLAGE_ON"]).
 assert_true("prompt: not ended", NOT dout["ENDED"]).
+assert_true("the enable prompt is a warning", dout["WARN"]:CONTAINS("PLEASE ENABLE ENGINE") AND NOT dout["MSG"]:CONTAINS("PLEASE ENABLE ENGINE")).
 // Review critical 1: V34 ENTR in the prompt ends the programme, does not force V99 back on, and stops the ullage.
 SET dk["TERMINATE"] TO TRUE.
 SET dst TO dry_state(998.25, d_r, 0).
@@ -580,9 +581,9 @@ LOCAL dp2 IS dry_prog(burn_seq, TRUE, 1004.75).
 LOCAL dst2 IS dry_state_v(1005, V(1737400 + 100, 0, 10), V(1, 0, 1), 43.4547).
 LOCAL dout2 IS p63_step(dp2, dst2, nav_derived(dst2, d_land, d_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
 assert_near("an unsolvable time-to-go gives alarm 1406", dout2["ALARM"], 1406, 0).
-assert_true("and says so in a message", dout2["MSG"]:CONTAINS("1406")).
+assert_true("and says so in a warning", dout2["WARN"]:CONTAINS("1406")).
 LOCAL dout3 IS p63_step(dp2, dry_state_v(1005.25, V(1737400 + 100, 0, 10), V(1, 0, 1), 43.4547), nav_derived(dst2, d_land, d_wm), keys_new(LM_NOUNS, LM_VERBS, LM_PROGS)).
-assert_true("the alarm message is not repeated every cycle", NOT dout3["MSG"]:CONTAINS("1406")).
+assert_true("the alarm message is not repeated every cycle", NOT dout3["WARN"]:CONTAINS("1406")).
 assert_near("but the alarm stays on", dout3["ALARM"], 1406, 0).
 // A normal burn state gives no alarm.
 LOCAL dp4 IS dry_prog(burn_seq, TRUE, 1004.75).

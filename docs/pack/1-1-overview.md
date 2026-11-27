@@ -2,16 +2,39 @@
 page: 1-1
 section: Section 1 | System
 ---
-## 1.1 Overview
+## 1.1 Overview and flight sequence
 
-You run two programs in the kOS terminal, one after the other. The **planner** works out the descent and saves a plan. The **DSKY** loads that plan and flies the burns and the landing. You act only through the DSKY keys and the KSP flight keys. The kOS terminal shows messages and live readouts.
+You run two programs in the kOS terminal, one after the other. The **planner** (`RUN plan.`) works out the descent, or the ascent from the surface, and saves a plan. The **DSKY** (`RUN dsky.`) loads that plan and flies it. You act through the DSKY keys and the KSP flight keys. While the DSKY runs, the terminal shows live readouts at the top, then **warnings** (stay until [[RSET]] or the next V37) and **messages**. All of them are also in `0:/lm/logs/dsky.log`.
 
-<div class="fig"><div class="figbox"><svg viewBox="0 0 700 150" role="img" aria-label="The planner writes a plan, the DSKY reads it and flies the ship"><defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink)"/></marker></defs><style>.fb{fill:var(--white);stroke:var(--ink);stroke-width:2}.ft{font:700 15px Arimo,Arial,sans-serif;fill:var(--ink);text-anchor:middle;letter-spacing:.06em}.fs{font:400 12px "Courier Prime","Courier New",monospace;fill:var(--ink);text-anchor:middle}.fa{stroke:var(--ink);stroke-width:2;fill:none}.fl{font:700 10.5px Arimo,Arial,sans-serif;fill:var(--ink);text-anchor:middle;letter-spacing:.08em}</style><rect class="fb" x="20" y="30" width="170" height="80"/><text class="ft" x="105" y="62">PLANNER</text><text class="fs" x="105" y="84">RUN plan.</text><line class="fa" x1="190" y1="70" x2="268" y2="70" marker-end="url(#a2)"/><text class="fl" x="229" y="58">THE PLAN</text><rect class="fb" x="270" y="30" width="170" height="80"/><text class="ft" x="355" y="62">DSKY</text><text class="fs" x="355" y="84">RUN dsky.</text><line class="fa" x1="440" y1="70" x2="518" y2="70" marker-end="url(#a2)"/><text class="fl" x="479" y="58">FLIES IT</text><rect class="fb" x="520" y="30" width="160" height="80"/><text class="ft" x="600" y="62">SHIP</text><text class="fs" x="600" y="84">engine, RCS</text><text class="fl" x="105" y="136">BEFORE THE DESCENT</text><text class="fl" x="355" y="136">YOU KEY IT</text><text class="fl" x="600" y="136">KSP VESSEL</text></svg></div><div class="cap">Figure 1-1. <span>Two programs, one ship</span></div></div>
+### Before you start
 
-## 1.2 Before you start
+<div class="need" markdown="1">
 
 - A lander with a kOS processor, a descent engine and RCS thrusters for ullage.
+- Nothing on the Abort action group (`Backspace`) or action group 10 (`0`): they are the abort controls.
 - A bound lunar orbit above the powered-descent altitude, for example 110 km circular.
-- No time warp running, and no maneuver nodes you want to keep (or tick "Replace existing maneuver nodes").
+- No time warp, and no manoeuvre nodes you want to keep (or tick "Replace nodes").
+- Ascent: landed, a CSM in lunar orbit, an ascent engine never decoupled, and the kOS processor on that stage.
+- Software, picked in the planner: Luminary 099 (the menu's Apollo 11: Apollo 11 pad loads, coelliptic rendezvous) or 210 (J-class: Apollo 17 pad loads, short rendezvous). Checklists tag the differences.
 
-> NOTE: The maneuver nodes the planner draws are a picture only. Nothing steers to them.
+</div>
+
+```strips
+bar: Descent | {@3-1} to {@3-8}
+- Plan | RUN plan. | Pick a site. PLAN, SEND. | Finds the DOI burn, PDI and landing times. Writes the PAD.
+- DOI | P30 P40 | `V37E 30E`, `V37E 40E`. Work the throttle. | Turns the ship, ullage, ignition, cut-off.
+- Braking | P63 | `V37E 63E`, [[PRO]] twice. | Turns, warps to T-60 s, burns to brake.
+- Approach | P64 | [[PRO]], then move the aim point. | Steers to the approach targets.
+- Landing | P65 P66 P68 | Watch, or set the rate of descent. [[PRO]] when down. | Nulls horizontal speed. Lands at 3 ft/s. P68 confirms the position: it starts at contact, or you key it on the ground.
+bar: Abort and ascent | {@3-9} to {@3-11}
+- Lift-off | RUN plan. P12 | Target the CSM, PLAN. `V37E 12E`, key the PAD, [[PRO]]. | Finds the lift-off time and targets. Warps, stages, flies, cuts off.
+- Orbit | V82 | Trim with the RCS. `V82E`. | Shows what is left to gain, then apolune and perilune.
+- Abort | P70 P71 | `Backspace` or `0`, once. | Takes the controls and flies back to orbit.
+bar: Rendezvous | {@3-12} to {@3-18}
+- 099 burns | P32 to P35 | CSI, CDH, TPI, then the midcourses. Target each, then fly it. | Targets them from the two orbits.
+- [J] 210 burns | P34 P35 | TPI, then the midcourses. No CSI or CDH, except on the fallback. | Targets them from the two orbits.
+- Braking | P20 | `V37E 20E`. Brake at the gates by hand, close the DSKY, dock. | Holds the windows on the CSM, shows range, range rate and drift, and says when to dock.
+- Tracking | P20 P25 | `V37E 20E`, answer `V50 N18`. | Points the windows at the CSM underneath those, and counts marks.
+```
+
+Outside the sequence: **P47** monitors a burn you fly by hand. **P51** says the IMU's orientation is known, and is only needed if `IMU_ALIGN` is REQUIRED. The planner's manoeuvre nodes are a picture only: nothing steers to them.

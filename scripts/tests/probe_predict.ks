@@ -3,10 +3,10 @@
 // Settles four conventions that cannot be found on the pad:
 //   1. NODE_NORMAL_SIGN / NODE_RADIAL_SIGN: which way kOS counts the node's normal and radial components,
 //      and whether BURNVECTOR is in the same frame as POSITIONAT / VELOCITYAT.
-//   2. POSITIONAT_INCLUDES_NODES: does the prediction include planned maneuver nodes?
+//   2. POSITIONAT_INCLUDES_NODES: does the prediction include planned manoeuvre nodes?
 //   3. PREDICT_AXES_INERTIAL: are POSITIONAT results in axes that stay fixed while the Moon turns?
 //   4. CAN_MAKE_NODES: what Career():CANMAKENODES says.
-// Run in lunar orbit with engines off and NO maneuver nodes. It waits 900 s of game time (warp is used).
+// Run in lunar orbit with engines off and NO manoeuvre nodes. It waits 900 s of game time (warp is used).
 //   RUNPATH("0:/tests/probe_predict.ks").
 // Everything is logged to 0:/lm/logs/probe_predict.log. The probe adds three test nodes one at a time and
 // removes each straight away; it never touches nodes it did not make (it stops if any exist).
@@ -26,7 +26,7 @@ FUNCTION say {
 IF SHIP:BODY:NAME <> BODY_NAME {
   say("probe_predict: run this in the " + BODY_NAME + "'s sphere of influence.").
 } ELSE IF ALLNODES:LENGTH > 0 {
-  say("probe_predict: the ship already has maneuver nodes. Remove them first; the probe will not touch them.").
+  say("probe_predict: the ship already has manoeuvre nodes. Remove them first; the probe will not touch them.").
 } ELSE {
   say("probe_predict " + ROUND(TIME:SECONDS) + " UT, ship " + SHIP:NAME).
 

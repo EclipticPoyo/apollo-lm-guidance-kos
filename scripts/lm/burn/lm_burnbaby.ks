@@ -69,6 +69,17 @@ FUNCTION bb_table_p41 {
   RETURN tbl.
 }
 
+// bb_table_p42: P42TABLE (BBB:101-113; 099 BBB:112-125): as P40's (the N40 clock, the V99 prompt, ENTR = GOPOST) with the ascent stage's ullage time
+// (table word 2390 cs from TIG - 29.9: TIG - 6.0; 099 word 2640: TIG - 3.5) and no throttle-up.
+FUNCTION bb_table_p42 {
+  PARAMETER profile.
+  LOCAL tbl IS bb_table_base("P42", profile).
+  SET tbl["ULLAGE_ON"] TO APS_ULLAGE_ON_A11.
+  IF profile = "J" { SET tbl["ULLAGE_ON"] TO APS_ULLAGE_ON_J. }
+  SET tbl["ZOOM"] TO "NONE".
+  RETURN tbl.
+}
+
 // bb_table_p63: P63TABLE (BBB:127-140): V06 N62 countdown, V99 N62 prompt (ENTR redisplays, V99RECYC), V06 N63 burn, the
 // throttle-up ZOOMTIME after the NOMINAL TIG (BBB:394-406). Timings are today's seq_* ones (see the departure note above).
 FUNCTION bb_table_p63 {
@@ -82,6 +93,31 @@ FUNCTION bb_table_p63 {
   SET tbl["BURN_VN"] TO "V06N63".
   SET tbl["ENTR_AT_PROMPT"] TO "REDISPLAY".
   SET tbl["ZOOM"] TO "FROM_NOMINAL_TIG".
+  RETURN tbl.
+}
+
+// bb_table_p12: P12TABLE (099 BBB:74-87: VN 0674, no ullage; release 1.5, the ascent): the N74 countdown and V99 N74 prompt, ENTR = GOPOST (to the trim displays, no ignition), no
+// ullage (the ascent engine lights on the surface, its propellant settled by gravity) and no throttle-up. BURN_VN is empty: P12 shows N63 (099) or
+// N94 (210) itself at ignition. The other times are the common ones.
+FUNCTION bb_table_p12 {
+  PARAMETER profile.
+  LOCAL tbl IS bb_table_base("P12", profile).
+  SET tbl["ULLAGE_ON"] TO FALSE.
+  SET tbl["COUNT_VN"] TO "V06N74".
+  SET tbl["PROMPT_VN"] TO "V99N74".
+  SET tbl["BURN_VN"] TO "".
+  SET tbl["ENTR_AT_PROMPT"] TO "GOPOST".
+  SET tbl["ZOOM"] TO "NONE".
+  RETURN tbl.
+}
+
+// bb_table_abort: the P70 and P71 table (Luminary ABRTABLE): P12's with noun 63 at the countdown and the prompt, used for the V97 relight only
+// (an abort lights its engine without a countdown).
+FUNCTION bb_table_abort {
+  PARAMETER profile.
+  LOCAL tbl IS bb_table_p12(profile).
+  SET tbl["COUNT_VN"] TO "V06N63".
+  SET tbl["PROMPT_VN"] TO "V99N63".
   RETURN tbl.
 }
 

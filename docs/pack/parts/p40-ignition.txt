@@ -1,0 +1,17 @@
+- BEFORE | SHIP | **RCS on, SAS off**, descent stage on
+- BEFORE | THROTTLE | Zero (Ctrl)
+- TIG-4:00 | DSKY | V37E 40E
+n: At least 4 min before ignition. Earlier is fine
+v: V50 N18 FL
+- | PRO | Ship turns (V06 N18 steady)
+- | ENTR | When V50 N18 returns
+n: ENTR at the first display skips the turn
+v: V50 N25 FL, 00203: the throttle is yours
+- | ENTR |
+- TIG-1:00 | SHIP | Warps by itself
+v: V06 N40 counts up to zero
+n: Display blanks at TIG-35 s. RCS ullage at about TIG-7.5 s
+- TIG-0:05 | V99 N40 FL | PRO (enable engine)
+n: ENTR skips the burn. V34E ends P40
+- TIG | ENGINE | Lights at minimum thrust
+- | THROTTLE | Lever drives the engine from ignition

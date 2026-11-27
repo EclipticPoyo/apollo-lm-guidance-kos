@@ -76,7 +76,7 @@ SET p5v["ROD"]["CLICKS"] TO 1.
 LOCAL st_bad IS pp_state(2000, r_p5, v_p5, 13.15).
 SET st_bad["BODY_OK"] TO FALSE.
 LOCAL out_bad IS p65_step(p5v, st_bad, nav_derived(st_bad, land, wm), ks).
-assert_true("P65: a click with no valid state stays P65 and says NO VALID STATE", p5v["MODE"] = "P65" AND out_bad["MSG"]:CONTAINS("NO VALID STATE")).
+assert_true("P65: a click with no valid state stays P65 and says NO VALID STATE", p5v["MODE"] = "P65" AND out_bad["WARN"]:CONTAINS("NO VALID STATE")).
 LOCAL p6v IS p65_start(pp_prog("HOLD")).
 SET p6v["ROD"]["CLICKS"] TO 1.
 LOCAL st_ok IS pp_state(2000, r_p5, v_p5, 13.15).
@@ -86,7 +86,7 @@ SET p6v["ROD"]["CLICKS"] TO 1.
 SET st_bad TO pp_state(2000.25, r_p5, v_p5, 13.15).
 SET st_bad["BODY_OK"] TO FALSE.
 SET out_bad TO p65_step(p6v, st_bad, nav_derived(st_bad, land, wm), ks).
-assert_true("P66: a click with no valid state keeps the commanded rate and says NO VALID STATE", p6v["MODE"] = "P66" AND p6v["VDG"] = vdg_before AND out_bad["MSG"]:CONTAINS("NO VALID STATE")).
+assert_true("P66: a click with no valid state keeps the commanded rate and says NO VALID STATE", p6v["MODE"] = "P66" AND p6v["VDG"] = vdg_before AND out_bad["WARN"]:CONTAINS("NO VALID STATE")).
 
 // ---- clicks in AUTO or before the engine is lit start nothing (Review Focus 3) ----
 LOCAL p3 IS pp_p63(TRUE, TRUE, "AUTO").
@@ -94,7 +94,7 @@ SET p3["ROD"]["CLICKS"] TO 1.
 LOCAL st3 IS pp_state(1005, V(1739309.437, 0, -6771.996), V(-40.965, 0, 145.871), 43.4547).
 LOCAL out3 IS p63_step(p3, st3, nav_derived(st3, land, p3["WM"]), ks).
 assert_true("P63: a click in AUTO sets no ROD_START and is not kept", NOT p3["ROD_START"] AND p3["ROD"]["CLICKS"] = 0 AND NOT out3["HANDOVER"]).
-assert_true("P63: a click in AUTO says SAS is off (message and ROD_DROP)", out3["MSG"]:CONTAINS("SAS") AND p3["ROD_DROP"]:CONTAINS("SAS")).
+assert_true("P63: a click in AUTO says SAS is off (warning and ROD_DROP)", out3["WARN"]:CONTAINS("SAS") AND p3["ROD_DROP"]:CONTAINS("SAS")).
 LOCAL p3u IS pp_p63(FALSE, FALSE, "HOLD").
 SET p3u["T_LAST"] TO 959.75.
 SET p3u["ROD"]["CLICKS"] TO 1.
@@ -102,7 +102,7 @@ LOCAL r_far IS V(1737400 + RIGNX, 0, RIGNZ).
 LOCAL st3u IS pp_state(960, r_far, V(421.056611, 0, 1636.972015), 0).
 LOCAL out3u IS p63_step(p3u, st3u, nav_derived(st3u, land, p3u["WM"]), ks).
 assert_true("P63: a click with SAS on before the engine is lit changes nothing", NOT p3u["ROD_START"] AND p3u["ROD"]["CLICKS"] = 0 AND NOT out3u["HANDOVER"]).
-assert_true("P63: and says the engine is not lit (not SAS)", p3u["ROD_DROP"]:CONTAINS("ENGINE") AND NOT p3u["ROD_DROP"]:CONTAINS("SAS") AND out3u["MSG"]:CONTAINS("ENGINE")).
+assert_true("P63: and says the engine is not lit (not SAS)", p3u["ROD_DROP"]:CONTAINS("ENGINE") AND NOT p3u["ROD_DROP"]:CONTAINS("SAS") AND out3u["WARN"]:CONTAINS("ENGINE")).
 LOCAL p_norod IS LEXICON().
 assert_true("burn_rod_start: a programme with no ROD is FALSE and untouched", NOT burn_rod_start(p_norod, TRUE) AND p_norod:LENGTH = 0).
 
@@ -133,7 +133,7 @@ LOCAL p4a IS p64_start(pp_prog("AUTO"), 0, 23.47, 0).
 SET p4a["ROD"]["CLICKS"] TO 1.
 LOCAL out4a IS p64_step(p4a, st4, nav_derived(st4, land, p4a["WM"]), ks).
 assert_true("P64: a click in AUTO sets no ROD_START and starts no handover", NOT p4a["ROD_START"] AND NOT out4a["HANDOVER"] AND p4a["ROD"]["CLICKS"] = 0).
-assert_true("P64: a click in AUTO says SAS is off", out4a["MSG"]:CONTAINS("SAS")).
+assert_true("P64: a click in AUTO says SAS is off", out4a["WARN"]:CONTAINS("SAS")).
 LOCAL p4h IS p64_start(pp_prog("HOLD"), 0, 23.47, 0).
 SET p4h["ROD"]["CLICKS"] TO 1.
 LOCAL out4h IS p64_step(p4h, st4, nav_derived(st4, land, p4h["WM"]), ks).
@@ -147,7 +147,7 @@ assert_true("normally the deadband keeps the lock on in the burn", p5s["DB"]["LO
 SET ks["PRO"] TO TRUE.
 SET st5 TO pp_state(2000.25, r_p5, v_p5, 13.15).
 SET out5 TO p65_step(p5s, st5, nav_derived(st5, land, wm), ks).
-assert_true("PRO in P65 drops the steering target and says so", p5s["STEER_OFF"] AND NOT p5s["DB"]["LOCKED"] AND out5["MSG"]:CONTAINS("STEERING") AND NOT ks["PRO"]).
+assert_true("PRO in P65 drops the steering target and says so", p5s["STEER_OFF"] AND NOT p5s["DB"]["LOCKED"] AND out5["WARN"]:CONTAINS("STEERING") AND NOT ks["PRO"]).
 SET st5 TO pp_state(2000.5, r_p5, v_p5, 13.15).
 p65_step(p5s, st5, nav_derived(st5, land, wm), ks).
 assert_true("burn_shared_step does not take the lock back while it is off", p5s["STEER_OFF"] AND NOT p5s["DB"]["LOCKED"]).
@@ -158,7 +158,7 @@ p65_step(p5e, st5, nav_derived(st5, land, wm), ks).
 SET ks["ENTER"] TO FALSE.
 assert_true("ENTER in P65 does the same", p5e["STEER_OFF"] AND NOT p5e["DB"]["LOCKED"]).
 assert_true("burn_steer_off is FALSE for a programme that never set it", NOT burn_steer_off(LEXICON())).
-// (changing the attitude mode clears STEER_OFF: att_step reads the real SAS switch, so that is checked in flight, see ksp-batch-1.3.1.md)
+// (changing the attitude mode clears STEER_OFF: att_step reads the real SAS switch, so that is checked in flight, see archive/ksp/ksp-batch-1.3.1.md)
 
 SET CTL_DRY TO FALSE.
 test_end().

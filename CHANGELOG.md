@@ -3,6 +3,58 @@
 All notable changes to the Apollo LM guidance computer for kOS. Dates are when the work was merged.
 The release zip is built with `python make_release.py <version>`.
 
+## 1.5 (2026-11-27, ascent, aborts and rendezvous)
+
+The computer now brings you back up: from the landing site to lunar orbit, on to the CSM, and from any point of the descent back to orbit with one keypress. This is the last lunar module release.
+
+Flown in KSP, all passing:
+- **P12** with both software versions. The logged ascents reached the insertion targets within 1 m/s and 8 m, and left the CSM 0.24 to 0.29 degrees further ahead than planned.
+- **Aborts:** early in braking, late in the approach, from P66 until the descent tanks ran dry (then abort stage), and abort stage from the surface as far as the pitch-over.
+- **Rendezvous:** CSI, CDH, TPI and a midcourse from test orbits (P32 to P35, burned with P41 and P42), P20 with its verbs, and the 210 route from the surface to a docking with braking by hand in P47.
+
+Not flown, listed at the end of this section.
+
+### Added
+- **P12, the powered ascent**, on the shared burn engine: flashing N33 (lift-off time) and N76 (targets), the N74 countdown, the V99 N74 engine prompt, then separation and ignition by the computer, vertical rise, pitch-over, timed cut-off and an RCS trim on N85. SAS is the AUTO / ATT HOLD switch, as in the descent; the roll keys turn the ship about its thrust axis. Alarm 1703 moves a lift-off that is too close; V97 shows an engine with no thrust and can relight it. kOS warps to 60 s before lift-off. P12 takes the landing site from where the ship stands, so a craft that never ran P68 can start it.
+- **Ascent guidance** ported from Luminary 210, with the Luminary 099 differences chosen by the software version (rise exit, N63 or N94, engine tail-off).
+- **P70 and P71, the aborts:** P70 on the descent engine, P71 on the ascent engine, flown by the ascent guidance to 60,000 ft above the site. `Backspace` is ABORT and `0` is ABORT STAGE (once, no confirmation; the computer stages); `V37 E 70 E` and `71 E` also work, and never stage. Allowed from P63 ignition until PRO at P68. Includes the turn up through the vertical from a braking attitude, `V97` when the descent engine runs dry (then `0`), and Luminary's targets: Apollo 11's speed from the time since ignition, J-class from the CSM's lead angle.
+- **Rendezvous targeting:** P32 (CSI), P33 (CDH), P34 (TPI) and P35 (midcourse), with their alarms. The result is set for the burn programmes; for P34 and P35 it is an aim point and an intercept time, and P40 and P41 work out the velocity to gain from it on every pass, as Luminary does.
+- **P42**, the ascent engine burn. Alarm 1706 while the descent stage is on.
+- **Tracking:** P20 and P25 run underneath other programmes, in a second programme slot whose requests break in as priority displays. P20 turns the front windows to the CSM (V50 N18).
+- **Verbs** V04, V56, V82 (orbit display), V83, V89, V90, V93, and V76, V80, V81 and V95 (accepted, no effect).
+- **Nouns** N11, N12, N13, N16, N37, N44, N52, N54, N55, N58, N59, N74, N75, N76, N82, N90 and N94, with their loads and cells at the Luminary addresses.
+- **A drift gauge:** a small window with two crossing needles for the line-of-sight rate to the CSM, with range, range rate and the next braking gate, in P20, P25 or P47 within 40 nm. The stand-in for the LM's rendezvous radar instruments.
+- **Planner:** an *Ascent* page that gives the lift-off time for the rendezvous plan that was flown (coelliptic for Apollo 11, short rendezvous for J-class), the next opportunity, and an ascent PAD with the lift-off, insertion and rendezvous keys, with a coelliptic fallback on J-class. *Skip simulated uplink* lets P12 load them from the saved plan. The *Deorbit* page checks where the CSM will be at PDI beside where an abort expects it.
+- **Pack:** the ascent, abort and rendezvous checklists and cards, with the Luminary 099 and 210 rendezvous routes shown separately; a warning sign on every CAUTION box and a mark on every NOTE box.
+- `0:/lm/logs/dsky.log`: every terminal warning and message with the mission clock.
+
+### Changed
+- `ENG_THR_CONT` now ships as `MAN`: the throttle lever is yours from ignition in P40, as the checklists are written. Set `AUTO` in `agc_config.txt` for the computer's throttle.
+- The kOS terminal has fixed areas for live readouts, warnings (kept until RSET or the next V37 selection) and messages, and no longer scrolls. Texts are much shorter. It is cleared when the DSKY closes.
+- The planner window is titled *LM planner* and has a menu for the two pages. A new deorbit plan removes the old ascent plan.
+- KEY REL also lights while your own display covers a programme's, as on the real LM.
+- Keypad clicks are queued and pressed in order, so fast clicking loses no keys.
+- The turn of the kOS raw axes is now measured in navigation and the burns, where a fixed turn at the Moon's spin rate was assumed.
+
+### Fixed
+- **N83 and N85 R3 were reversed** (the RO LM's windows are on its underside). R3 now reads positive towards the windows.
+- P30's delta-v was turned to the axes of the ignition time and then turned again from the time of P30. It is now carried once.
+- The N18 angles in P40 and P41 could be out by about 0.55 degrees for each hour since the DSKY started.
+
+### Departures from Apollo
+Documented in the pack, appendix A. The main ones:
+- The CSM is a KSP vessel; nothing is uplinked for the ascent or the rendezvous. P12 starts only when landed.
+- Ascent guidance runs every computer cycle; kOS steering flies the attitude with any RCS jet; the computer separates and lights without the crew's switch presses.
+- Aborts: two keys stand in for the panel buttons and the computer stages. J-class targets are moved to this site's height and Apollo 11's speeds are left as they were, so its abort apolunes are about 13 nm higher than Apollo's at the Apollo 11 site.
+- Rendezvous: no radar (a P20 mark is only a count), orbits are predicted as two-body orbits, and the PAD's rendezvous times are the planner's own. P20 stays on for braking, where Apollo 11 went to P00 and P47. The docking is yours.
+- P20 ends if the KSP target is lost.
+
+### Not flown
+- The surface abort past the pitch-over, and the J-class abort targets that follow the CSM.
+- P25, P40 on an aim point (a TPI on the descent engine), the J-class coelliptic fallback, and P32 or P33 with P20 running underneath.
+- The 099 rendezvous as one flight from the surface to a docking: its ascent and its burns were flown separately.
+- Added or reworded after the last flight, and checked on the pad only: the gauge's range, rate and gate lines, the P47 and P20 SAS messages, P20 steering in physics warp and its warning near the CSM, braking in P20 with the DSKY closed to dock, and the `RUNNING IN BACKGROUND:` line.
+
 ## 1.4 (2026-11-25, burn programmes)
 
 The computer now flies its own burns, starting with the DOI, on one shared burn engine. The DOI, a P41 trim and the P63 landing (as a regression) were flown in KSP and passed; the engine timings are the Apollo values and needed no tuning.
@@ -16,7 +68,7 @@ The computer now flies its own burns, starting with the DOI, on one shared burn 
 - **P41, an RCS burn, and P47, a thrust monitor** (`lm/burn/lm_p41.ks`): N85 shows the velocity to be gained along the ship's axes; N83 the velocity gained since P47 started.
 - **P51** (`IMU_ALIGN` `REQUIRED` makes the burns wait for it; the default `AUTO` needs nothing), verb 50 prompts, nouns N18, N25, N40, N42, N45, N83 and N85.
 - **The burn engine** `lm/burn/lm_burnbaby.ks`: one state machine (Luminary's BURNBABY) driven by a table per programme. P63 (both profiles) now runs on it too; the old sequence is kept as a frozen copy in `test_burnbaby.ks` and the pad tests compare the two step by step. The J-class P63 still calls `j_seq_*`, now thin wrappers that give the table `J_ZOOMTIME`.
-- **Settings:** `ENG_THR_CONT`, `IMU_ALIGN` and `PLAN_NODES` (the planner leaves its maneuver nodes as a visual aid, or removes them once the plan is saved). The PAD says to fly the DOI with P30 then P40.
+- **Settings:** `ENG_THR_CONT`, `IMU_ALIGN` and `PLAN_NODES` (the planner leaves its manoeuvre nodes as a visual aid, or removes them once the plan is saved). The PAD says to fly the DOI with P30 then P40.
 - Pad tests `test_burn`, `test_burnbaby`, `test_burnctl`, `test_p30`, `test_p40`, `test_p41`; `reference_burn.py`. The pack has the burn checklists.
 
 ### Departures from Apollo (documented in the pack, appendix A)

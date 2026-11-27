@@ -15,10 +15,11 @@ GLOBAL T30_V IS V(0, 0, 1628.5834302711191).
 GLOBAL T30_CLOCK_ZERO IS 1000.
 GLOBAL T30_TIG_S IS 1500.             // seconds from the clock zero: TIG is UT 2500
 GLOBAL T30_NOW IS 1100.
+GLOBAL T30_AX IS LEXICON("P", V(0, 0, 1), "N", V(0, 1, 0)).    // the axes mark the made-up prediction hands over
 
 FUNCTION t30_predict {
   PARAMETER t_ut.
-  RETURN LEXICON("R", T30_R, "V", T30_V, "MU", 4.9028e12, "RADIUS", 1737400).
+  RETURN LEXICON("R", T30_R, "V", T30_V, "MU", 4.9028e12, "RADIUS", 1737400, "AX", T30_AX).
 }
 
 // t30_vault: a store with TIG and/or the DOI delta-V (real DOI: -75.8 ft/s along track, 0 across, +9.8 ft/s in Z, local vertical axes) loaded.
@@ -121,6 +122,7 @@ assert_vec("XDELV DELVSIN for the DOI: -9.8 ft/s up, -75.8 ft/s along", xd["DELV
 assert_vec("XDELV RTIG", xd["RTIG"], T30_R, 1e-9).
 assert_vec("XDELV VTIG", xd["VTIG"], T30_V, 1e-9).
 assert_near("XDELV UT_TIG", xd["UT_TIG"], 2500, 1e-6).
+assert_true("XDELV AX0 is the mark of the prediction", (xd["AX0"]["P"] - T30_AX["P"]):MAG < 1e-9 AND NOT xd:HASKEY("T0")).
 assert_near("XDELV DELVSAB", xd["DELVSAB"], 76.43088381 / 3.280839895, 1e-3).
 SET regs TO t30_regs(45, out).
 assert_true("N45 R1 marks 0", regs[0] = "+00000").
@@ -168,7 +170,7 @@ p30_step(prog, ks).
 SET prog["NOW_UT"] TO 2600.
 SET ks["PRO"] TO TRUE.
 SET out TO p30_step(prog, ks).
-assert_true("TIG passed before N81 was answered: ends with a message", out["ENDED"] AND out["MSG"]:CONTAINS("TIG has passed")).
+assert_true("TIG passed before N81 was answered: ends with a warning", out["ENDED"] AND out["WARN"]:CONTAINS("TIG has passed")).
 
 // ---- a delta-V out of plane: the middle gimbal angle ----
 LOCAL vault_y IS store_new(lm_cells_for("A11")).

@@ -173,4 +173,138 @@ LOCAL n81_regs IS noun_registers(81, LEXICON("VALID", FALSE)).
 assert_true("N81 registers show the tenths of ft/s", n81_regs[0] = "-00984" AND n81_regs[1] = "+00000" AND n81_regs[2] = "+00025").
 assert_true("an unknown noun has no load", lm_load_commit(60, LIST(1), LIST(1)) <> "").
 
+// ---- N76, the ascent targets (release 1.5): horizontal and radial speed in tenths of ft/s, cross-range in tenths of nm ----------
+SET ks TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+SET ks["VEHICLE"] TO LEXICON("LOADS", LM_LOADS, "LOAD_COMMIT", lm_load_commit@).
+ld_type_keys(ks, "V25N76E+55349E+00322E+00017E").
+assert_true("V25 N76 is accepted", NOT ks["OPRERR"] AND NOT load_active(ks)).
+LOCAL n76_loaded IS lm_store_get_asc(lm_vault).
+assert_near("N76 R1 is 5534.9 ft/s", n76_loaded["ZDOTD"], 5534.9 * 0.3048, 0.001).
+assert_near("N76 R2 is 32.2 ft/s", n76_loaded["RDOTD"], 32.2 * 0.3048, 0.001).
+assert_near("N76 R3 is 1.7 nm", n76_loaded["XRANGE"], 1.7 * 1852, 4).
+LOCAL n76_regs IS noun_registers(76, LEXICON("VALID", FALSE)).
+assert_true("N76 registers show the keyed values", n76_regs[0] = "+55349" AND n76_regs[1] = "+00322" AND n76_regs[2] = "+00017").
+ld_type_keys(ks, "V22N76E-00050E").
+SET n76_regs TO noun_registers(76, LEXICON("VALID", FALSE)).
+assert_true("V22 N76 changes only R2", n76_regs[0] = "+55349" AND n76_regs[1] = "-00050" AND n76_regs[2] = "+00017").
+
+// ---- the ascent and orbit nouns 74, 94 and 44 --------------------------------------------------------------------------------
+LOCAL n74_regs IS noun_registers(74, LEXICON("VALID", FALSE, "TTOGO", 125, "P12_YAW", 359.99, "P12_PITCH", 310)).
+assert_true("N74 is time from ignition, yaw and pitch", n74_regs[0] = "-02 05" AND n74_regs[1] = "+35999" AND n74_regs[2] = "+31000").
+SET n74_regs TO noun_registers(74, LEXICON("VALID", FALSE)).
+assert_true("N74 shows zeros outside P12", n74_regs[0] = "+00 00" AND n74_regs[1] = "+00000").
+// A valid navigation state always carries VHORIZ, ABVEL, HDOT and HCALC (lm_nav.ks), and noun_registers reads all four.
+LOCAL n94_nav IS LEXICON("VALID", TRUE, "P40_VGB", LIST(100, 0, 0), "VHORIZ", 0, "ABVEL", 0, "HDOT", 10, "HCALC", 1000).
+LOCAL n94_regs IS noun_registers(94, n94_nav).
+assert_true("N94 is VG body X, altitude rate, altitude", n94_regs[0] = "+03281" AND n94_regs[1] = "+00328" AND n94_regs[2] = "+03281").
+assert_true("J shows the same N94", j_noun_registers(94, n94_nav)[0] = "+03281").
+assert_true("N94 with no navigation is blank", noun_registers(94, LEXICON("VALID", FALSE))[0] = NA).
+LOCAL n44_regs IS noun_registers(44, LEXICON("VALID", FALSE, "N44", LIST(83340, -1000000, -1))).
+assert_true("N44 is apolune, perilune and -59 59 for no free-fall time", n44_regs[0] = "+00450" AND n44_regs[1] = "-05400" AND n44_regs[2] = "-59 59").
+SET n44_regs TO noun_registers(44, LEXICON("VALID", FALSE, "N44", LIST(111120, 27780, 754))).
+assert_true("N44 shows the free-fall time counting down", n44_regs[2] = "-12 34").
+assert_true("N44 shows zeros before V82", noun_registers(44, LEXICON("VALID", FALSE))[1] = "+00000").
+
+// ---- the rendezvous nouns (release 1.5): times N11, N13, N37, then N55, N75, N81 as N82, and N45 --------------------------
+SET LM_VEH TO LEXICON("STORE", store_new(lm_cells_for("A11"))).
+SET lm_vault TO LM_VEH["STORE"].
+LOCAL ld_blank IS LEXICON("VALID", FALSE).
+assert_true("the rendezvous nouns are in the noun table", LM_NOUNS:CONTAINS(11) AND LM_NOUNS:CONTAINS(13) AND LM_NOUNS:CONTAINS(37) AND LM_NOUNS:CONTAINS(55) AND LM_NOUNS:CONTAINS(75) AND LM_NOUNS:CONTAINS(82)).
+assert_true("N11 shows zeros and TCSI reads -1 before any load", noun_registers(11, ld_blank)[2] = "+00000" AND lm_store_get_time(lm_vault, "TCSI") = -1).
+ld_type_keys(ks, "V25N11E+00001E+00002E+00345E").
+assert_true("V25 N11 is accepted", NOT ks["OPRERR"] AND NOT load_active(ks)).
+assert_near("TCSI is 1 h 2 min 3.45 s", lm_store_get_time(lm_vault, "TCSI"), 3600 + 120 + 3.45, 0.01).
+LOCAL n11_regs IS noun_registers(11, ld_blank).
+assert_true("N11 registers show 1, 2, 345", n11_regs[0] = "+00001" AND n11_regs[1] = "+00002" AND n11_regs[2] = "+00345").
+assert_true("N11 leaves N33 alone", lm_store_get_tig(lm_vault) = -1).
+LOCAL n11_refusal IS lm_load_commit(11, LIST(2), LIST(60)).
+assert_true("N11 minutes 60 is refused, naming N11", n11_refusal:STARTSWITH("N11 takes")).
+assert_near("the refused load leaves TCSI alone", lm_store_get_time(lm_vault, "TCSI"), 3723.45, 0.01).
+assert_true("N13 loads TCDH", lm_load_commit(13, LIST(1, 2, 3), LIST(2, 0, 0)) = "").
+assert_near("TCDH is 2 h", lm_store_get_time(lm_vault, "TCDH"), 7200, 0.01).
+assert_true("N37 loads TTPI", lm_load_commit(37, LIST(1, 2, 3), LIST(3, 0, 0)) = "").
+assert_near("TTPI is 3 h", lm_store_get_time(lm_vault, "TTPI"), 10800, 0.01).
+assert_true("N13 and N37 registers show the hours", noun_registers(13, ld_blank)[0] = "+00002" AND noun_registers(37, ld_blank)[0] = "+00003").
+
+LOCAL n55_regs IS noun_registers(55, ld_blank).
+assert_true("N55 shows zeros before any load", n55_regs[0] = "+00000" AND n55_regs[1] = "+00000" AND n55_regs[2] = "+00000").
+ld_type_keys(ks, "V22N55E+02660E").
+SET n55_regs TO noun_registers(55, ld_blank).
+assert_true("V22 N55 alone shows the elevation 26.60", n55_regs[0] = "+00000" AND n55_regs[1] = "+02660" AND n55_regs[2] = "+00000").
+LOCAL n55_vals IS lm_store_get_n55(lm_vault).
+assert_true("V22 N55 leaves NN and the central angle unloaded", n55_vals["NN"] = -1 AND n55_vals["CENTANG"] = -1).
+ld_type_keys(ks, "V25N55E+00001E+02000E+13000E").
+SET n55_vals TO lm_store_get_n55(lm_vault).
+assert_near("N55 NN", n55_vals["NN"], 1, 0).
+assert_near("N55 elevation", n55_vals["ELEV"], 20, 0.001).
+assert_near("N55 central angle", n55_vals["CENTANG"], 130, 0.001).
+ld_type_keys(ks, "V22N55E+02660E").
+SET n55_regs TO noun_registers(55, ld_blank).
+assert_true("V22 N55 changes only the elevation", n55_regs[0] = "+00001" AND n55_regs[1] = "+02660" AND n55_regs[2] = "+13000").
+assert_true("NN 100 is refused", lm_load_commit(55, LIST(1), LIST(100)) <> "").
+assert_true("a negative angle is refused", lm_load_commit(55, LIST(2), LIST(-1)) <> "").
+assert_true("an angle of 360 is refused", lm_load_commit(55, LIST(3), LIST(36000)) <> "").
+assert_true("NN 99 and 359.99 are accepted", lm_load_commit(55, LIST(1, 3), LIST(99, 35999)) = "").
+SET n55_regs TO noun_registers(55, ld_blank).
+assert_true("the refused N55 loads changed nothing, the good one did", n55_regs[0] = "+00099" AND n55_regs[1] = "+02660" AND n55_regs[2] = "+35999").
+
+LOCAL n75_regs IS noun_registers(75, LEXICON("VALID", FALSE, "RN_DH", 27760.41, "RN_T12", 3485.8, "RN_T23", -65)).
+assert_true("N75 is height difference, CSI to CDH and CDH to TPI", n75_regs[0] = "+00150" AND n75_regs[1] = "+58 06" AND n75_regs[2] = "-01 05").
+SET n75_regs TO noun_registers(75, ld_blank).
+assert_true("N75 shows zeros with nothing supplied", n75_regs[0] = "+00000" AND n75_regs[1] = "+00 00" AND n75_regs[2] = "+00 00").
+lm_load_commit(81, LIST(1, 2, 3), LIST(504, 0, -12)).
+LOCAL n82_regs IS noun_registers(82, ld_blank).
+assert_true("N82 shows the stored delta-v as N81", n82_regs[0] = "+00504" AND n82_regs[1] = "+00000" AND n82_regs[2] = "-00012").
+assert_true("N82 has no load", NOT LM_LOADS:HASKEY("82") AND lm_load_commit(82, LIST(1), LIST(1)) <> "").
+LOCAL n45_regs IS noun_registers(45, LEXICON("VALID", FALSE, "P30_TTOGO", 125, "P30_MGA", 12.5)).
+assert_true("N45 needs only the time to go and the gimbal angle", n45_regs[0] = "+00000" AND n45_regs[1] = "+02 05" AND n45_regs[2] = "+01250").
+SET n45_regs TO noun_registers(45, LEXICON("VALID", FALSE, "P30_TTOGO", 125, "P30_MGA", -0.01)).
+assert_true("N45 shows -00.01 for a gimbal angle not yet computed", n45_regs[2] = "-00001").
+
+// ---- N52, N58, N59 (P34 and P35) and the intercept time cell ----
+LOCAL n52_regs IS noun_registers(52, LEXICON("VALID", FALSE, "RN_CENT", 131.67)).
+assert_true("N52 is the central angle, R2 and R3 blank", n52_regs[0] = "+13167" AND n52_regs[1] = NA AND n52_regs[2] = NA).
+LOCAL n58_regs IS noun_registers(58, LEXICON("VALID", FALSE, "RN_PERI", 82904.88, "RN_DVTPI", 7.48291, "RN_DVTPF", 9.61701)).
+assert_true("N58 is perilune, TPI delta-V and intercept delta-V", n58_regs[0] = "+00448" AND n58_regs[1] = "+00246" AND n58_regs[2] = "+00316").
+LOCAL n59_regs IS noun_registers(59, LEXICON("VALID", FALSE, "RN_DVLOS", V(7.4829, -0.3048, 0.6096))).
+assert_true("N59 is the delta-V along the sight line, right and down", n59_regs[0] = "+00246" AND n59_regs[1] = "-00010" AND n59_regs[2] = "+00020").
+assert_true("N52, N58 and N59 show zeros with nothing supplied", noun_registers(52, ld_blank)[0] = "+00000" AND noun_registers(58, ld_blank)[1] = "+00000" AND noun_registers(59, ld_blank)[2] = "+00000").
+assert_true("none of them loads", NOT LM_LOADS:HASKEY("52") AND NOT LM_LOADS:HASKEY("58") AND NOT LM_LOADS:HASKEY("59")).
+LOCAL tp_vault IS store_new(lm_cells_for("J")).
+assert_near("the intercept time is not loaded at first", lm_store_get_time(tp_vault, "TPASS4"), -1, 0).
+lm_store_put_time(tp_vault, "TPASS4", 8123.45).
+assert_near("the intercept time cell round trip", lm_store_get_time(tp_vault, "TPASS4"), 8123.45, 0.005).
+
+// ---- stage 3: N12 (octal), N16, N54, N90, the mark count in N45 and the no-effect verbs ------------------------------------
+SET LM_VEH TO LEXICON("STORE", store_new(lm_cells_for("A11"))).
+SET ks TO keys_new(LM_NOUNS, LM_VERBS, LM_PROGS).
+SET ks["VEHICLE"] TO LEXICON("LOADS", LM_LOADS, "LOAD_COMMIT", lm_load_commit@).
+ld_type_keys(ks, "V24N12E3E1E").
+assert_true("V24 N12 loads two octal registers", NOT ks["OPRERR"] AND LM_VEH["N12"][0] = 3 AND LM_VEH["N12"][1] = 1).
+ld_type_keys(ks, "V22N12E2E").
+assert_true("V22 N12 changes only the option", LM_VEH["N12"][0] = 3 AND LM_VEH["N12"][1] = 2).
+LOCAL n12_regs IS noun_registers(12, LEXICON("VALID", FALSE, "N12", LM_VEH["N12"])).
+assert_true("N12 shows five octal digits, R3 blank", n12_regs[0] = " 00003" AND n12_regs[1] = " 00002" AND n12_regs[2] = NA).
+ld_type_keys(ks, "V25N16E+00001E+00002E+00345E").
+assert_true("V25 N16 is accepted", NOT ks["OPRERR"] AND NOT load_active(ks)).
+assert_near("N16 holds 1 h 2 min 3.45 s", LM_VEH["N16"], 3723.45, 0.01).
+LOCAL n16_regs IS noun_registers(16, LEXICON("VALID", FALSE, "N16", LM_VEH["N16"])).
+assert_true("N16 shows hours, minutes and seconds", n16_regs[0] = "+00001" AND n16_regs[1] = "+00002" AND n16_regs[2] = "+00345").
+assert_true("N16 refuses minutes above 59", lm_load_commit(16, LIST(2), LIST(60)) <> "" AND ABS(LM_VEH["N16"] - 3723.45) < 0.01).
+assert_true("N16 shows zeros without a time", noun_registers(16, LEXICON("VALID", FALSE))[2] = "+00000").
+LOCAL n54_regs IS noun_registers(54, LEXICON("VALID", FALSE, "N54", LIST(1852, -3.048, 26.6))).
+assert_true("N54 is range in nm, rate in ft/s and theta", n54_regs[0] = fmt_reg(1.00, 2) AND n54_regs[1] = fmt_reg(-10.0, 1) AND n54_regs[2] = fmt_reg(26.6, 2)).
+LOCAL n90_regs IS noun_registers(90, LEXICON("VALID", FALSE, "N90", LIST(1852, -3.048, 26.6))).
+assert_true("N90 is Y in nm, Y rate in ft/s and psi", n90_regs[0] = fmt_reg(1.00, 2) AND n90_regs[1] = fmt_reg(-10.0, 1) AND n90_regs[2] = fmt_reg(26.6, 2)).
+assert_true("N54 and N90 show zeros without values", noun_registers(54, LEXICON("VALID", FALSE))[0] = "+00000" AND noun_registers(90, LEXICON("VALID", FALSE))[2] = "+00000").
+assert_true("N45 R1 is the mark count", noun_registers(45, LEXICON("VALID", FALSE, "MARKS", 7))[0] = fmt_reg(7, 0)).
+assert_true("N45 R1 is 0 without one", noun_registers(45, LEXICON("VALID", FALSE))[0] = "+00000").
+assert_true("the stage 3 nouns are in the noun table", LM_NOUNS:CONTAINS(12) AND LM_NOUNS:CONTAINS(16) AND LM_NOUNS:CONTAINS(54) AND LM_NOUNS:CONTAINS(90)).
+LOCAL stage3_verbs IS lm_verbs_for("A11").
+assert_true("V04 and the no-effect verbs are accepted", stage3_verbs:CONTAINS(4) AND stage3_verbs:CONTAINS(76) AND stage3_verbs:CONTAINS(80) AND stage3_verbs:CONTAINS(81) AND stage3_verbs:CONTAINS(95)).
+
+// ---- the clock on the DSKY log's lines ----
+assert_true("lm_clock_text: h:mm:ss", lm_clock_text(3723.4) = "1:02:03").
+assert_true("lm_clock_text: zero, and never negative", lm_clock_text(0) = "0:00:00" AND lm_clock_text(-5) = "0:00:00").
+
 test_end().

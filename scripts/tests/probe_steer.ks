@@ -29,8 +29,14 @@
 // The summary line of each leg gives: time to first get within 2 degrees, the rebound (the largest error after that;
 // 0 = it never came back out), the time it settled, the RCS propellant used up to then (kg, from the ship mass), the
 // propellant used during the 15 s hold, and the mean turn rate during the hold (deg/s; 0.1 or more is the chatter).
+//
+// Ascent stage alone (under 8 t, 1.5): a second list of settings, around the coast tuning P41 uses, which still overshot a little
+// in KSP. Same legs, logged to probe_steer_ascent.log. The legs jump to the new attitude (P41 moves its command no faster than
+// P63_TURN_RATE_DEG_S), so compare the settings with each other, not with P41. Stub: RUN steer.
 
 LOCAL log_path IS "0:/lm/logs/probe_steer.log".
+LOCAL ascent_only IS SHIP:MASS < 8.            // t: the ascent stage alone is under 5 t, the full LM over 10 t
+IF ascent_only { SET log_path TO "0:/lm/logs/probe_steer_ascent.log". }
 IF EXISTS(log_path) { DELETEPATH(log_path). }
 
 FUNCTION say {
@@ -142,6 +148,17 @@ LOCAL configs IS LIST(
   cfg("TS2_EPS10", 1, 2, 10)
 ).
 
+// The ascent stage's list: the multipliers are MAXSTOPPINGTIME, TS and TORQUEEPSILON. COAST is what P41 uses now.
+IF ascent_only {
+  SET configs TO LIST(
+    cfg("COAST", 0.5, 2, 10),
+    cfg("STOP025", 0.25, 2, 10),
+    cfg("TS4", 0.5, 4, 10),
+    cfg("STOP05_TS1", 0.5, 1, 10),
+    cfg("STOP025_TS1", 0.25, 1, 10)
+  ).
+}
+
 // The base attitude the legs return to, and the two target attitudes (turns in the raw frame about the base axes).
 LOCAL base_dir IS SHIP:FACING.
 LOCAL big_dir IS ANGLEAXIS(90, base_dir:FOREVECTOR) * ANGLEAXIS(150, base_dir:STARVECTOR) * base_dir.
@@ -173,4 +190,4 @@ FOR one IN configs {
 STEERINGMANAGER:RESETTODEFAULT().
 UNLOCK STEERING.
 UNLOCK THROTTLE.
-say("probe_steer done. Log: 0:/lm/logs/probe_steer.log").
+say("probe_steer done. Log: " + log_path).

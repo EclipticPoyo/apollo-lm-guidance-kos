@@ -2,7 +2,7 @@
 page: 2-2
 section: Section 2 | Reference
 ---
-## 2.3 Nouns
+## 2.2 Nouns: descent
 
 Each register is a sign and five digits with no decimal point. Scale the digits by the unit in the table.
 
@@ -17,27 +17,15 @@ Each register is a sign and five digits with no decimal point. Scale the digits 
 |---|---|---|---|
 | == Descent | | | |
 | N43 | Latitude, 0.01 deg | Longitude, 0.01 deg | Height, 0.1 nm |
-| N60 | Horizontal speed, 0.1 ft/s | Descent rate, 0.1 ft/s | Height, ft |
+| **N60** | Horizontal speed, 0.1 ft/s {J Forward speed, the way the window faces} | Descent rate, 0.1 ft/s | Height, ft |
 | N61 | Braking time to go, MM SS | Time to ignition, MM SS | Out of plane, 0.1 nm |
-| N62 | Speed along burn, 0.1 ft/s | Time to go, MM SS | Delta-v gained, 0.1 ft/s |
-| N63 | Speed along burn, 0.1 ft/s | Descent rate, 0.1 ft/s | Height, ft |
-| N64 | Seconds left, look angle (TT LL) | Descent rate, 0.1 ft/s | Height, ft |
+| **N62** | Speed along burn, 0.1 ft/s | Time to go, MM SS | Delta-v gained, 0.1 ft/s |
+| **N63** | Speed along burn, 0.1 ft/s {J Radar minus calculated height, ft} | Descent rate, 0.1 ft/s | Height, ft |
+| **N64** | Seconds left, look angle (TT LL) | Descent rate, 0.1 ft/s | Height, ft |
 | N66 | Radar height, ft | Antenna position (1, then 2 from P64) | Blank |
 | N67 | Radar speed along X, ft/s | Along Y | Along Z |
-| N68 | Range to site, 0.1 nm | Braking time to go, MM SS | Height difference, ft |
-| N69 (J) | Site correction downrange, ft | Crossrange | Up |
-| N92 (J) | Thrust wanted, whole percent | Descent rate, 0.1 ft/s | Height, ft |
-| == Burns | | | |
-| N18 | Roll, 0.01 deg | Pitch | Yaw (burn attitude) |
-| N25 | Checklist code, octal (00051 in P51) | Blank | Blank |
-| N33 | Ignition time, hours | minutes | seconds, 0.01 s |
-| N40 | Time to go, MM SS | Still to gain, 0.1 ft/s | Gained, 0.1 ft/s |
-| N42 | Apogee after, 0.1 nm | Perigee after, 0.1 nm | Burn size, 0.1 ft/s |
-| N45 | Marks (0) | Time to ignition, MM SS | Middle gimbal, 0.01 deg |
-| N81 | Delta-v X, 0.1 ft/s | Y | Z (local vertical) |
-| N83 | P47 gained X | Y | Z, 0.1 ft/s |
-| N85 | Still to gain X (nose) | Y (right) | Z (window), 0.1 ft/s |
-| == Alarms | | | |
-| N09 | Code 1, octal | Code 2 | Code 3 |
+| N68 | Range to site, 0.1 nm {J Downrange, 0.1 nm} | Braking time to go, MM SS | Height difference, ft {J Speed over the surface, 0.1 ft/s} |
+| N69 (210) | Site correction downrange, ft | Crossrange | Up |
+| N92 (210) | Thrust wanted, whole percent | Descent rate, 0.1 ft/s | Height, ft |
 
-N66 and N67 come from the simulated radar and read zero above 12 km. (J) marks J-class only. In J-class, N60 R1 is the forward speed (along the way the window faces), N63 R1 is radar height minus calculated height (ft), and N68 R1 is downrange (0.1 nm) with R3 the speed over the surface (0.1 ft/s). Load N69 with `V25 N69 E`; P63 adds it to the site once at start, then clears it.
+Shaded rows are the nouns on the flight cards. N66 and N67 come from the simulated radar and read zero above 12 km. (210) marks Luminary 210 only: load N69 with `V25 N69 E`; P63 adds it once at its start, then clears it.

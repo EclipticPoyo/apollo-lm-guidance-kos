@@ -41,6 +41,6 @@ FUNCTION p68_step {
   IF NOT ending { SET request TO LEXICON("VERB", 6, "NOUN", 43). }
   LOCAL extra IS LEXICON("P68_LAT", state68["LAT"], "P68_LNG", state68["LNG"], "P68_ALT", state68["ALT"]).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE, "FLASH", FALSE, "REQUEST", request,
-                 "ALARM", 0, "ALT_LAMP", FALSE, "VEL_LAMP", FALSE, "EXTRA", extra, "MSG", "", "ENDED", prog["ENDED"], "HANDOVER", FALSE,
+                 "ALARM", 0, "ALT_LAMP", FALSE, "VEL_LAMP", FALSE, "EXTRA", extra, "MSG", "", "WARN", "", "ENDED", prog["ENDED"], "HANDOVER", FALSE,
                  "PROG_NO", 68, "CONTACT", TRUE, "STATUS", LIST()).
 }

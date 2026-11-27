@@ -62,7 +62,7 @@ LOCAL wx_land IS V(1737400, 0, 0).
 LOCAL wx_nose IS V(1, 0, 0).
 LOCAL wx_r IS wx_land + V(3000, 0, -300).
 LOCAL wx_cg IS guidance_cg(wx_land, wx_r, V(0, 0, 0), 0).
-assert_vec("exnorm (a) nearly overhead: the horizontal axis toward the site", win_exnorm(wx_land, wx_r, wx_nose, wx_cg), wx_cg[2], 1e-9).
+assert_vec("exnorm (a) nearly overhead: the horizontal axis towards the site", win_exnorm(wx_land, wx_r, wx_nose, wx_cg), wx_cg[2], 1e-9).
 SET wx_r TO wx_land + V(1000, 0, -3000).
 SET wx_cg TO guidance_cg(wx_land, wx_r, V(0, 0, 0), 0).
 assert_vec("exnorm (b) shallow view: the line of sight to the site", win_exnorm(wx_land, wx_r, wx_nose, wx_cg), V(-0.316227766, 0, 0.948683298), 1e-8).

@@ -8,7 +8,7 @@
 //   j_p64_end(prog)                                  gives the controls back (the same as P63's)
 //
 // P64 is the second phase of the lunar landing: the same quadratic guidance as the braking phase (P63) with the approach
-// targets, the crew window turned toward the landing site, and the chance to move the aim point ("redesignate") with
+// targets, the crew window turned towards the landing site, and the chance to move the aim point ("redesignate") with
 // hand-controller clicks. Luminary source: LUNAR_LANDING_GUIDANCE_EQUATIONS.agc (REDESIG 335-415, STARTP64 260-270,
 // P64DISPS 856-890, the redesignator trap 1120-1212).
 //
@@ -193,7 +193,7 @@ FUNCTION j_p64_apply_clicks {
 // ALT_LAMP, VEL_LAMP, EXTRA, MSG, ENDED, HANDOVER (TRUE once, at the handoff: the main loop then starts P66), PROG_NO (64)).
 //   - the time-to-go is moved on by the time since the last cycle, then the guidance pass runs with the approach targets;
 //   - PRO permits redesignation; clicks then move the landing site (j_p64_apply_clicks);
-//   - the attitude command is the guidance thrust direction; the window is held toward the site (UP, EXNORM) or the ship's
+//   - the attitude command is the guidance thrust direction; the window is held towards the site (UP, EXNORM) or the ship's
 //     own roll is kept with the stick roll (KEEP, as in P63);
 //   - the display shows V06 N64 as a flashing request until PRO or the end of the redesignation window (the core lights KEY REL when the pilot keys over it);
 //   - below J_TENDAPPR the step returns HANDOVER once and the main loop starts P66 (lm_j_p66.ks), which takes this state over.
@@ -205,6 +205,7 @@ FUNCTION j_p64_step {
   LOCAL pro_pressed IS ks["PRO"].
   SET ks["PRO"] TO FALSE.
   LOCAL msg IS "".
+  LOCAL warn IS "".
   // V34 (ks["TERMINATE"], set by the core only while a request is pending: the flashing N64) ends the programme (Luminary VBTERM).
   LOCAL terminating IS ks["TERMINATE"].
 
@@ -277,7 +278,7 @@ FUNCTION j_p64_step {
   LOCAL alarm_no IS 0.
   IF gp:HASKEY("ALARM") { SET alarm_no TO gp["ALARM"]. }
   IF alarm_no <> prog["LAST_ALARM"] {
-    IF alarm_no > 0 { SET msg TO "P64 ALARM " + alarm_no + ": TIME-TO-GO NOT CONVERGED. THE GUIDANCE KEEPS THE LAST TIME-TO-GO.". }
+    IF alarm_no > 0 { SET warn TO "P64 ALARM " + alarm_no + ": TIME-TO-GO NOT CONVERGED. THE GUIDANCE KEEPS THE LAST TIME-TO-GO.". }
     SET prog["LAST_ALARM"] TO alarm_no.
   }
   IF terminating { SET prog["ENDED"] TO TRUE. }
@@ -286,7 +287,7 @@ FUNCTION j_p64_step {
   j_p64_log(prog, gp, state, derived).
   RETURN LEXICON("SET_VERB", set_verb, "SET_NOUN", set_noun, "KEY_REL", FALSE, "BLANK", FALSE,
                  "REQUEST", request, "FLASH", FALSE, "ALARM", alarm_no, "ALT_LAMP", prog["RAD"]["ALT_LAMP"], "VEL_LAMP", prog["RAD"]["VEL_LAMP"],
-                 "EXTRA", extra, "MSG", msg, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 64).
+                 "EXTRA", extra, "MSG", msg, "WARN", warn, "ENDED", prog["ENDED"], "HANDOVER", handover, "PROG_NO", 64).
 }
 
 // j_p64_log: one line per cycle to J_P64_LOG_PATH.

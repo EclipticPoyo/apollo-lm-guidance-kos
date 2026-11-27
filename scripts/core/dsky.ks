@@ -14,7 +14,8 @@
 // core's loop (core_run in dsky_core.ks). It never warps by itself; the only warp is inside P63 (lm_p63.ks).
 //
 // A GUI() window must be created here at the top level of the main script, not in a function: windows made inside a
-// function vanished after a few seconds on this install. gui_fill (lm_gui.ks) fills it.
+// function vanished after a few seconds on this install. gui_fill (lm_gui.ks) fills the DSKY, gauge_fill (lm_gauge.ks) the drift
+// gauge to its right, which stays hidden until the vehicle shows it (a rendezvous).
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/core/dsky_core.ks").
@@ -32,22 +33,28 @@ SET dsky_win:X TO 60.
 SET dsky_win:Y TO 60.
 GLOBAL ui IS gui_fill(dsky_win).
 dsky_win:SHOW().
-CLEARSCREEN.
-core_reserve_status().                                 // the top rows are the live status readout; messages print below
-FOR cfg_note IN CFG_WARNINGS { PRINT cfg_note. }      // lines of the settings files that were skipped
-IF LM_VEH["FILLED"]["WHY"] <> "" { PRINT "Plan not fully loaded: " + LM_VEH["FILLED"]["WHY"] + ".". }
+GLOBAL gauge_win IS GUI(GAUGE_WINDOW_WIDTH).
+SET gauge_win:X TO 580.
+SET gauge_win:Y TO 60.
+GLOBAL gauge_mini IS GUI(GAUGE_WINDOW_WIDTH).          // the gauge minimised; gauge_swap puts it where the gauge stood
+SET LM_VEH["GAUGE"] TO gauge_fill(gauge_win, gauge_mini).
+// The startup lines are queued; core_run clears the terminal once and shows them.
+FOR cfg_note IN CFG_WARNINGS { core_warn(cfg_note). }      // lines of the settings files that were skipped
+IF LM_VEH["FILLED"]["WHY"] <> "" { core_warn("Plan not fully loaded: " + LM_VEH["FILLED"]["WHY"] + "."). }
+LOCAL hello IS "DSKY " + lm["NAME"] + ", " + lm["VERSION"] + ".".
 IF LM_VEH["SITE"]["OK"] {
-  PRINT "DSKY running (" + lm["NAME"] + ", " + lm["VERSION"] + "). Site " + ROUND(LM_VEH["SITE"]["LAT"], 3) + " N, "
-      + ROUND(LM_VEH["SITE"]["LNG"], 3) + " E, " + ROUND(LM_VEH["SITE"]["ALT"]) + " m.".
+  core_say(hello + " Site " + ROUND(LM_VEH["SITE"]["LAT"], 3) + " N, " + ROUND(LM_VEH["SITE"]["LNG"], 3) + " E.").
 } ELSE {
-  PRINT "DSKY running (" + lm["NAME"] + ", " + lm["VERSION"] + "). No landing site loaded: uplink or key the PAD (planner: PLAN, SEND), or tick Skip simulated uplink. P63 refuses until then.".
+  core_say(hello).
+  core_warn("NO LANDING SITE: SEND the PAD or load it. P63 refuses.").
 }
-PRINT "AGC clock zero UT " + ROUND(lm_clock_zero_ut(), 1) + " (this vessel's own: " + ROUND(lm_clock_zero_now(), 1) + ").".   // equal unless the planner's saved zero is used
-PRINT "Use the keypad or type here. V37 ENTR 63 ENTR starts P63. The X in the window ends it (V34 is only Terminate).".
+core_note("AGC clock zero UT " + ROUND(lm_clock_zero_ut(), 1) + " (this vessel's own: " + ROUND(lm_clock_zero_now(), 1) + ").").   // equal unless the planner's saved zero is used
 core_run(ui, lm).
 LOCAL pin IS LM_VEH["PIN"].
 SET pin:SHOW TO FALSE.
 LOCAL flight_pin IS LM_VEH["FPIN"].
 SET flight_pin:SHOW TO FALSE.
 gui_close(ui).
+gauge_close(LM_VEH["GAUGE"]).
+CLEARSCREEN.          // the DSKY's fixed terminal areas and messages go with it (dsky.log keeps them)
 PRINT "DSKY ended.".

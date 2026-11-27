@@ -2,12 +2,12 @@
 // a circular orbit 60 nmi up, r along +X, v along +Z, a delta-V of 23.1 m/s against the motion). The ship's thrust is modelled here as a steady acceleration along the burn
 // direction while the programme has the engine lit; the Moon's gravity is zero in the made-up state (MU 0), so the measured delta-V is the thrust alone.
 //   RUNPATH("0:/tests/test_p40.ks").   Log: 0:/lm/logs/test_p40.log.
-// Written in release 1.4 and not yet run in KSP.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/tests/test_lib.ks").
 RUNONCEPATH("0:/core/dsky_core.ks").
 RUNONCEPATH("0:/lm/lm_vehicle.ks").
+RUNONCEPATH("0:/lm/burn/lm_servicer.ks").
 
 test_begin("0:/lm/logs/test_p40.log").
 SET CTL_DRY TO TRUE.
@@ -19,12 +19,13 @@ GLOBAL D_V0 IS V(0, 0, 1628.5834302711191).
 GLOBAL D_V IS D_V0.
 GLOBAL D_T IS 2000.
 GLOBAL D_U IS V(0, 0, -1).
+GLOBAL D_AX IS LEXICON("P", V(1, 0, 0), "N", V(0, 1, 0)).    // one axes mark: the raw axes stand still
 
 // d_state: the ship's state at now_ut with velocity v_vec and the thrust the engine gives, kN.
 FUNCTION d_state {
   PARAMETER now_ut, v_vec, thrust_kn.
   RETURN LEXICON("R", V(1848520, 0, 0), "V", v_vec, "T", now_ut, "MASS", 15.2697, "THRUST", 46.71, "THRUST_NOW", thrust_kn, "MU", 0,
-                 "BODY_OK", TRUE, "ALT_RADAR", 15000, "XNB", V(0, 0, 1)).
+                 "BODY_OK", TRUE, "ALT_RADAR", 15000, "XNB", V(0, 0, 1), "AX", D_AX).
 }
 FUNCTION d_keys {
   PARAMETER verb_no, noun_no.
@@ -40,18 +41,18 @@ FUNCTION d_clear {
   SET key_state["TERMINATE"] TO FALSE.
   SET key_state["ENTER"] TO FALSE.
 }
-// d_xd: what P30 keeps (frame 0 = the axes of UT 1100): the DOI delta-V direction scaled to dv_mag.
+// d_xd: what P30 keeps (frame 0 = the axes of the mark D_AX): the DOI delta-V direction scaled to dv_mag.
 FUNCTION d_xd {
   PARAMETER dv_mag.
   LOCAL dir_vec IS V(-9.8 * 0.3048, 0, -75.8 * 0.3048):NORMALIZED.
-  RETURN LEXICON("DELVSIN", dir_vec * dv_mag, "RTIG", V(1848520, 0, 0), "VTIG", V(0, 0, 1628.5834302711191), "UT_TIG", 2500, "DELVSAB", dv_mag, "T0", 1100).
+  RETURN LEXICON("DELVSIN", dir_vec * dv_mag, "RTIG", V(1848520, 0, 0), "VTIG", V(0, 0, 1628.5834302711191), "UT_TIG", 2500, "DELVSAB", dv_mag, "AX0", D_AX).
 }
-// d_start: P40 started at UT 2000 with TIG at UT 2500 (clock zero 1000, TIG 1500 s on the clock), the engine thrust 46.71 kN, the Moon's spin zero.
+// d_start: P40 started at UT 2000 with TIG at UT 2500 (clock zero 1000, TIG 1500 s on the clock), the engine thrust 46.71 kN.
 FUNCTION d_start {
   PARAMETER dv_mag.
   LOCAL vault IS store_new(lm_cells_for("A11")).
   lm_store_put_tig(vault, 1500).
-  RETURN p40_start(FALSE, vault, 1000, "A11", 2000, 0, 46710, d_xd(dv_mag), V(0, 0, 0), V(1, 0, 0), V(0, 1, 0)).
+  RETURN p40_start(FALSE, vault, 1000, "A11", 2000, 0, 46710, d_xd(dv_mag), V(1, 0, 0), V(0, 1, 0)).
 }
 // d_step: one cycle at now_ut with the key state; the keys are cleared after, as the core does.
 FUNCTION d_step {
@@ -99,31 +100,40 @@ FUNCTION d_regs {
 // ---- refusals ----
 LOCAL vault_ok IS store_new(lm_cells_for("A11")).
 lm_store_put_tig(vault_ok, 1500).
-LOCAL refused IS p40_start(FALSE, vault_ok, 1000, "A11", 2000, 0, 46710, FALSE, V(0, 0, 0), V(1, 0, 0), V(0, 1, 0)).
+LOCAL refused IS p40_start(FALSE, vault_ok, 1000, "A11", 2000, 0, 46710, FALSE, V(1, 0, 0), V(0, 1, 0)).
 assert_true("refuses before P30 has run, and says so", refused["REFUSED"]:CONTAINS("run P30 first")).
-SET refused TO p40_start(FALSE, store_new(lm_cells_for("A11")), 1000, "A11", 2000, 0, 46710, d_xd(23.1), V(0, 0, 0), V(1, 0, 0), V(0, 1, 0)).
+SET refused TO p40_start(FALSE, store_new(lm_cells_for("A11")), 1000, "A11", 2000, 0, 46710, d_xd(23.1), V(1, 0, 0), V(0, 1, 0)).
 assert_true("refuses when TIG is not loaded", refused["REFUSED"]:CONTAINS("TIG is not loaded")).
-SET refused TO p40_start(FALSE, vault_ok, 1000, "A11", 2000, 0, 46710, d_xd(0), V(0, 0, 0), V(1, 0, 0), V(0, 1, 0)).
+SET refused TO p40_start(FALSE, vault_ok, 1000, "A11", 2000, 0, 46710, d_xd(0), V(1, 0, 0), V(0, 1, 0)).
 assert_true("refuses a delta-V of zero", refused["REFUSED"]:CONTAINS("zero")).
 assert_true("a good start is not refused", d_start(23.1)["REFUSED"] = "").
 
-// ---- the frames: P30's vectors are turned to the live axes by the Moon's spin ----
+// ---- the frames: P30's vectors are carried to the live axes by the measured turn (shared/lm_axes.ks) ----
+// D_AX_HOUR: the mark an hour of the Moon's spin after D_AX (2.66e-6 rad/s, 0.5487 degrees about the pole).
+LOCAL d_spin_deg IS 2.66e-6 * 3600 * 180 / CONSTANT:PI.
+LOCAL d_ax_hour IS LEXICON("P", V(COS(d_spin_deg), 0, SIN(d_spin_deg)), "N", V(0, 1, 0)).
 LOCAL pspin IS d_start(23.1).
-SET pspin["WM"] TO V(0, 2.66e-6, 0).
-LOCAL spun IS p40_live(pspin, V(1, 0, 0), 1100 + 3600).
-assert_near("an hour of the Moon's spin turns the vector 0.5487 degrees", VANG(spun, V(1, 0, 0)), 2.66e-6 * 3600 * 180 / CONSTANT:PI, 1e-4).
-assert_vec("and p40_to0 turns it back", p40_to0(pspin, spun, 1100 + 3600), V(1, 0, 0), 1e-9).
+LOCAL spun IS servicer_live(pspin, V(1, 0, 0), d_ax_hour).
+assert_near("an hour of the Moon's spin turns the vector 0.5487 degrees", VANG(spun, V(1, 0, 0)), d_spin_deg, 1e-4).
+assert_vec("and servicer_to0 turns it back", servicer_to0(pspin, spun, d_ax_hour), V(1, 0, 0), 1e-9).
 
-// ---- the servicer pass does not see the Moon's spin as a velocity change (the raw axes turn with the Moon) ----
+// ---- the servicer pass does not see the axes turning as a velocity change ----
+// A ship drifting at constant inertial velocity, no gravity (MU 0): nothing is gained, whether the raw axes turn over the pass or stand still (the inertial regime).
+LOCAL v_inertial IS V(0, 0, 1630).
 LOCAL ppass IS d_start(23.1).
-SET ppass["WM"] TO V(0, 2.66e-6, 0).
-LOCAL v_inertial IS V(0, 0, 1630).         // a ship drifting at constant inertial velocity, no gravity (MU 0): nothing is gained
-LOCAL pass_state IS LEXICON("V", p40_live(ppass, v_inertial, 3000), "R", V(1850000, 0, 0), "MU", 0).
-p40_pass(ppass, pass_state, 3000, FALSE).
-SET pass_state["V"] TO p40_live(ppass, v_inertial, 3002).
-LOCAL pass_data IS p40_pass(ppass, pass_state, 3002, FALSE).
+LOCAL pass_state IS LEXICON("V", servicer_live(ppass, v_inertial, d_ax_hour), "R", V(1850000, 0, 0), "MU", 0, "AX", d_ax_hour).
+servicer_pass(ppass, pass_state, 3000, FALSE).
+LOCAL d_turn2_deg IS 2.66e-6 * 3602 * 180 / CONSTANT:PI.
+SET pass_state["AX"] TO LEXICON("P", V(COS(d_turn2_deg), 0, SIN(d_turn2_deg)), "N", V(0, 1, 0)).
+SET pass_state["V"] TO servicer_live(ppass, v_inertial, pass_state["AX"]).
+LOCAL pass_data IS servicer_pass(ppass, pass_state, 3002, FALSE).
 assert_true("the pass closes after 2 s", pass_data:ISTYPE("Lexicon")).
-assert_near("a ship drifting inertially gains nothing, whatever the Moon's spin", pass_data["DELVREF"]:MAG, 0, 1e-6).
+assert_near("turning axes: a ship drifting inertially gains nothing", pass_data["DELVREF"]:MAG, 0, 1e-6).
+LOCAL pstill IS d_start(23.1).
+LOCAL still_state IS LEXICON("V", v_inertial, "R", V(1850000, 0, 0), "MU", 0, "AX", D_AX).
+servicer_pass(pstill, still_state, 3000, FALSE).
+SET pass_data TO servicer_pass(pstill, still_state, 3002, FALSE).
+assert_near("still axes: a ship drifting inertially gains nothing", pass_data["DELVREF"]:MAG, 0, 1e-6).
 
 // ---- alarm 1706: the descent stage is gone ----
 LOCAL pstg IS d_start(23.1).
@@ -133,6 +143,7 @@ LOCAL out IS d_step(pstg, 2000, D_V0, 0, ks_stg).
 assert_true("with only the ascent engine the first cycle is the stage alarm", pstg["PHASE"] = "STAGED" AND NOT out["ENDED"]).
 SET out TO d_step(pstg, 2000.25, D_V0, 0, ks_stg).
 assert_true("the alarm 1706 display is flashing V05 N09", out["ALARM"] = 1706 AND out["SET_VERB"] = 5 AND out["SET_NOUN"] = 9 AND out["REQUEST"]["VERB"] = 5 AND out["REQUEST"]["NOUN"] = 9).
+assert_true("alarm 1706 is a warning, not a message", out["WARN"]:CONTAINS("1706") AND out["MSG"] = "").
 SET out TO d_step(pstg, 2000.5, D_V0, 0, ks_stg).
 assert_true("and stays up without raising the alarm again", out["ALARM"] = 0 AND out["SET_VERB"] < 0 AND out["REQUEST"]:ISTYPE("Lexicon")).
 SET ks_stg["PRO"] TO TRUE.
@@ -248,6 +259,7 @@ FUNCTION d_to_burn_at {
 LOCAL ps1 IS d_start(23.1).
 SET out TO d_to_burn_at(ps1, 2480).
 assert_true("TIG 20 s ahead is slipped: alarm 1703", out["ALARM"] = 1703).
+assert_true("and the slip is a warning", out["WARN"]:CONTAINS("SLIPPED")).
 assert_near("and the new TIG is now + 49.9", ps1["TIG"], 2480 + 49.9, 1e-6).
 assert_near("the sequence is made for the new TIG", ps1["BB"]["TIG"], 2480 + 49.9, 1e-6).
 LOCAL ps2 IS d_start(23.1).

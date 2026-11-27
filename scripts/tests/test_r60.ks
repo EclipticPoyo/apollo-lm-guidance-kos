@@ -1,6 +1,5 @@
 // test_r60.ks -- pad test for R60 (lm_r60.ks), R02, R03 and P51 (lm_r02.ks), N18 and N25 and the P51 table entry. No ship access.
 //   RUNPATH("0:/tests/test_r60.ks").   Log: 0:/lm/logs/test_r60.log.
-// Written in release 1.4 and not yet run in KSP.
 
 RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/tests/test_lib.ks").
@@ -137,6 +136,20 @@ assert_true("rolled the other way: roll 335", angle_gap(ang[0], 335) < 1e-3).
 SET ang TO r60_cdu_angles(V(0, 0, 1), V(1, 0, 0), V(SIN(30), 0, COS(30)), V(COS(30), 0, -SIN(30))).
 assert_true("a turned reference: pitch 30, the rest 0", angle_gap(ang[0], 0) < 1e-3 AND angle_gap(ang[1], 30) < 1e-3 AND angle_gap(ang[2], 0) < 1e-3).
 assert_near("r60_wrap_deg of a hair under 360 is 0", r60_wrap_deg(-0.000001), 0, 1e-9).
+
+// ---- N18: the reference attitude carried to the burn's axes (the raw axes can turn between DSKY start and the burn) --------
+LOCAL tr60_then IS LEXICON("P", V(1, 0, 0), "N", V(0, 1, 0)).
+LOCAL tr60_later IS LEXICON("P", V(COS(30), 0, SIN(30)), "N", V(0, 1, 0)).        // the axes turned 30 degrees since
+LOCAL tr60_ref IS LEXICON("DIR", e_x, "UP", e_y, "AX", tr60_then).
+LOCAL tr60_moved IS r60_ref_in(tr60_ref, tr60_later).
+SET ang TO r60_cdu_angles(tr60_moved["DIR"], tr60_moved["UP"], tr60_later["P"], e_y).
+assert_true("an attitude held among the stars still reads 0, 0, 0 after the axes turn", angle_gap(ang[0], 0) < 1e-3 AND angle_gap(ang[1], 0) < 1e-3 AND angle_gap(ang[2], 0) < 1e-3).
+LOCAL tr60_keep IS LM_VEH.
+SET LM_VEH TO LEXICON("REF_ATT", tr60_ref, "XDELV", LEXICON("AX0", tr60_later)).
+assert_true("P40 and P41 are given the reference in the burn's axes", (lm_ref_att()["DIR"] - tr60_later["P"]):MAG < 1e-6).
+SET LM_VEH["XDELV"] TO FALSE.
+assert_true("with no burn set the reference is as stored", (lm_ref_att()["DIR"] - e_x):MAG < 1e-9).
+SET LM_VEH TO tr60_keep.
 
 // N18 and N25 registers
 LOCAL regs IS noun_registers(18, LEXICON("VALID", FALSE, "N18", LIST(0, 30, 335.5))).

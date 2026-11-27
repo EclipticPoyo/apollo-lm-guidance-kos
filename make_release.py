@@ -22,9 +22,9 @@ out_dir.mkdir(exist_ok=True)
 out = out_dir / f"apollo-lm-guidance-kos-{version}.zip"
 
 STUB = '// dsky.ks -- runs the DSKY (Ships/Script/core/dsky.ks, seen here as 0:/core/dsky.ks).\nRUNPATH("0:/core/dsky.ks").\n'
-PLAN_STUB = '// plan.ks -- opens the deorbit planner (Ships/Script/lm/planner/lm_plan_ui.ks, seen here as 0:/lm/planner/lm_plan_ui.ks).\nRUNPATH("0:/lm/planner/lm_plan_ui.ks").\n'
+PLAN_STUB = '// plan.ks -- opens the LM planner (Ships/Script/lm/planner/lm_plan_ui.ks, seen here as 0:/lm/planner/lm_plan_ui.ks).\nRUNPATH("0:/lm/planner/lm_plan_ui.ks").\n'
 # Files the DSKY and planner write while running (the dev machine's own clock zero, loads and uplink): never shipped.
-RUNTIME_FILES = ("clock.txt", "store.txt", "uplink.txt", "profile.txt")
+RUNTIME_FILES = ("clock.txt", "store.txt", "uplink.txt", "profile.txt", "ascent.json")
 # scripts/ mirrors the archive volume 0:, so scripts/<folder>/<file> ships as Ships/Script/<folder>/<file>. tests/ stays out.
 files = []
 for folder in ("core", "lm", "shared", "boot"):

@@ -53,7 +53,7 @@ assert_near("curve: more than full stays 1", thr_for_thrust(1.2), 1, 1e-9).
 assert_near("curve: thr_command passes full throttle through", thr_command(1), 1, 0).
 
 // ---- the thrust trim ----------------------------------------------------------------------------------------
-assert_near("trim: moves toward the error (0.02 short for 0.25 s)", trim_step(0, 0.3, 0.28, 0.25), 0.001, 1e-12).
+assert_near("trim: moves towards the error (0.02 short for 0.25 s)", trim_step(0, 0.3, 0.28, 0.25), 0.001, 1e-12).
 assert_near("trim: and the other way when the engine gives too much", trim_step(0, 0.3, 0.32, 0.25), -0.001, 1e-12).
 assert_near("trim: limited to the most allowed", trim_step(0.099, 0.6, 0.2, 10), THR_TRIM_MAX, 1e-12).
 assert_near("trim: and the least", trim_step(-0.099, 0.2, 0.6, 10), -THR_TRIM_MAX, 1e-12).
@@ -297,7 +297,7 @@ assert_true("p65_step never asks for a handover", NOT out5["HANDOVER"]).
 assert_true("p65_step: no contact lamp in the air", NOT out5["CONTACT"]).
 assert_true("p65_step: the throttle is a sensible fraction", CTL_THR > 0.2 AND CTL_THR < 0.4).
 assert_near("p65_step: the thrust direction is nearly up (raw X)", p5["BURN_DIR"]:NORMALIZED:X, 0.992, 0.002).
-assert_near("p65_step: and tilted back toward the site (the site is 20 m ahead, the ship 2 m/s too fast)", p5["BURN_DIR"]:NORMALIZED:Z, -0.1258, 0.005).
+assert_near("p65_step: and tilted back towards the site (the site is 20 m ahead, the ship 2 m/s too fast)", p5["BURN_DIR"]:NORMALIZED:Z, -0.1258, 0.005).
 SET st5 TO p5_state(2000.25, p5_r, p5_v, 13.15).
 SET out5 TO p65_step(p5, st5, nav_derived(st5, p5_land, p5_wm), p5_ks).
 assert_near("the display is requested only once", out5["SET_VERB"], -1, 0).
@@ -309,7 +309,7 @@ SET p5_rt TO rod_ramp(p5["ROD"], rod_lever, 0, 12, p5_rt).      // the key is re
 SET st5 TO p5_state(2000.4, p5_r, p5_v, 13.15).
 SET out5 TO p65_step(p5, st5, nav_derived(st5, p5_land, p5_wm), p5_ks).
 assert_true("a ROD click in AUTO does not start P66", p5["MODE"] = "P65").
-assert_true("and the message says to switch SAS on", out5["MSG"]:CONTAINS("AUTO")).
+assert_true("and a warning says to switch SAS on", out5["WARN"]:CONTAINS("AUTO")).
 assert_near("and the click is not kept for later", rod_take(p5["ROD"]), 0, 0).
 // SAS on alone does nothing; SAS on plus a click starts P66.
 SET p5["ATT"]["MODE"] TO "HOLD".
@@ -407,7 +407,7 @@ LOCAL st5c IS p5_state(2005, V(1737400.5, 0, 0), V(-0.2, 0, 0), 13.15).
 SET out5 TO p65_step(p5c, st5c, nav_derived(st5c, p5_land, p5_wm), p5_ks).
 assert_true("contact: the lamp lights", out5["CONTACT"]).
 assert_true("contact: not handed over yet", NOT out5["HANDOVER"]).
-assert_true("contact: the message says so", out5["MSG"]:CONTAINS("CONTACT")).
+assert_true("contact: a warning says so", out5["WARN"]:CONTAINS("CONTACT")).
 SET st5c TO p5_state(2005.1, V(1737400.5, 0, 0), V(-0.2, 0, 0), 13.15).
 SET out5 TO p65_step(p5c, st5c, nav_derived(st5c, p5_land, p5_wm), p5_ks).
 assert_true("contact: still burning at 0.1 s", NOT out5["HANDOVER"]).

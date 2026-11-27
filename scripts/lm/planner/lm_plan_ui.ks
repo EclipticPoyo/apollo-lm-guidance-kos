@@ -1,9 +1,13 @@
-// lm_plan_ui.ks -- the deorbit planner window. Run it in lunar orbit with no arguments:
+// lm_plan_ui.ks -- the LM planner window: a Deorbit page (in lunar orbit) and an Ascent page (landed, release 1.5). Run it with no arguments:
 //
 //   RUNPATH("0:/lm/planner/lm_plan_ui.ks").
 //
-// One column, top to bottom:
-//   the title, and the close cross (X) in the corner
+// Under the title and the close cross (X) a menu picks the page. The Ascent page, top to bottom: the targeted CSM and the pad loads in use (the ones
+// the LM already has: lm_profile_for), a Skip simulated uplink box of its own (off), PLAN, the ascent PAD (the loads are keyed at P12, as the crew keyed
+// them: there is no uplink), and a result line. It is lm_ascent_plan.ks (ascent_plan_run) and saves 0:/lm/ascent.json; ticked, P12 loads the lift-off
+// time, N76 and the rendezvous times from that file. It never touches plan.json or the erasable store. The map pins show only on the Deorbit page.
+//
+// The Deorbit page, one column, top to bottom:
 //   LANDING SITE   site menu (the Apollo sites, or Custom)  |  latitude and longitude
 //   PARAMETERS     pad loads menu    |  windows up in P63
 //                  max plane change  |  replace existing nodes
@@ -13,9 +17,9 @@
 //   one result line: "Plan OK! DOI: 14:03, PDI: 14:55, LDG: 15:03" (the game's UT clock: set the clock to UT), or why it failed.
 // Every row is a left part that stretches and a right part of fixed width, so the right column lines up.
 //
-// It is only a front end. The planning is lm_deorbit.ks (deorbit_run), run quietly: nothing is printed to the
+// The Deorbit page is only a front end. The planning is lm_deorbit.ks (deorbit_run), run quietly: nothing is printed to the
 // terminal, and the full report goes to 0:/lm/logs/lm_deorbit.log when LM_LOG is TRUE.
-// The planner adds maneuver nodes to the ship. With Skip simulated uplink ticked it writes 0:/lm/plan.json, which the DSKY (dsky.ks) loads into its
+// The planner adds manoeuvre nodes to the ship. With Skip simulated uplink ticked it writes 0:/lm/plan.json, which the DSKY (dsky.ks) loads into its
 // erasable store when it starts. By default (Skip simulated uplink off) it builds a PAD (lm_pad.ks) from the plan instead and, once the plan has worked, deletes
 // plan.json (and any old uplink file; a failed plan keeps them), so the DSKY starts empty and the pilot loads it the way the crew did: SEND writes 0:/lm/uplink.txt, which the DSKY
 // presses in as an uplink (V71 blocks for the site, the landing time and the DOI burn's delta-v and ignition time). A plane-change burn is the CSM's: the PAD only notes it.
@@ -32,6 +36,7 @@ RUNONCEPATH("0:/lm/lm_constants.ks").
 RUNONCEPATH("0:/lm/planner/lm_deorbit.ks").      // functions only (no arguments); also loads lm_site.ks, lm_plan.ks
 RUNONCEPATH("0:/lm/planner/lm_site_pins.ks").    // map-view pins for the sites
 RUNONCEPATH("0:/lm/planner/lm_pad.ks").          // pad_build, pad_write, pad_write_uplink (the simulated uplink)
+RUNONCEPATH("0:/lm/planner/lm_ascent_plan.ks").  // ascent_plan_run (the Ascent page)
 SET DP_QUIET TO TRUE.
 
 GLOBAL PLANUI_WIDTH IS 570.               // wide enough for the PAD's longest line (a burn block's eight words) at PLANUI_PAD_SIZE
@@ -81,19 +86,80 @@ FUNCTION planui_section {
   RETURN section_box.
 }
 
-// planui_fill: add all the widgets to the window. Returns a lexicon of the ones the loop reads. The explanations
-// are tooltips (hover the control).
+// planui_fill: add all the widgets to the window: the title row, the page menu and the two pages. Returns a lexicon of the ones the loop reads. The
+// explanations are tooltips (hover the control).
 FUNCTION planui_fill {
   PARAMETER win.
   LOCAL title_row IS win:ADDHBOX().                   // the title, and the close cross in the corner
   planui_flat(title_row, 0).
-  LOCAL title_w IS title_row:ADDLABEL("<size=16><b>Deorbit planner</b></size>").
+  LOCAL title_w IS title_row:ADDLABEL("<size=16><b>LM planner</b></size>").
   LOCAL close_button IS title_row:ADDBUTTON("X").
   SET close_button:STYLE:WIDTH TO PLANUI_CLOSE_SIZE.
   SET close_button:STYLE:HEIGHT TO PLANUI_CLOSE_SIZE.
-  SET close_button:TOOLTIP TO "Close the planner (the maneuver nodes stay).".
+  SET close_button:TOOLTIP TO "Close the planner (the manoeuvre nodes stay).".
   planui_parts:ADD(title_w).
   planui_parts:ADD(close_button).
+  LOCAL page_menu IS win:ADDPOPUPMENU().
+  page_menu:ADDOPTION("Deorbit").
+  page_menu:ADDOPTION("Ascent").
+  SET page_menu:TOOLTIP TO "Deorbit: plan the descent from lunar orbit. Ascent: the lift-off time and PAD for P12, landed with the CSM targeted.".
+  planui_parts:ADD(page_menu).
+  LOCAL deorbit_page IS win:ADDVBOX().
+  LOCAL ascent_page IS win:ADDVBOX().
+  planui_flat(deorbit_page, 0).
+  planui_flat(ascent_page, 0).
+
+  LOCAL ui IS planui_fill_deorbit(deorbit_page).
+  planui_fill_ascent(ascent_page, ui).
+  SET ui["CLOSE"] TO close_button.
+  SET ui["PAGE"] TO page_menu.
+  SET ui["DEORBIT_PAGE"] TO deorbit_page.
+  SET ui["ASCENT_PAGE"] TO ascent_page.
+  ascent_page:HIDE().
+  RETURN ui.
+}
+
+// planui_fill_ascent: the Ascent page's widgets, added to ui under their own keys.
+FUNCTION planui_fill_ascent {
+  PARAMETER page, ui.
+  LOCAL info_box IS planui_section(page, "ASCENT").
+  LOCAL target_w IS info_box:ADDLABEL("").
+  LOCAL profile_w IS info_box:ADDLABEL("").
+  LOCAL skip_box IS info_box:ADDCHECKBOX("Skip simulated uplink", FALSE).
+  SET skip_box:TOOLTIP TO "Unticked (default): key the lift-off time (N33) and the targets (N76) at P12 from the PAD. Ticked: P12 loads them, and the CSI and TPI times, from the saved ascent plan.".
+  planui_parts:ADD(target_w).
+  planui_parts:ADD(profile_w).
+  planui_parts:ADD(skip_box).
+  planui_parts:ADD(page:ADDSPACING(PLANUI_GAP)).
+  LOCAL button_row IS page:ADDHBOX().
+  planui_flat(button_row, PLANUI_PAD).
+  LOCAL plan_button IS button_row:ADDBUTTON("PLAN").
+  SET plan_button:TOOLTIP TO "Plan the ascent to the targeted CSM. Landed only. It takes a few seconds.".
+  planui_parts:ADD(plan_button).
+  LOCAL pad_box IS page:ADDVBOX().
+  SET pad_box:STYLE:PADDING:LEFT TO PLANUI_PAD_LEFT.
+  planui_parts:ADD(pad_box).
+  LOCAL pad_text IS pad_box:ADDLABEL("").
+  SET pad_text:STYLE:WORDWRAP TO FALSE.
+  planui_parts:ADD(pad_text).
+  LOCAL result_row IS page:ADDHBOX().
+  planui_flat(result_row, PLANUI_PAD).
+  LOCAL result_w IS result_row:ADDLABEL("").
+  SET result_w:STYLE:WORDWRAP TO TRUE.
+  planui_parts:ADD(result_w).
+  SET ui["ASC_TARGET"] TO target_w.
+  SET ui["ASC_PROFILE"] TO profile_w.
+  SET ui["ASC_SKIP"] TO skip_box.
+  SET ui["ASC_PLAN"] TO plan_button.
+  SET ui["ASC_PADTEXT"] TO pad_text.
+  SET ui["ASC_RESULT"] TO result_w.
+  planui_text(result_w, "Land, target the CSM and press PLAN.", PLANUI_GREY).
+  planui_pad_label(pad_text, LIST(), "The ascent PAD appears here after PLAN.").
+}
+
+// planui_fill_deorbit: the Deorbit page's widgets. Returns the lexicon of the ones the loop reads.
+FUNCTION planui_fill_deorbit {
+  PARAMETER win.
 
   // ---- Landing site: the site menu on the left, latitude and longitude in the right column ----
   // The menu has one entry per Apollo site, then "Custom" (typing in the fields). The height is always the terrain.
@@ -155,7 +221,7 @@ FUNCTION planui_fill {
   SET pc_field:TOOLTIP TO "The largest plane-change burn the planner may use. A plane change is only planned if the site is more than 2 km out of your orbit plane.".
   LOCAL replace_box IS pc_row:ADDCHECKBOX("Replace nodes", FALSE).
   SET replace_box:STYLE:WIDTH TO PLANUI_RIGHT_W.
-  SET replace_box:TOOLTIP TO "Remove the maneuver nodes already on the ship before planning. Off: planning stops if there are any.".
+  SET replace_box:TOOLTIP TO "Remove the manoeuvre nodes already on the ship before planning. Off: planning stops if there are any.".
   planui_parts:ADD(pc_label).
   planui_parts:ADD(pc_field).
   planui_parts:ADD(replace_box).
@@ -192,28 +258,74 @@ FUNCTION planui_fill {
   planui_parts:ADD(result_w).
 
   LOCAL ui IS LEXICON("MENU", menu, "LAT", lat_field, "LNG", lng_field, "PC", pc_field,
-                      "REPLACE", replace_box, "WINDOW", window_box, "PAD", pad_menu, "PLAN", plan_button, "CLOSE", close_button,
+                      "REPLACE", replace_box, "WINDOW", window_box, "PAD", pad_menu, "PLAN", plan_button,
                       "RESULT", result_w, "SKIP", skip_box, "SEND", send_button, "PADTEXT", pad_text, "PAD_KEYS", LIST()).
   planui_result(ui, "Pick a site and press PLAN.", PLANUI_GREY).
   planui_pad_show(ui, LIST()).
   RETURN ui.
 }
 
-// planui_result: the one result line, small, in a colour (green good, red failure, grey hint, amber warning).
-FUNCTION planui_result {
-  PARAMETER ui, message, colour.
-  SET ui["RESULT"]:TEXT TO "<size=12><color=" + colour + ">" + message + "</color></size>".
+// planui_text: one line of small text in a colour on a label (green good, red failure, grey hint, amber warning).
+FUNCTION planui_text {
+  PARAMETER label_w, message, colour.
+  SET label_w:TEXT TO "<size=12><color=" + colour + ">" + message + "</color></size>".
 }
 
-// planui_pad_show: show PAD lines in the scroll box (small text); an empty list shows what the box is for.
-FUNCTION planui_pad_show {
-  PARAMETER ui, lines.
-  LOCAL pad_body IS "The PAD appears here after PLAN (with Skip simulated uplink off).".
+// planui_result: the Deorbit page's result line.
+FUNCTION planui_result {
+  PARAMETER ui, message, colour.
+  planui_text(ui["RESULT"], message, colour).
+}
+
+// planui_pad_label: show PAD lines on a label (small text); an empty list shows empty_text, what the box is for.
+FUNCTION planui_pad_label {
+  PARAMETER label_w, lines, empty_text.
+  LOCAL pad_body IS empty_text.
   IF lines:LENGTH > 0 {
     SET pad_body TO "".
     FOR pad_line IN lines { SET pad_body TO pad_body + (CHOOSE "" IF pad_body = "" ELSE CHAR(10)) + pad_line. }
   }
-  SET ui["PADTEXT"]:TEXT TO "<size=" + PLANUI_PAD_SIZE + "><color=" + PLANUI_PAD_TEXT + ">" + pad_body + "</color></size>".
+  SET label_w:TEXT TO "<size=" + PLANUI_PAD_SIZE + "><color=" + PLANUI_PAD_TEXT + ">" + pad_body + "</color></size>".
+}
+
+// planui_pad_show: the Deorbit page's PAD.
+FUNCTION planui_pad_show {
+  PARAMETER ui, lines.
+  planui_pad_label(ui["PADTEXT"], lines, "The PAD appears here after PLAN (with Skip simulated uplink off).").
+}
+
+// planui_ascent_profile: the Ascent page's pad-loads line (reads the plan file: called when the page is opened, not every pass).
+FUNCTION planui_ascent_profile {
+  PARAMETER ui.
+  planui_text(ui["ASC_PROFILE"], "Pad loads: " + (CHOOSE "J-class (Luminary 210)" IF lm_profile_for(plan_read(PLAN_PLAN_FILE)) = "J" ELSE "Apollo 11 (Luminary 099)"), PLANUI_GREY).
+}
+
+// planui_ascent_target: the Ascent page's target line. shown_name is what the line shows now; returns what it shows after, so the label is only
+// rewritten when the target changes.
+FUNCTION planui_ascent_target {
+  PARAMETER ui, shown_name.
+  LOCAL target_text IS "none (target the CSM in the map view)".
+  IF HASTARGET { SET target_text TO TARGET:NAME. }
+  IF target_text <> shown_name { planui_text(ui["ASC_TARGET"], "Target: " + target_text, PLANUI_PAD_TEXT). }
+  RETURN target_text.
+}
+
+// planui_ascent_run: plan the ascent and show the PAD and the result.
+FUNCTION planui_ascent_run {
+  PARAMETER ui.
+  planui_pad_label(ui["ASC_PADTEXT"], LIST(), "").
+  planui_text(ui["ASC_RESULT"], "Planning (simulating the ascent)...", PLANUI_GREY).
+  WAIT 0.2.                                       // let the window redraw before the planner takes over
+  LOCAL res IS ascent_plan_run(ui["ASC_SKIP"]:PRESSED).
+  IF NOT res["OK"] {
+    planui_text(ui["ASC_RESULT"], "Plan failed: " + res["WHY"] + ".", PLANUI_RED).
+    RETURN.
+  }
+  planui_pad_label(ui["ASC_PADTEXT"], res["LINES"], "").
+  IF LM_LOG { pad_write(res["LINES"], "0:/lm/logs/ascent_pad.log"). }
+  LOCAL ok_note IS "Plan OK! Key the PAD at P12.".
+  IF ui["ASC_SKIP"]:PRESSED { SET ok_note TO "Plan OK! P12 loads the lift-off time, N76 and the rendezvous times.". }
+  planui_text(ui["ASC_RESULT"], ok_note, (CHOOSE PLANUI_GREEN IF res["WARN"]:LENGTH = 0 ELSE PLANUI_AMBER)).
 }
 
 // planui_manual_after_plan: uplink mode (Skip simulated uplink off), a plan was just made: build the PAD from the saved plan, then take the plan file away so the
@@ -312,6 +424,7 @@ FUNCTION planui_run {
   IF DP_RESULT:LENGTH > 0 {
     planui_result(ui, "Plan OK! DOI: " + DP_RESULT["DOI"] + ", PDI: " + DP_RESULT["PDI"] + ", LDG: " + DP_RESULT["LDG"], PLANUI_GREEN).
     IF EXISTS(LM_STORE_FILE) { DELETEPATH(LM_STORE_FILE). }      // a new plan: loads kept from an earlier DSKY run are out of date
+    IF EXISTS(ASC_PLAN_FILE) { DELETEPATH(ASC_PLAN_FILE). }      // ... and so is an ascent plan from the last landing
     IF NOT manual { lm_clock_zero_clear(). lm_profile_clear(). }          // Skip simulated uplink: plan.json holds UT and PROFILE, no shared clock or version file
     IF manual { lm_profile_clear(). }                 // a PAD that fails below leaves no version from an older PAD
     IF manual {
@@ -322,6 +435,12 @@ FUNCTION planui_run {
     }
     IF DP_RESULT["WARN"]:LENGTH > 0 {
       SET ui["RESULT"]:TEXT TO ui["RESULT"]:TEXT + CHAR(10) + "<size=12><color=" + PLANUI_AMBER + ">Warning: " + DP_RESULT["WARN"][0] + "</color></size>".
+    }
+    // The aborts' check of the CSM: amber for a warning, grey otherwise.
+    FOR one_check IN DP_RESULT["CSM"] {
+      LOCAL check_colour IS PLANUI_GREY.
+      IF one_check["WARN"] { SET check_colour TO PLANUI_AMBER. }
+      SET ui["RESULT"]:TEXT TO ui["RESULT"]:TEXT + CHAR(10) + "<size=12><color=" + check_colour + ">" + one_check["TEXT"] + "</color></size>".
     }
   } ELSE {
     planui_result(ui, "Plan failed: " + DP_REASON, PLANUI_RED).     // the reason; the full report is in the log
@@ -342,12 +461,25 @@ GLOBAL planui_pins IS pins_make().
 
 LOCAL planui_running IS TRUE.
 LOCAL planui_skip_last IS planui["SKIP"]:PRESSED.      // the box's state last pass (a checkbox has no CHANGED flag here)
+LOCAL planui_page_last IS 0.                           // 0 Deorbit, 1 Ascent
+LOCAL planui_target_shown IS "".
 UNTIL NOT planui_running {
   IF planui["CLOSE"]:TAKEPRESS {
     SET planui_running TO FALSE.
   } ELSE {
-    pins_update(planui_pins, planui["MENU"]:INDEX, planui_pins_valid(planui),
-                planui_number(planui["LAT"]:TEXT), planui_number(planui["LNG"]:TEXT)).
+    LOCAL planui_page IS (CHOOSE 1 IF planui["PAGE"]:INDEX = 1 ELSE 0).
+    IF planui_page <> planui_page_last {
+      SET planui_page_last TO planui_page.
+      IF planui_page = 1 { planui["DEORBIT_PAGE"]:HIDE(). planui["ASCENT_PAGE"]:SHOW(). pins_clear(planui_pins). planui_ascent_profile(planui). }
+      ELSE { planui["ASCENT_PAGE"]:HIDE(). planui["DEORBIT_PAGE"]:SHOW(). }
+    }
+    IF planui_page = 0 {
+      pins_update(planui_pins, planui["MENU"]:INDEX, planui_pins_valid(planui),
+                  planui_number(planui["LAT"]:TEXT), planui_number(planui["LNG"]:TEXT)).
+    } ELSE {
+      SET planui_target_shown TO planui_ascent_target(planui, planui_target_shown).
+    }
+    IF planui["ASC_PLAN"]:TAKEPRESS { planui_ascent_run(planui). }
     IF planui["MENU"]:CHANGED { planui_pick(planui, planui["MENU"]:INDEX). }
     IF planui["LAT"]:CHANGED OR planui["LNG"]:CHANGED { planui_sync_menu(planui). }
     IF planui["PLAN"]:TAKEPRESS { planui_run(planui). }

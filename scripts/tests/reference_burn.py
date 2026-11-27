@@ -122,6 +122,41 @@ def plan_lv_to_dv(lv, r_vec, v_vec):
     return sub(sub(scale(track, lv[0]), scale(nrm, lv[1])), scale(up, lv[2]))
 
 
+def s40_13_aps(mass, vg_mag, profile):
+    """Burn time of the ascent engine (210 P40-P47.agc 1035-1135, 099 the same but for K1 and the ullage)."""
+    thrust, flow = 15569.0, 5.135
+    k1 = 14012.0 if profile == "J" else 12455.0
+    k2 = 3113.8
+    ull = 6.5 * FRCS4 / mass if profile == "J" else 4.0 * FRCS2 / mass
+    v = vg_mag - ull
+    impulse = True
+    if v < k1 / mass:
+        burn = (mass * v / 2 + k2) / thrust
+    else:
+        over = v - k1 / mass
+        five = 5 * thrust / (mass - 3.5 * flow)
+        if over < five:
+            burn = 1 + 5 * over / five
+        else:
+            burn = mass * v / thrust
+            impulse = False
+    return {"BURN_S": max(0.0, burn), "NOTHROTL": True, "IMPULSE": impulse}
+
+
+def checks_aps():
+    """S40.13 for the ascent engine (210 P40-P47.agc 1035-1135): the three regimes."""
+    ok = True
+    for mass, vg, prof in ((4700.0, 3.0, "J"), (4700.0, 12.0, "J"), (4700.0, 25.0, "J"), (4700.0, 25.0, "A11"), (4700.0, 1.0, "J")):
+        b = s40_13_aps(mass, vg, prof)
+        print("S40.13 APS mass", mass, "|VG|", vg, prof, "->", b)
+    ok = ok and s40_13_aps(4700.0, 3.0, "J")["IMPULSE"] and s40_13_aps(4700.0, 12.0, "J")["IMPULSE"]
+    ok = ok and not s40_13_aps(4700.0, 25.0, "J")["IMPULSE"] and s40_13_aps(4700.0, 1.0, "J")["BURN_S"] >= 0
+    ok = ok and abs(s40_13_aps(4700.0, 25.0, "J")["BURN_S"] - 4700.0 * (25.0 - 6.5 * FRCS4 / 4700.0) / 15569.0) < 1e-9
+    if not ok:
+        raise SystemExit("FAIL S40.13 APS")
+    print("S40.13 APS checks OK")
+
+
 if __name__ == "__main__":
     # DOI case: a circular orbit 60 nmi up (the brief's "1,837,400 m" is 100 km = 54 nmi and puts perilune below the
     # surface, so the 60 nmi radius is used), retrograde 23.1 m/s (76 ft/s) along track. Position +X, velocity +Z.
@@ -168,3 +203,4 @@ if __name__ == "__main__":
         back = plan_lv_to_dv(plan_lv_components(d, rr, vv), rr, vv)
         assert mag(sub(back, d)) < 1e-9, (d, back)
     print("plan_lv_to_dv round trips OK")
+    checks_aps()
