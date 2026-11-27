@@ -39,11 +39,11 @@ band: BRAKING | {@3-17}
 - | DSKY | V37E 20E. PRO to turn, ENTR when it asks again (delta-v count instead: V37E 47E)
 v: Gauge: RANGE, RATE (- closing), next gate. V83E (V16 N54): R1 0.01 nm, R2 0.1 ft/s
 - | GAUGE | From 6000 ft (1830 m), thrust towards the needle: H up, N down, L right, J left
-gate: GATE | 6000 ft (1830 m) | 30 ft/s (9.1 m/s)
-gate: GATE | 3000 ft (915 m) | 20 ft/s (6.1 m/s)
-gate: GATE | 1500 ft (460 m) | 10 ft/s (3 m/s)
-[A11] gate: GATE | 600 ft (180 m) | 5 ft/s (1.5 m/s)
-[J] gate: GATE | 500 ft (150 m) | 5 ft/s (1.5 m/s)
+gate: 6000 ft (1830 m) | 30 ft/s (9.1 m/s)
+gate: 3000 ft (915 m) | 20 ft/s (6.1 m/s)
+gate: 1500 ft (460 m) | 10 ft/s (3 m/s)
+[A11] gate: 600 ft (180 m) | 5 ft/s (1.5 m/s)
+[J] gate: 500 ft (150 m) | 5 ft/s (1.5 m/s)
 band: DOCKING | from 100 ft (30 m)
 - | SHIP | **SAS on**
 - | DSKY | **X, YES** (closes it)

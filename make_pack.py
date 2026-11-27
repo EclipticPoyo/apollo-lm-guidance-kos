@@ -419,6 +419,26 @@ def render_body(body, ver=""):
         return re.sub(r"<tr>\s*<td>== (.*?)</td>.*?</tr>", band, table, flags=re.S)
 
     out = re.sub(r"<table.*?</table>", bands, out, flags=re.S)
+
+    def labels(m):
+        """A phone stacks a table of three columns or more (pack.css), so each cell after a row's first names its column."""
+        table = m.group(0)
+        heads = [html.escape(html.unescape(re.sub(r"<[^>]*>", "", h)).strip()) for h in re.findall(r"<th(?: [^>]*)?>(.*?)</th>", table, re.S)]
+        if len(heads) < 3:
+            return table
+
+        def row(r):
+            column = iter(range(len(heads)))
+
+            def cell(_):
+                i = next(column)
+                return f'<td data-l="{heads[i]}"' if i else "<td"
+
+            return re.sub(r"<td(?=[ >])", cell, r.group(0))
+
+        return re.sub(r"<tr[ >].*?</tr>", row, table, flags=re.S)
+
+    out = re.sub(r"<table.*?</table>", labels, out, flags=re.S)
     out = re.sub(r"(<table.*?</table>)", r'<div class="tw">\1</div>', out, flags=re.S)
     for i, markup in enumerate(holders):
         out = re.sub(rf"<p>PACKHOLD{i}</p>", lambda _: markup, out)
@@ -549,6 +569,9 @@ THEME_BODY = ("<script>(function(){var b=document.getElementById('theme'),r=docu
               "function label(){var d=r.getAttribute('data-theme')=='dark';b.innerHTML=(d?SUN:MOON)+' '+(d?'Light mode':'Dark mode')}label();"
               "b.addEventListener('click',function(){var t=r.getAttribute('data-theme')=='dark'?'light':'dark';"
               "r.setAttribute('data-theme',t);try{localStorage.setItem('pack-theme',t)}catch(e){}label()})})()</script>")
+# A phone shows part of a route timeline and scrolls the rest: start each one with the page's own stop in the middle (web page only).
+ROUTE_BODY = ("<script>document.querySelectorAll('.route').forEach(function(r){var h=r.querySelector('.here');if(!h)return;"
+              "var a=h.getBoundingClientRect(),b=r.getBoundingClientRect();r.scrollLeft+=a.left+a.width/2-b.left-b.width/2})</script>")
 
 
 # The browser tab icon: a tiny DSKY on a dark tile: the grey housing, a black display with three green register lines and a column of lamps,
@@ -572,7 +595,7 @@ def build_html(pages, sheets):
             "<title>LM Guidance Computer: Pilot's Pack</title>"
             f"<link rel=\"icon\" type=\"image/svg+xml\" href=\"{FAVICON}\">"
             f"<style>{css}</style>{'' if sheets else THEME_HEAD}</head><body{' class=\"sheets\"' if sheets else ''}><div class=\"wrap\">{'' if sheets else TOPBAR}{embed_images(body)}</div>"
-            + (f"<script>{FIT}</script>" if sheets else THEME_BODY) + "</body></html>")
+            + (f"<script>{FIT}</script>" if sheets else THEME_BODY + ROUTE_BODY) + "</body></html>")
 
 
 def find_browser():

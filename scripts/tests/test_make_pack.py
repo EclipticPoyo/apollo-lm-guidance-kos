@@ -198,4 +198,16 @@ assert '<tr class="band"><td colspan="2">Both</td></tr>' in idx
 ph = mp.render_body("```strips\n- [J] 210 burns | P34 | a | b\n- Tracking | P20 | a | b\n```")
 assert ph.count('<div class="ph j">') == 1 and "[J]" not in ph
 
+# a table of three columns or more is stacked on a phone, so each cell after the first carries its column's heading
+wide = mp.render_body('<!--table st-->\n| Want | Press "now" | You get |\n|---|---|---|\n| a | b | c |\n| == One | | |')
+assert '<td>a</td>' in wide and '<td data-l="Press &quot;now&quot;">b</td>' in wide and '<td data-l="You get">c</td>' in wide
+assert '<tr class="band"><td colspan="3">One</td></tr>' in wide
+assert "data-l" not in mp.render_body("<!--table st-->\n| Problem | Action |\n|---|---|\n| a | b |")      # two columns: no labels
+
+# phone rules: after every rule they override (a media query adds no weight, so the later rule wins), and screen only, not print
+css = (mp.PACK / "pack.css").read_text(encoding="utf-8")
+assert css.count("@media(max-width") == 0 and css.count("@media screen and (max-width:640px)") == 1
+tail = css[css.index("@media screen and (max-width:640px)"):].rstrip()
+assert tail.count("{") == tail.count("}") and not re.search(r"^\S", tail.split("\n", 1)[1].rsplit("}", 1)[0], re.M)   # the last block in the file
+
 print("test_make_pack: OK")

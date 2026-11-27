@@ -86,8 +86,6 @@ th{font:700 .7rem var(--sans);letter-spacing:.07em;text-transform:uppercase;back
 .flowrow div{border:1px solid var(--ink);margin-left:-1px;padding:6px;text-align:center;font:700 .74rem var(--sans);letter-spacing:.05em;text-transform:uppercase;position:relative}
 .flowrow div span{display:block;font:400 .72rem var(--type);text-transform:none;letter-spacing:0;margin-top:2px}
 .flowrow div:not(:last-child)::after{content:"\25B6";position:absolute;right:-8px;top:50%;transform:translateY(-50%);font-size:.6rem;background:var(--paper);z-index:1;padding:1px 0}
-@media(max-width:640px){
- .need ul{columns:1}.lampgrid{grid-template-columns:1fr}.ph{grid-template-columns:92px minmax(0,1fr)}.ph .nm{grid-column:1/-1;grid-row:auto}.flowrow{grid-template-columns:1fr 1fr 1fr}.flowrow div:not(:last-child)::after{display:none}}
 
 /* notes */
 .note,.caut{border:1.5px solid var(--ink);margin:10px 0;display:grid;grid-template-columns:auto minmax(0,1fr);font-size:.9rem}
@@ -205,15 +203,6 @@ a.ref{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .cl .chg::before{content:"";position:absolute;left:-12px;top:0;bottom:0;border-left:3px solid var(--ink)}
 .cl-legend{font:400 .72rem var(--type);text-transform:uppercase;border:1px solid var(--ink);padding:4px 8px;margin:0 0 10px;display:flex;flex-wrap:wrap;gap:2px 18px}
 
-@media(max-width:640px){
- .cl::before{display:none}
- .cl .cln{grid-template-columns:1fr;padding:4px 0;border-bottom:1px dotted var(--mute)}
- .cl .ctm{text-align:left;padding:0 0 1px 14px}
- .cl .cif,.cl .cgo{margin-left:0}
- .hdr.v{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto}      /* the two text cells share what the numbers leave */
- .hdr.v .vbox{padding:0 8px;font-size:1.2rem}
-}
-
 /* ---------------- print and sheet mode ---------------- */
 @page{size:A4;margin:6mm}
 @media print{
@@ -234,3 +223,60 @@ body.sheets .sheet .page{box-shadow:none;margin:0}
 .topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.topbar a{color:var(--ink)}
 .topbar button{font:700 .8rem var(--sans);letter-spacing:.05em;text-transform:uppercase;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);padding:3px 10px;cursor:pointer}
 .topbar button svg{vertical-align:-2px;margin-right:2px}
+
+/* ---------------- phones (web page only) ----------------
+   Keep this block last: a media query adds no weight to a rule, so one placed before the rule it overrides does nothing. */
+@media screen and (max-width:640px){
+ /* less margin, more page */
+ body{padding:10px max(6px,env(safe-area-inset-left,0px)) 40px}
+ .page{margin-bottom:16px}
+ .pb{padding:12px 10px 4px}
+ .hdr>div,.hdr>div:last-child{padding:6px 8px}
+ .hdr b{font-size:.72rem;letter-spacing:.04em}
+ .hdr span{font-size:.64rem;letter-spacing:0}
+ .hdr .sec{font-size:.64rem;letter-spacing:.05em}
+ .hdr.v{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto}      /* the two text cells share what the numbers leave */
+ .hdr.v .vbox{padding:0 8px;font-size:1.2rem}
+ .ftr{padding:5px 8px;gap:8px}
+ /* checklists: the time tag goes above its line */
+ .cl::before{display:none}
+ .cl .cln{grid-template-columns:minmax(0,1fr);padding:4px 0;border-bottom:1px dotted var(--mute)}
+ .cl .ctm{text-align:left;padding:0 0 1px 14px}
+ .cl .cif,.cl .cgo{margin-left:0;margin-right:0}
+ /* rows of figures: range and speed above, the registers under them */
+ .cl .cln.g .cac{display:grid;grid-template-columns:5ch 10ch minmax(0,1fr);row-gap:1px}
+ .cl .gsi{width:auto}
+ .cl .greg{margin-left:0}
+ .cl .gsi+.gfig,.cl .gsi+.greg{grid-column:2}
+ .cl .greg+.greg{grid-column:3;padding-left:1ch}
+ /* the abort box: its keys under the bar */
+ .cl .cabort{flex-wrap:wrap}
+ .cl .cabort b{flex:1}
+ .cl .cabort span{order:1;flex-basis:100%;padding:6px 10px}
+ /* notes and cautions: the label is a bar above the text */
+ .note,.caut{grid-template-columns:minmax(0,1fr)}
+ .note b,.caut b{border-right:0;padding:4px 10px}
+ .note b{border-bottom:1.5px solid var(--ink)}
+ /* lists and strips in one column */
+ .need ul{columns:1}
+ .lampgrid{grid-template-columns:minmax(0,1fr)}
+ .ph{grid-template-columns:92px minmax(0,1fr)}
+ .ph .nm{grid-column:1/-1;grid-row:auto;margin-bottom:4px}
+ .flowrow{grid-template-columns:1fr 1fr 1fr}.flowrow div:not(:last-child)::after{display:none}
+ /* tables: contents and index stay tables; the others stack, one block for each row, its first cell as the heading */
+ .toc td:first-child,.toc td:last-child{width:56px}
+ .idx td:first-child{width:44px}.idx td:last-child{width:34%}
+ .page .st,.page .vt,.page .nt,.page .st tbody,.page .vt tbody,.page .nt tbody,.page .st tr,.page .vt tr,.page .nt tr,.page .st td,.page .vt td,.page .nt td{display:block}
+ .page .st thead,.page .vt thead,.page .nt thead{display:none}
+ .page .st tr,.page .vt tr,.page .nt tr{border-bottom:1px solid var(--hair);padding:6px 0}
+ .page .st td,.page .vt td,.page .nt td{border:0!important;width:auto;white-space:normal;padding:1px 8px;overflow-wrap:anywhere}
+ .page .st td:empty,.page .vt td:empty,.page .nt td:empty{display:none}
+ .page .st td:first-child,.page .vt td:first-child,.page .nt td:first-child{font-weight:700;white-space:normal;width:auto;padding-right:8px;margin-bottom:2px}
+ .page td code,.page td .dsp{white-space:normal}
+ .page table tr.band{padding:0;border-bottom:0}
+ .page table tr.band td{padding:5px 10px;margin:0}
+ .page .nt tr.key{background:var(--tint);border-left:6px solid var(--ink)}
+ .page .st td[data-l]::before,.page .vt td[data-l]::before{content:attr(data-l);display:block;font:700 .62rem/1.8 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+ .page .nt td[data-l]{position:relative;padding-left:40px}
+ .page .nt td[data-l]::before{content:attr(data-l);position:absolute;left:8px;font:700 .68rem/1.9 var(--sans);color:var(--mute)}
+}
