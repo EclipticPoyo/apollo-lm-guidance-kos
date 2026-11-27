@@ -17,14 +17,16 @@ An Apollo Lunar Module-inspired guidance computer for Kerbal Space Program, writ
 - Kerbal Space Program 1.12.5
 - [kOS](https://github.com/KSP-KOS/KOS) 1.6.0.1 (a kOS processor on the lander)
 - [Realism Overhaul](https://github.com/KSP-RO/RealismOverhaul) (RO) and its own dependencies
-- Sol (replaces RSS), available from BallisticFox's Discord
+- One of:
+  - Sol (replaces RSS), available from BallisticFox's Discord
+  - [Real Solar System](https://github.com/KSP-RO/RealSolarSystem) and its own dependencies, including its textures
 
-**Recommended**
+**Recommended (with Sol)**
 
 - Mirage
 - TiltEm, if you use Mirage (Mirage works best with it; this program does not need it)
 
-It was only tested with these installed together.
+It was only tested with Sol, Mirage and TiltEm installed together.
 
 ## Install
 
