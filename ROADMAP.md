@@ -18,14 +18,17 @@ Status: ✅ released · 🚧 in progress · 🔬 researched · 📝 planned
 
 ## Phase 2: the full mission (2.x)
 
-Saturn launch, then the command module, the lunar module, the command module again for the trip home, and reentry.
+The full mission: Saturn launch, the command module out to the Moon, the lunar module, the command module home, and reentry. Like 1.0, each release is made only when it flies as a complete phase of the mission. The order starts in lunar orbit, next to what the LM releases already fly, then adds the way home, then the way out.
 
 | Version | Theme | What it adds | Status |
 |---|---|---|---|
-| **2.0** | CSM basics | A DSKY on each craft, each running its own computer's profile (lamps, programme list, verb/noun tables, name, version); command module computer (Colossus and Artemis), SPS burns, mid-course corrections, lunar orbit insertion, transearth injection | 📝 |
-| **2.1** | Entry | P61 to P67 entry guidance | 📝 |
-| **2.2** | Launch | Saturn guidance and the TLI burn | 📝 |
-| **2.3** | Full mission | Everything linked end to end | 📝 |
+| **2.0** | Lunar orbit | Lunar approach to orbit work. A DSKY on each craft, each running its own computer (lamps, programme list, verb and noun tables, name, version); the command module computer (Comanche 055 to match Luminary 099, Artemis 072 to match Luminary 210); V48, P30, P40, P41 and P47; lunar orbit insertion with the LM docked; orbit burns, including the plane change, docked or undocked; command module rendezvous to rescue the LM. The manual becomes two books, one for the lunar module and one for the command module | 📝 |
+| **2.1** | Home | Transearth injection to splashdown: the return mid-course corrections, P37, and entry guidance (P61 to P67) | 📝 |
+| **2.2** | Out and full mission | Launch pad to lunar approach: Saturn guidance, the TLI burn, the docking procedure and the outbound mid-course corrections. Completes the full mission, flown from the pad to splashdown | 📝 |
+
+2.0 is built in this order: the two manual books, the DSKY on the command module, its burn programmes, its rendezvous, then lunar orbit insertion.
+
+The command module's rendezvous in 2.0 is for rescue only. The two DSKYs cannot both be worked while the craft are apart in KSP, so the command module computes no live backup solutions while the lunar module flies a rendezvous.
 
 ## Research track
 
@@ -46,10 +49,9 @@ flowchart TD
     v131 --> v14["1.4 Burn programmes"]
     att(["Research: attitude control"]) -.-> v14
     v14 --> v15["1.5 Ascent, aborts and rendezvous"]
-    v15 --> v20["2.0 CSM basics"]
-    v20 --> v21["2.1 Entry"]
-    v21 --> v22["2.2 Launch"]
-    v22 --> v23["2.3 Full mission"]
+    v15 --> v20["2.0 Lunar orbit"]
+    v20 --> v21["2.1 Home"]
+    v21 --> v22["2.2 Out and full mission"]
     classDef done fill:#d4edda,stroke:#2e7d32,color:#111111
     classDef research fill:#fff3cd,stroke:#b8860b,color:#111111,stroke-dasharray:4 3
     class v10,v11,v12,v13,v131,v14,v15 done
