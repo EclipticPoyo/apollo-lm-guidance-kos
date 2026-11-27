@@ -60,6 +60,7 @@ DOCS = ROOT / "docs"
 PACK = DOCS / "pack"
 SITE = ROOT / "site"
 PDF = DOCS / "PACK.pdf"
+PADS_URL = "https://eclipticpoyo.github.io/apollo-lm-guidance-kos/pads.html"    # absolute, so it also works from the PDF
 
 BROWSERS = [
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
@@ -491,10 +492,11 @@ def page_html(meta, body, number, version, part=0, parts=1):
     style = "page lite" if meta["page"][0] in "124A" else "page"          # reference pages: thin rules and black bars
     ver = route_of(meta["page"])
     hdr, vbox = ("hdr v", f'<div class="vbox{route_class(ver)}">{ver}</div>') if ver else ("hdr", "")
+    links = inline_refs("{@0-1 Contents} &nbsp; {@3-0 Index}") + f' &nbsp; <a href="{PADS_URL}">PADs</a>'
     return (f'<div class="{style}"{anchor}><div class="{hdr}"><div><b>LM Guidance Computer</b><span>PILOT\'S PACK</span></div>'
             f'<div class="sec">{sec}</div>{vbox}<div>{html.escape(meta["page"])}</div></div>'
             f'<div class="pb">{render_body(body, ver)}{onward}</div>{route_strip(meta["page"])}'
-            f'<div class="ftr"><span>Release {version}</span><span>{inline_refs("{@0-1 Contents} &nbsp; {@3-0 Index}")}</span>'
+            f'<div class="ftr"><span>Release {version}</span><span>{links}</span>'
             f'<span>LGC-{number}</span></div></div>')
 
 

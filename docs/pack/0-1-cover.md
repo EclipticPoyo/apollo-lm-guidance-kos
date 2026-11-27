@@ -17,6 +17,7 @@ An Apollo Lunar Module guidance computer for Kerbal Space Program, written in kO
 | | {@0-3 Ascent card} | {@0-3} |
 | | {@0-4 Abort card} | {@0-4} |
 | | {@0-5 Rendezvous card} | {@0-5} |
+| | **[PAD forms: write your figures here](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/pads.html)** | [online](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/pads.html) |
 | 1 | {@1-1 System} | {@1-1} |
 | 2 | {@2-1 Reference: verbs, alarms, nouns, settings, loads, update, refusals} | {@2-1} |
 | 3 | {@3-0 Checklists: the index} | {@3-0 3-0} |
