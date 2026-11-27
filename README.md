@@ -59,7 +59,7 @@ To abort a landing (from P63 ignition until PRO at P68), click outside the kOS t
 
 ## How to fly it
 
-See the **[Pilot's Pack](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/)**, the manual: a landing card, reference tables and checklists. Download the [PDF](docs/PACK.pdf) (A4) to print it.
+See the **[Pilot's Pack](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/)**, the manual: a landing card, reference tables and checklists. Download the [PDF](docs/PACK.pdf) (A4) to print it, or only the [flight cards and checklists](docs/CHECKLISTS.pdf).
 
 Write the figures down on the **[LM PADs](https://eclipticpoyo.github.io/apollo-lm-guidance-kos/pads.html)**, the crew's own forms and data cards recreated, to type into or print (also in the download: `docs/pads.html`).
 

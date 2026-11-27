@@ -5,6 +5,7 @@ Reads docs/pack/*.md (one file per pack page, in file name order) and docs/pack/
   site/pads.html    a copy of docs/pads.html, the PAD forms page (not part of the pack; edited by hand)
   docs/PACK.pdf     with --pdf: A4 sheets, one or more per pack page, all at one text size, printed by Microsoft Edge or
                     Google Chrome (headless). The build fails if a sheet overflows
+  docs/CHECKLISTS.pdf  also with --pdf: only the flight cards (0-2 to 0-5) and section 3, from the same pages
 Needs the `markdown` package (pip install markdown). Nothing is edited by hand in the output: change the source and build again.
 The design and the source format are in docs/superpowers/specs/2026-11-24-pilots-pack-design.md.
 
@@ -60,6 +61,7 @@ DOCS = ROOT / "docs"
 PACK = DOCS / "pack"
 SITE = ROOT / "site"
 PDF = DOCS / "PACK.pdf"
+CHECKLISTS = DOCS / "CHECKLISTS.pdf"      # the flight cards and checklists alone, to print
 PADS_URL = "https://eclipticpoyo.github.io/apollo-lm-guidance-kos/pads.html"    # absolute, so it also works from the PDF
 
 BROWSERS = [
@@ -485,19 +487,30 @@ def split_sheets(body):
     return sheets
 
 
-def page_html(meta, body, number, version, part=0, parts=1):
+def page_html(meta, body, number, version, part=0, parts=1, contents=True):
     sec = "<br>".join(html.escape(s.strip()) for s in meta["section"].split("|"))
     anchor = f' id="p-{html.escape(meta["page"])}"' if part == 0 else ""          # a link goes to the page's first sheet
     onward = '<div class="onward">Continued on the next sheet</div>' if part < parts - 1 else ""
     style = "page lite" if meta["page"][0] in "124A" else "page"          # reference pages: thin rules and black bars
     ver = route_of(meta["page"])
     hdr, vbox = ("hdr v", f'<div class="vbox{route_class(ver)}">{ver}</div>') if ver else ("hdr", "")
-    links = inline_refs("{@0-1 Contents} &nbsp; {@3-0 Index}") + f' &nbsp; <a href="{PADS_URL}">PADs</a>'
+    links = inline_refs(("{@0-1 Contents} &nbsp; " if contents else "") + "{@3-0 Index}") + f' &nbsp; <a href="{PADS_URL}">PADs</a>'
     return (f'<div class="{style}"{anchor}><div class="{hdr}"><div><b>LM Guidance Computer</b><span>PILOT\'S PACK</span></div>'
             f'<div class="sec">{sec}</div>{vbox}<div>{html.escape(meta["page"])}</div></div>'
             f'<div class="pb">{render_body(body, ver)}{onward}</div>{route_strip(meta["page"])}'
             f'<div class="ftr"><span>Release {version}</span><span>{links}</span>'
             f'<span>LGC-{number}</span></div></div>')
+
+
+def in_checklists(number):
+    """Is this page in the checklists-only PDF: a flight card (0-2 on) or section 3?"""
+    return number.startswith("3-") or (number.startswith("0-") and number != "0-1")
+
+
+def unlink_missing(markup, ids):
+    """A link to a page that is not in the document becomes its own words."""
+    return re.sub(r'<a [^>]*href="#p-([^"]*)"[^>]*>(.*?)</a>', lambda m: m.group(0) if m.group(1) in ids else m.group(2),
+                  markup, flags=re.S)
 
 
 def check_links(pages_html, ids):
@@ -588,14 +601,14 @@ FAVICON_SVG = ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rec
 FAVICON = "data:image/svg+xml," + urllib.parse.quote(FAVICON_SVG, safe="/:=' ")
 
 
-def build_html(pages, sheets):
+def build_html(pages, sheets, title="Pilot's Pack"):
     css = embed_css((PACK / "pack.css").read_text(encoding="utf-8"))
     if sheets:
         pages = [f'<div class="sheet">{p}</div>' for p in pages]
     body = "\n".join(pages)
     return ("<!doctype html><html lang=\"en-GB\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-            "<title>LM Guidance Computer: Pilot's Pack</title>"
+            f"<title>LM Guidance Computer: {title}</title>"
             f"<link rel=\"icon\" type=\"image/svg+xml\" href=\"{FAVICON}\">"
             f"<style>{css}</style>{'' if sheets else THEME_HEAD}</head><body{' class=\"sheets\"' if sheets else ''}><div class=\"wrap\">{'' if sheets else TOPBAR}{embed_images(body)}</div>"
             + (f"<script>{FIT}</script>" if sheets else THEME_BODY + ROUTE_BODY) + "</body></html>")
@@ -605,22 +618,49 @@ def find_browser():
     return next((b for b in BROWSERS if pathlib.Path(b).exists()), None) or shutil.which("msedge") or shutil.which("chrome")
 
 
-def make_pdf(pages):
+def make_pdf(pages, out, title):
     browser = find_browser()
     if not browser:
         sys.exit("needs Microsoft Edge or Google Chrome for --pdf")
     with tempfile.TemporaryDirectory() as tmp:
         src = pathlib.Path(tmp) / "pack.html"
-        src.write_text(build_html(pages, sheets=True), encoding="utf-8")
-        (SITE / "pack-sheets.html").write_text(src.read_text(encoding="utf-8"), encoding="utf-8")   # the sheets as a web page, to look at
+        src.write_text(build_html(pages, sheets=True, title=title), encoding="utf-8")
+        (SITE / f"{out.stem.lower()}-sheets.html").write_text(src.read_text(encoding="utf-8"), encoding="utf-8")   # the sheets as a web page, to look at
         # 1. read back how full each sheet is
         dom = subprocess.run([browser, "--headless=new", "--disable-gpu", "--virtual-time-budget=8000", "--dump-dom", src.as_uri()],
                              check=True, capture_output=True, timeout=120).stdout.decode("utf-8", "replace")
         fills = re.findall(r'data-fill="([\d.]+)"', dom)
         # 2. print it
         subprocess.run([browser, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", "--virtual-time-budget=8000",
-                        f"--print-to-pdf={PDF}", src.as_uri()], check=True, capture_output=True, timeout=120)
+                        f"--print-to-pdf={out}", src.as_uri()], check=True, capture_output=True, timeout=120)
     return [float(f) for f in fills]
+
+
+def print_pdf(out, title, pages, sheet_names, count_pages):
+    """Print one PDF and report on it; True if something is wrong with it."""
+    fills = make_pdf(pages, out, title)
+    count = len(re.findall(rb"/Type\s*/Page[^s]", out.read_bytes()))
+    print(f"wrote {out} ({out.stat().st_size // 1024} KB, {count} sheets for {count_pages} pages)")
+    bad = False
+    if count != len(pages):
+        print(f"WARNING: the PDF has {count} sheets, not the {len(pages)} built: a sheet spilled over")
+        bad = True
+    # what made the first PDF scroll slowly: Type 3 glyph fonts (a variable font, or an unembeddable one) and shading patterns
+    # (a CSS gradient). Keep static fonts and plain lines, and these stay at the figures below.
+    raw = out.read_bytes()
+    type3, shades = len(re.findall(rb"/Subtype\s*/Type3", raw)), len(re.findall(rb"/ShadingType", raw))
+    if type3 > MAX_TYPE3 or shades:
+        print(f"WARNING: the PDF has {type3} Type 3 fonts (the Zerlina digits give {MAX_TYPE3}) and {shades} shading patterns; it will scroll slowly. "
+              "Use static font files (not variable) and no CSS gradients or box shadows in the pages.")
+        bad = True
+    for name, fill in zip(sheet_names, fills):
+        if fill > 1:
+            print(f"  page {name}: {fill:.2f} sheets of text  <- too long: add a <!--sheet--> break, or cut it")
+            bad = True
+    if len(fills) != len(pages):
+        print("WARNING: could not read the fit of every page")
+        bad = True
+    return bad
 
 
 def main():
@@ -631,6 +671,7 @@ def main():
         sys.exit(f"no pages in {PACK}")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     pages, names, sheet_names = [], [], []
+    cl_pages, cl_names, cl_sheet_names = [], [], []              # the checklists-only PDF
     try:
         for f in files:
             meta, body = parse_page(f)
@@ -638,8 +679,14 @@ def main():
             for part, text in enumerate(parts):
                 pages.append(page_html(meta, text, len(pages) + 1, version, part, len(parts)))
                 sheet_names.append(meta["page"] + (f" sheet {part + 1}" if len(parts) > 1 else ""))
+                if in_checklists(meta["page"]):          # the same sheet, with the same LGC number, less the way to the contents
+                    cl_pages.append(page_html(meta, text, len(pages), version, part, len(parts), contents=False))
+                    cl_sheet_names.append(sheet_names[-1])
             names.append(meta["page"])
         check_links(pages, names)
+        cl_names = [n for n in names if in_checklists(n)]
+        cl_pages = [unlink_missing(p, cl_names) for p in cl_pages]
+        check_links(cl_pages, cl_names)
     except PackError as e:
         sys.exit(f"error: {e}")
 
@@ -652,28 +699,8 @@ def main():
         shutil.copy2(PDF, SITE / "PACK.pdf")        # the published site links to the PDF committed in docs/
 
     if pdf:
-        fills = make_pdf(pages)
-        count = len(re.findall(rb"/Type\s*/Page[^s]", PDF.read_bytes()))
-        print(f"wrote {PDF} ({PDF.stat().st_size // 1024} KB, {count} sheets for {len(names)} pages)")
-        bad = False
-        if count != len(pages):
-            print(f"WARNING: the PDF has {count} sheets, not the {len(pages)} built: a sheet spilled over")
-            bad = True
-        # what made the first PDF scroll slowly: Type 3 glyph fonts (a variable font, or an unembeddable one) and shading patterns
-        # (a CSS gradient). Keep static fonts and plain lines, and these stay at the figures below.
-        raw = PDF.read_bytes()
-        type3, shades = len(re.findall(rb"/Subtype\s*/Type3", raw)), len(re.findall(rb"/ShadingType", raw))
-        if type3 > MAX_TYPE3 or shades:
-            print(f"WARNING: the PDF has {type3} Type 3 fonts (the Zerlina digits give {MAX_TYPE3}) and {shades} shading patterns; it will scroll slowly. "
-                  "Use static font files (not variable) and no CSS gradients or box shadows in the pages.")
-            bad = True
-        for name, fill in zip(sheet_names, fills):
-            if fill > 1:
-                print(f"  page {name}: {fill:.2f} sheets of text  <- too long: add a <!--sheet--> break, or cut it")
-                bad = True
-        if len(fills) != len(pages):
-            print("WARNING: could not read the fit of every page")
-            bad = True
+        bad = print_pdf(PDF, "Pilot's Pack", pages, sheet_names, len(names))
+        bad = print_pdf(CHECKLISTS, "Checklists", cl_pages, cl_sheet_names, len(cl_names)) or bad
         sys.exit(1 if bad else 0)
 
 

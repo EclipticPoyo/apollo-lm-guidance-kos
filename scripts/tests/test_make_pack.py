@@ -213,4 +213,13 @@ assert tail.count("{") == tail.count("}") and not re.search(r"^\S", tail.split("
 # the route's stops are links in an SVG: without a colour of their own some browsers give them their link colour, unreadable in dark mode
 assert ".route a{color:inherit}" in css
 
+# the checklists-only PDF: the flight cards and section 3, with no link to a page that is not in it
+assert [n for n in ("0-1", "0-2", "0-5", "1-2", "2-1", "3-0", "3-18", "4-1", "A-1") if mp.in_checklists(n)] == ["0-2", "0-5", "3-0", "3-18"]
+cut = mp.unlink_missing(mp.inline_refs("{@1-2 the panel} and {@3-6}"), ["3-6"])
+assert cut == 'the panel and <a class="ref" href="#p-3-6">3.6</a>'
+meta = {"page": "3-6", "section": "Section 3"}
+assert "Contents" in mp.page_html(meta, "text", 1, "1.0")
+short = mp.page_html(meta, "text", 1, "1.0", contents=False)
+assert "Contents" not in short and ">Index</a>" in short and ">PADs</a>" in short
+
 print("test_make_pack: OK")
