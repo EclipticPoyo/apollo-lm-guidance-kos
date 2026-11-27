@@ -121,6 +121,7 @@ table tr.band.ver td{background:var(--ink);color:var(--paper)}
 /* the route timeline above the footer: one track for each version, drawn in the text's colour; a narrow screen scrolls it */
 .route{border-top:1px solid var(--ink);padding:5px 12px;overflow-x:auto;color:var(--ink)}
 .route svg{display:block;width:100%;height:auto;min-width:560px;font:700 11px var(--sans);letter-spacing:.04em}
+.route a{color:inherit}                                              /* or a browser may give a stop its own link colour */
 .route .j{color:var(--j)}
 .route text{fill:currentColor;dominant-baseline:central}
 .route .from{text-anchor:end}

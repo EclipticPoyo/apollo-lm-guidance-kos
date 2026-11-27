@@ -210,4 +210,7 @@ assert css.count("@media(max-width") == 0 and css.count("@media screen and (max-
 tail = css[css.index("@media screen and (max-width:640px)"):].rstrip()
 assert tail.count("{") == tail.count("}") and not re.search(r"^\S", tail.split("\n", 1)[1].rsplit("}", 1)[0], re.M)   # the last block in the file
 
+# the route's stops are links in an SVG: without a colour of their own some browsers give them their link colour, unreadable in dark mode
+assert ".route a{color:inherit}" in css
+
 print("test_make_pack: OK")
